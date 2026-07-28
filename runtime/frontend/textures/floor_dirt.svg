@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Base soil color gradient -->
+    <linearGradient id="soilBase" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5b4230"/>
+      <stop offset="100%" stop-color="#4a3524"/>
+    </linearGradient>
+
+    <!-- Large-scale clumpy variation (seamless) -->
+    <filter id="clumpNoise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" seed="7" stitchTiles="stitch" result="clumpNoise"/>
+      <feColorMatrix in="clumpNoise" type="matrix"
+        values="0 0 0 0 0.35
+                0 0 0 0 0.25
+                0 0 0 0 0.15
+                0 0 0 1 0"/>
+    </filter>
+
+    <!-- Fine grain noise (seamless) -->
+    <filter id="grainNoise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="42" stitchTiles="stitch" result="grainNoise"/>
+      <feColorMatrix in="grainNoise" type="matrix"
+        values="0 0 0 0 0.25
+                0 0 0 0 0.17
+                0 0 0 0 0.10
+                0 0 0 0.5 0"/>
+    </filter>
+
+    <!-- Bump/shading noise for pebble-like highlights and shadows -->
+    <filter id="bumpShade" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" seed="19" stitchTiles="stitch" result="bumpNoise"/>
+      <feDiffuseLighting in="bumpNoise" lighting-color="#ffffff" surfaceScale="3" diffuseConstant="1.1" result="litNoise">
+        <feDistantLight azimuth="235" elevation="55"/>
+      </feDiffuseLighting>
+      <feColorMatrix in="litNoise" type="matrix"
+        values="0.33 0.33 0.33 0 0
+                0.33 0.33 0.33 0 0
+                0.33 0.33 0.33 0 0
+                0    0    0    0.35 0"/>
+    </filter>
+
+    <!-- Small scattered pebbles/specks (seamless) -->
+    <filter id="speckNoise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="5" stitchTiles="stitch" result="speck"/>
+      <feColorMatrix in="speck" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 12 -10.5" result="speckAlpha"/>
+      <feColorMatrix in="speckAlpha" type="matrix"
+        values="0 0 0 0 0.20
+                0 0 0 0 0.14
+                0 0 0 0 0.08
+                0 0 0 1 0"/>
+    </filter>
+  </defs>
+
+  <!-- Base soil layer -->
+  <rect width="512" height="512" fill="url(#soilBase)"/>
+
+  <!-- Large clump/color variation -->
+  <rect width="512" height="512" filter="url(#clumpNoise)" opacity="0.6"/>
+
+  <!-- Bump-mapped shading for texture depth -->
+  <rect width="512" height="512" filter="url(#bumpShade)" opacity="0.5"/>
+
+  <!-- Fine grain -->
+  <rect width="512" height="512" filter="url(#grainNoise)" opacity="0.7"/>
+
+  <!-- Scattered pebble specks -->
+  <rect width="512" height="512" filter="url(#speckNoise)" opacity="0.8"/>
+
+  <!-- Subtle vignette to blend edges (optional, remove if tiling in-engine) -->
+  <!-- Comment out or delete the rect below if you need pure edge-to-edge tiling with no darkening -->
+  <!--
+  <rect width="512" height="512" fill="url(#vignette)" opacity="0.15"/>
+  -->
+</svg>
