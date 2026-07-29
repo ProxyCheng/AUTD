@@ -3,5 +3,4 @@
 [ext_resource type="Script" uid="uid://dfbc4b520fgsj" path="res://runtime/frontend/actors/building_actor.gd" id="1_gxxwq"]
 
 [node name="building_actor" type="Node3D" unique_id=1404712367]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 0, 0, 0)
 script = ExtResource("1_gxxwq")

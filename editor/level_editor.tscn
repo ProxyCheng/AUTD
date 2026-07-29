@@ -2,10 +2,8 @@
 
 [ext_resource type="Script" uid="uid://bx1iso6cy6kif" path="res://editor/level_editor.gd" id="1_qnyfc"]
 [ext_resource type="Resource" uid="uid://dhr454yo06se8" path="res://runtime/configs/level0.tres" id="2_oei2y"]
-[ext_resource type="Script" uid="uid://belh0ljwiy4ae" path="res://runtime/frontend/actors/level_actor.gd" id="3_aqvwb"]
-[ext_resource type="Script" uid="uid://corx64ya2cuk" path="res://runtime/frontend/actors/map_actor.gd" id="4_4trpc"]
-[ext_resource type="PackedScene" uid="uid://c431nh37p3gqc" path="res://runtime/frontend/actors/cell_actor.tscn" id="5_280tk"]
-[ext_resource type="Script" uid="uid://dvuk37otlf7q5" path="res://runtime/frontend/actors/cell_actor.gd" id="6_610od"]
+[ext_resource type="Script" uid="uid://lud07rsn5abj" path="res://editor/map_editor.gd" id="4_610od"]
+[ext_resource type="PackedScene" uid="uid://c431nh37p3gqc" path="res://editor/cell_editor.tscn" id="5_280tk"]
 [ext_resource type="Script" uid="uid://bb4pddq01qnyk" path="res://runtime/backend/data/cell_data.gd" id="7_5o4mt"]
 [ext_resource type="Script" uid="uid://ju7auesv1jn4" path="res://runtime/backend/data/floor_data.gd" id="7_5xfjm"]
 [ext_resource type="Script" uid="uid://uuawcbwl4hsf" path="res://runtime/backend/data/building_data.gd" id="7_610od"]
@@ -125,6 +123,7 @@ floor = SubResource("Resource_hby72")
 [sub_resource type="Resource" id="Resource_v310a"]
 script = ExtResource("7_610od")
 type = "enemy_spawner"
+direction = null
 metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_t0yak"]
@@ -691,6 +690,7 @@ floor = SubResource("Resource_8krg0")
 [sub_resource type="Resource" id="Resource_mhvf2"]
 script = ExtResource("7_610od")
 type = "main_base"
+direction = null
 metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_j83db"]
@@ -826,611 +826,504 @@ floor = SubResource("Resource_8r7rh")
 script = ExtResource("1_qnyfc")
 level_data = ExtResource("2_oei2y")
 
-[node name="level" type="Node" parent="." unique_id=78506031]
+[node name="map_editor" type="Node" parent="." unique_id=1597644141]
 unique_name_in_owner = true
-script = ExtResource("3_aqvwb")
+script = ExtResource("4_610od")
 
-[node name="map" type="Node" parent="level" unique_id=1597644141]
-unique_name_in_owner = true
-script = ExtResource("4_4trpc")
-
-[node name="(0, 0) dirt" type="Node3D" parent="level/map" unique_id=190669499 instance=ExtResource("5_280tk")]
-script = ExtResource("6_610od")
+[node name="(0, 0) dirt" parent="map_editor" unique_id=190669499 instance=ExtResource("5_280tk")]
 data = SubResource("Resource_d20wc")
 
-[node name="(0, 1) dirt" type="Node3D" parent="level/map" unique_id=391273510 instance=ExtResource("5_280tk")]
+[node name="(0, 1) dirt" parent="map_editor" unique_id=247625834 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 1)
 data = SubResource("Resource_a8w5b")
 
-[node name="(0, 2) dirt" type="Node3D" parent="level/map" unique_id=140461372 instance=ExtResource("5_280tk")]
+[node name="(0, 2) dirt" parent="map_editor" unique_id=136532904 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 2)
 data = SubResource("Resource_2xpm3")
 
-[node name="(0, 3) dirt" type="Node3D" parent="level/map" unique_id=287753818 instance=ExtResource("5_280tk")]
+[node name="(0, 3) dirt" parent="map_editor" unique_id=1433849710 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 3)
 data = SubResource("Resource_mttjf")
 
-[node name="(0, 4) dirt" type="Node3D" parent="level/map" unique_id=1811199135 instance=ExtResource("5_280tk")]
+[node name="(0, 4) dirt" parent="map_editor" unique_id=1051460255 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 4)
 data = SubResource("Resource_oh3hw")
 
-[node name="(0, 5) dirt" type="Node3D" parent="level/map" unique_id=1017458113 instance=ExtResource("5_280tk")]
+[node name="(0, 5) dirt" parent="map_editor" unique_id=1733117853 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 5)
 data = SubResource("Resource_3f7sc")
 
-[node name="(0, 6) dirt" type="Node3D" parent="level/map" unique_id=281922070 instance=ExtResource("5_280tk")]
+[node name="(0, 6) dirt" parent="map_editor" unique_id=554056071 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 6)
 data = SubResource("Resource_l33nd")
 
-[node name="(0, 7) dirt" type="Node3D" parent="level/map" unique_id=351372308 instance=ExtResource("5_280tk")]
+[node name="(0, 7) dirt" parent="map_editor" unique_id=577025724 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 7)
 data = SubResource("Resource_15ra6")
 
-[node name="(0, 8) dirt" type="Node3D" parent="level/map" unique_id=284478574 instance=ExtResource("5_280tk")]
+[node name="(0, 8) dirt" parent="map_editor" unique_id=819781860 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 8)
 data = SubResource("Resource_asrp4")
 
-[node name="(0, 9) dirt" type="Node3D" parent="level/map" unique_id=599089083 instance=ExtResource("5_280tk")]
+[node name="(0, 9) dirt" parent="map_editor" unique_id=165352777 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(0, 9)
 data = SubResource("Resource_td34s")
 
-[node name="(1, 0) dirt" type="Node3D" parent="level/map" unique_id=696991748 instance=ExtResource("5_280tk")]
+[node name="(1, 0) dirt" parent="map_editor" unique_id=1618860086 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 0)
 data = SubResource("Resource_6cj4x")
 
-[node name="(1, 1) dirt" type="Node3D" parent="level/map" unique_id=340362320 instance=ExtResource("5_280tk")]
+[node name="(1, 1) dirt" parent="map_editor" unique_id=1850326533 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 1)
 data = SubResource("Resource_0uhtv")
 
-[node name="(1, 2) dirt" type="Node3D" parent="level/map" unique_id=1951803814 instance=ExtResource("5_280tk")]
+[node name="(1, 2) dirt" parent="map_editor" unique_id=364980774 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 2)
 data = SubResource("Resource_sh143")
 
-[node name="(1, 3) dirt" type="Node3D" parent="level/map" unique_id=855354961 instance=ExtResource("5_280tk")]
+[node name="(1, 3) dirt" parent="map_editor" unique_id=1994198172 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 3)
 data = SubResource("Resource_p3co0")
 
-[node name="(1, 4) stone" type="Node3D" parent="level/map" unique_id=1268111682 instance=ExtResource("5_280tk")]
+[node name="(1, 4) stone" parent="map_editor" unique_id=1214170959 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 4)
 data = SubResource("Resource_6lu4u")
 
-[node name="(1, 5) dirt" type="Node3D" parent="level/map" unique_id=275974732 instance=ExtResource("5_280tk")]
+[node name="(1, 5) dirt" parent="map_editor" unique_id=112709754 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 5)
 data = SubResource("Resource_23gpv")
 
-[node name="(1, 6) dirt" type="Node3D" parent="level/map" unique_id=1929489278 instance=ExtResource("5_280tk")]
+[node name="(1, 6) dirt" parent="map_editor" unique_id=851585268 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 6)
 data = SubResource("Resource_ygd4n")
 
-[node name="(1, 7) dirt" type="Node3D" parent="level/map" unique_id=335983215 instance=ExtResource("5_280tk")]
+[node name="(1, 7) dirt" parent="map_editor" unique_id=1371138899 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 7)
 data = SubResource("Resource_oh76a")
 
-[node name="(1, 8) dirt" type="Node3D" parent="level/map" unique_id=660538700 instance=ExtResource("5_280tk")]
+[node name="(1, 8) dirt" parent="map_editor" unique_id=1697348106 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 8)
 data = SubResource("Resource_rgdv2")
 
-[node name="(1, 9) dirt" type="Node3D" parent="level/map" unique_id=432703563 instance=ExtResource("5_280tk")]
+[node name="(1, 9) dirt" parent="map_editor" unique_id=752410755 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(1, 9)
 data = SubResource("Resource_44uk2")
 
-[node name="(2, 0) dirt" type="Node3D" parent="level/map" unique_id=2128054667 instance=ExtResource("5_280tk")]
+[node name="(2, 0) dirt" parent="map_editor" unique_id=1012109685 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 0)
 data = SubResource("Resource_n2shs")
 
-[node name="(2, 1) dirt" type="Node3D" parent="level/map" unique_id=17284503 instance=ExtResource("5_280tk")]
+[node name="(2, 1) dirt" parent="map_editor" unique_id=252542583 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 1)
 data = SubResource("Resource_w34qh")
 
-[node name="(2, 2) dirt" type="Node3D" parent="level/map" unique_id=1450235610 instance=ExtResource("5_280tk")]
+[node name="(2, 2) dirt" parent="map_editor" unique_id=1089193546 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 2)
 data = SubResource("Resource_kxc5t")
 
-[node name="(2, 3) dirt" type="Node3D" parent="level/map" unique_id=1573759499 instance=ExtResource("5_280tk")]
+[node name="(2, 3) dirt" parent="map_editor" unique_id=1031799617 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 3)
 data = SubResource("Resource_pnqtf")
 
-[node name="(2, 4) stone" type="Node3D" parent="level/map" unique_id=1617099249 instance=ExtResource("5_280tk")]
+[node name="(2, 4) stone" parent="map_editor" unique_id=200078867 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 4)
 data = SubResource("Resource_ed24o")
 
-[node name="(2, 5) dirt" type="Node3D" parent="level/map" unique_id=446200387 instance=ExtResource("5_280tk")]
+[node name="(2, 5) dirt" parent="map_editor" unique_id=407422121 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 5)
 data = SubResource("Resource_hjunc")
 
-[node name="(2, 6) dirt" type="Node3D" parent="level/map" unique_id=2064321529 instance=ExtResource("5_280tk")]
+[node name="(2, 6) dirt" parent="map_editor" unique_id=783017710 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 6)
 data = SubResource("Resource_asj1p")
 
-[node name="(2, 7) dirt" type="Node3D" parent="level/map" unique_id=51890339 instance=ExtResource("5_280tk")]
+[node name="(2, 7) dirt" parent="map_editor" unique_id=691471660 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 7)
 data = SubResource("Resource_5o5j5")
 
-[node name="(2, 8) dirt" type="Node3D" parent="level/map" unique_id=210448251 instance=ExtResource("5_280tk")]
+[node name="(2, 8) dirt" parent="map_editor" unique_id=698799152 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 8)
 data = SubResource("Resource_8rfuc")
 
-[node name="(2, 9) dirt" type="Node3D" parent="level/map" unique_id=2020152383 instance=ExtResource("5_280tk")]
+[node name="(2, 9) dirt" parent="map_editor" unique_id=406386798 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(2, 9)
 data = SubResource("Resource_pmna8")
 
-[node name="(3, 0) dirt" type="Node3D" parent="level/map" unique_id=1282491344 instance=ExtResource("5_280tk")]
+[node name="(3, 0) dirt" parent="map_editor" unique_id=705564527 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 0)
 data = SubResource("Resource_1ww18")
 
-[node name="(3, 1) dirt" type="Node3D" parent="level/map" unique_id=1458453169 instance=ExtResource("5_280tk")]
+[node name="(3, 1) dirt" parent="map_editor" unique_id=1076927084 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 1)
 data = SubResource("Resource_o7imj")
 
-[node name="(3, 2) dirt" type="Node3D" parent="level/map" unique_id=1335908121 instance=ExtResource("5_280tk")]
+[node name="(3, 2) dirt" parent="map_editor" unique_id=880748163 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 2)
 data = SubResource("Resource_w16d6")
 
-[node name="(3, 3) dirt" type="Node3D" parent="level/map" unique_id=1040966423 instance=ExtResource("5_280tk")]
+[node name="(3, 3) dirt" parent="map_editor" unique_id=202167137 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 3)
 data = SubResource("Resource_f2ixd")
 
-[node name="(3, 4) stone" type="Node3D" parent="level/map" unique_id=1455928839 instance=ExtResource("5_280tk")]
+[node name="(3, 4) stone" parent="map_editor" unique_id=1839368301 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 4)
 data = SubResource("Resource_3coy4")
 
-[node name="(3, 5) dirt" type="Node3D" parent="level/map" unique_id=244879225 instance=ExtResource("5_280tk")]
+[node name="(3, 5) dirt" parent="map_editor" unique_id=515764918 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 5)
 data = SubResource("Resource_jhylu")
 
-[node name="(3, 6) dirt" type="Node3D" parent="level/map" unique_id=834478926 instance=ExtResource("5_280tk")]
+[node name="(3, 6) dirt" parent="map_editor" unique_id=1135636113 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 6)
 data = SubResource("Resource_sq1on")
 
-[node name="(3, 7) dirt" type="Node3D" parent="level/map" unique_id=765549303 instance=ExtResource("5_280tk")]
+[node name="(3, 7) dirt" parent="map_editor" unique_id=492386637 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 7)
 data = SubResource("Resource_3dbro")
 
-[node name="(3, 8) dirt" type="Node3D" parent="level/map" unique_id=269403389 instance=ExtResource("5_280tk")]
+[node name="(3, 8) dirt" parent="map_editor" unique_id=436431883 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 8)
 data = SubResource("Resource_rkadl")
 
-[node name="(3, 9) dirt" type="Node3D" parent="level/map" unique_id=1202366658 instance=ExtResource("5_280tk")]
+[node name="(3, 9) dirt" parent="map_editor" unique_id=1234047716 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(3, 9)
 data = SubResource("Resource_vxr64")
 
-[node name="(4, 0) dirt" type="Node3D" parent="level/map" unique_id=1506017665 instance=ExtResource("5_280tk")]
+[node name="(4, 0) dirt" parent="map_editor" unique_id=238808058 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 0)
 data = SubResource("Resource_m0004")
 
-[node name="(4, 1) dirt" type="Node3D" parent="level/map" unique_id=1687412922 instance=ExtResource("5_280tk")]
+[node name="(4, 1) dirt" parent="map_editor" unique_id=500166210 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 1)
 data = SubResource("Resource_oms3h")
 
-[node name="(4, 2) dirt" type="Node3D" parent="level/map" unique_id=21252036 instance=ExtResource("5_280tk")]
+[node name="(4, 2) dirt" parent="map_editor" unique_id=1717611950 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 2)
 data = SubResource("Resource_n6m17")
 
-[node name="(4, 3) dirt" type="Node3D" parent="level/map" unique_id=538362807 instance=ExtResource("5_280tk")]
+[node name="(4, 3) dirt" parent="map_editor" unique_id=1330907742 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 3)
 data = SubResource("Resource_gyhri")
 
-[node name="(4, 4) stone" type="Node3D" parent="level/map" unique_id=526310174 instance=ExtResource("5_280tk")]
+[node name="(4, 4) stone" parent="map_editor" unique_id=1915143644 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 4)
 data = SubResource("Resource_v2xaf")
 
-[node name="(4, 5) dirt" type="Node3D" parent="level/map" unique_id=2134096486 instance=ExtResource("5_280tk")]
+[node name="(4, 5) dirt" parent="map_editor" unique_id=1018270469 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 5)
 data = SubResource("Resource_72070")
 
-[node name="(4, 6) dirt" type="Node3D" parent="level/map" unique_id=1355679711 instance=ExtResource("5_280tk")]
+[node name="(4, 6) dirt" parent="map_editor" unique_id=679049647 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 6)
 data = SubResource("Resource_2ggt3")
 
-[node name="(4, 7) dirt" type="Node3D" parent="level/map" unique_id=414934330 instance=ExtResource("5_280tk")]
+[node name="(4, 7) dirt" parent="map_editor" unique_id=1234732664 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 7)
 data = SubResource("Resource_l0xgv")
 
-[node name="(4, 8) dirt" type="Node3D" parent="level/map" unique_id=1048817695 instance=ExtResource("5_280tk")]
+[node name="(4, 8) dirt" parent="map_editor" unique_id=744495802 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 8)
 data = SubResource("Resource_qvxhm")
 
-[node name="(4, 9) dirt" type="Node3D" parent="level/map" unique_id=1502247488 instance=ExtResource("5_280tk")]
+[node name="(4, 9) dirt" parent="map_editor" unique_id=171473501 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(4, 9)
 data = SubResource("Resource_etodq")
 
-[node name="(5, 0) dirt" type="Node3D" parent="level/map" unique_id=1317062164 instance=ExtResource("5_280tk")]
+[node name="(5, 0) dirt" parent="map_editor" unique_id=1062556255 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 0)
 data = SubResource("Resource_pqrxb")
 
-[node name="(5, 1) dirt" type="Node3D" parent="level/map" unique_id=2134257364 instance=ExtResource("5_280tk")]
+[node name="(5, 1) dirt" parent="map_editor" unique_id=299602823 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 1)
 data = SubResource("Resource_c5jq4")
 
-[node name="(5, 2) dirt" type="Node3D" parent="level/map" unique_id=1062334539 instance=ExtResource("5_280tk")]
+[node name="(5, 2) dirt" parent="map_editor" unique_id=268493055 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 2)
 data = SubResource("Resource_hbn07")
 
-[node name="(5, 3) dirt" type="Node3D" parent="level/map" unique_id=235327156 instance=ExtResource("5_280tk")]
+[node name="(5, 3) dirt" parent="map_editor" unique_id=1442333176 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 3)
 data = SubResource("Resource_eu8qm")
 
-[node name="(5, 4) stone" type="Node3D" parent="level/map" unique_id=1942700999 instance=ExtResource("5_280tk")]
+[node name="(5, 4) stone" parent="map_editor" unique_id=1145109041 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 4)
 data = SubResource("Resource_8baop")
 
-[node name="(5, 5) dirt" type="Node3D" parent="level/map" unique_id=1027406095 instance=ExtResource("5_280tk")]
+[node name="(5, 5) dirt" parent="map_editor" unique_id=1295653420 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 5)
 data = SubResource("Resource_3y3lv")
 
-[node name="(5, 6) dirt" type="Node3D" parent="level/map" unique_id=1840280639 instance=ExtResource("5_280tk")]
+[node name="(5, 6) dirt" parent="map_editor" unique_id=742603510 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 6)
 data = SubResource("Resource_e7gkp")
 
-[node name="(5, 7) dirt" type="Node3D" parent="level/map" unique_id=1876880710 instance=ExtResource("5_280tk")]
+[node name="(5, 7) dirt" parent="map_editor" unique_id=62133218 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 7)
 data = SubResource("Resource_rsfml")
 
-[node name="(5, 8) dirt" type="Node3D" parent="level/map" unique_id=1321208245 instance=ExtResource("5_280tk")]
+[node name="(5, 8) dirt" parent="map_editor" unique_id=182875115 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 8)
 data = SubResource("Resource_mjqaa")
 
-[node name="(5, 9) dirt" type="Node3D" parent="level/map" unique_id=343916971 instance=ExtResource("5_280tk")]
+[node name="(5, 9) dirt" parent="map_editor" unique_id=1187515279 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(5, 9)
 data = SubResource("Resource_est3b")
 
-[node name="(6, 0) dirt" type="Node3D" parent="level/map" unique_id=1092423681 instance=ExtResource("5_280tk")]
+[node name="(6, 0) dirt" parent="map_editor" unique_id=468363216 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 0)
 data = SubResource("Resource_yfdvb")
 
-[node name="(6, 1) dirt" type="Node3D" parent="level/map" unique_id=2126055748 instance=ExtResource("5_280tk")]
+[node name="(6, 1) dirt" parent="map_editor" unique_id=1658317045 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 1)
 data = SubResource("Resource_g8534")
 
-[node name="(6, 2) dirt" type="Node3D" parent="level/map" unique_id=1631154307 instance=ExtResource("5_280tk")]
+[node name="(6, 2) dirt" parent="map_editor" unique_id=1682337246 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 2)
 data = SubResource("Resource_1lcoy")
 
-[node name="(6, 3) dirt" type="Node3D" parent="level/map" unique_id=2024490830 instance=ExtResource("5_280tk")]
+[node name="(6, 3) dirt" parent="map_editor" unique_id=1513858540 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 3)
 data = SubResource("Resource_ldtr4")
 
-[node name="(6, 4) stone" type="Node3D" parent="level/map" unique_id=375139200 instance=ExtResource("5_280tk")]
+[node name="(6, 4) stone" parent="map_editor" unique_id=1755051751 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 4)
 data = SubResource("Resource_ri2o2")
 
-[node name="(6, 5) dirt" type="Node3D" parent="level/map" unique_id=628555181 instance=ExtResource("5_280tk")]
+[node name="(6, 5) dirt" parent="map_editor" unique_id=46465697 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 5)
 data = SubResource("Resource_3eyn8")
 
-[node name="(6, 6) dirt" type="Node3D" parent="level/map" unique_id=1516281199 instance=ExtResource("5_280tk")]
+[node name="(6, 6) dirt" parent="map_editor" unique_id=187425877 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 6)
 data = SubResource("Resource_5idk4")
 
-[node name="(6, 7) dirt" type="Node3D" parent="level/map" unique_id=1707752585 instance=ExtResource("5_280tk")]
+[node name="(6, 7) dirt" parent="map_editor" unique_id=1166003717 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 7)
 data = SubResource("Resource_xg718")
 
-[node name="(6, 8) dirt" type="Node3D" parent="level/map" unique_id=1913117742 instance=ExtResource("5_280tk")]
+[node name="(6, 8) dirt" parent="map_editor" unique_id=648730054 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 8)
 data = SubResource("Resource_13v1f")
 
-[node name="(6, 9) dirt" type="Node3D" parent="level/map" unique_id=183436669 instance=ExtResource("5_280tk")]
+[node name="(6, 9) dirt" parent="map_editor" unique_id=1273914243 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(6, 9)
 data = SubResource("Resource_f3cyx")
 
-[node name="(7, 0) dirt" type="Node3D" parent="level/map" unique_id=824568820 instance=ExtResource("5_280tk")]
+[node name="(7, 0) dirt" parent="map_editor" unique_id=693706981 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 0)
 data = SubResource("Resource_7gkpw")
 
-[node name="(7, 1) dirt" type="Node3D" parent="level/map" unique_id=2027931886 instance=ExtResource("5_280tk")]
+[node name="(7, 1) dirt" parent="map_editor" unique_id=1630694789 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 1)
 data = SubResource("Resource_gn5m3")
 
-[node name="(7, 2) dirt" type="Node3D" parent="level/map" unique_id=1952760351 instance=ExtResource("5_280tk")]
+[node name="(7, 2) dirt" parent="map_editor" unique_id=1126559723 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 2)
 data = SubResource("Resource_wudw3")
 
-[node name="(7, 3) dirt" type="Node3D" parent="level/map" unique_id=1124810697 instance=ExtResource("5_280tk")]
+[node name="(7, 3) dirt" parent="map_editor" unique_id=1135127183 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 3)
 data = SubResource("Resource_xmqdg")
 
-[node name="(7, 4) stone" type="Node3D" parent="level/map" unique_id=1444869828 instance=ExtResource("5_280tk")]
+[node name="(7, 4) stone" parent="map_editor" unique_id=1585402590 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 4)
 data = SubResource("Resource_uxycw")
 
-[node name="(7, 5) dirt" type="Node3D" parent="level/map" unique_id=779621193 instance=ExtResource("5_280tk")]
+[node name="(7, 5) dirt" parent="map_editor" unique_id=1007454948 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 5)
 data = SubResource("Resource_redpl")
 
-[node name="(7, 6) dirt" type="Node3D" parent="level/map" unique_id=102120371 instance=ExtResource("5_280tk")]
+[node name="(7, 6) dirt" parent="map_editor" unique_id=231469104 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 6)
 data = SubResource("Resource_otx6y")
 
-[node name="(7, 7) dirt" type="Node3D" parent="level/map" unique_id=1839930941 instance=ExtResource("5_280tk")]
+[node name="(7, 7) dirt" parent="map_editor" unique_id=1183011717 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 7)
 data = SubResource("Resource_2gswe")
 
-[node name="(7, 8) dirt" type="Node3D" parent="level/map" unique_id=1784954554 instance=ExtResource("5_280tk")]
+[node name="(7, 8) dirt" parent="map_editor" unique_id=101825615 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 8)
 data = SubResource("Resource_na55w")
 
-[node name="(7, 9) dirt" type="Node3D" parent="level/map" unique_id=1724690587 instance=ExtResource("5_280tk")]
+[node name="(7, 9) dirt" parent="map_editor" unique_id=203969898 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(7, 9)
 data = SubResource("Resource_uacrt")
 
-[node name="(8, 0) dirt" type="Node3D" parent="level/map" unique_id=484912049 instance=ExtResource("5_280tk")]
+[node name="(8, 0) dirt" parent="map_editor" unique_id=1451742231 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 0)
 data = SubResource("Resource_6xj4k")
 
-[node name="(8, 1) dirt" type="Node3D" parent="level/map" unique_id=1557419194 instance=ExtResource("5_280tk")]
+[node name="(8, 1) dirt" parent="map_editor" unique_id=1223659656 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 1)
 data = SubResource("Resource_tumjb")
 
-[node name="(8, 2) dirt" type="Node3D" parent="level/map" unique_id=1006836230 instance=ExtResource("5_280tk")]
+[node name="(8, 2) dirt" parent="map_editor" unique_id=371726362 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 2)
 data = SubResource("Resource_87xnv")
 
-[node name="(8, 3) dirt" type="Node3D" parent="level/map" unique_id=293543106 instance=ExtResource("5_280tk")]
+[node name="(8, 3) dirt" parent="map_editor" unique_id=430885158 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 3)
 data = SubResource("Resource_y6vu0")
 
-[node name="(8, 4) stone" type="Node3D" parent="level/map" unique_id=806688518 instance=ExtResource("5_280tk")]
+[node name="(8, 4) stone" parent="map_editor" unique_id=177564196 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 4)
 data = SubResource("Resource_7lkhp")
 
-[node name="(8, 5) dirt" type="Node3D" parent="level/map" unique_id=359754729 instance=ExtResource("5_280tk")]
+[node name="(8, 5) dirt" parent="map_editor" unique_id=1451292740 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 5)
 data = SubResource("Resource_kf0rd")
 
-[node name="(8, 6) dirt" type="Node3D" parent="level/map" unique_id=396350130 instance=ExtResource("5_280tk")]
+[node name="(8, 6) dirt" parent="map_editor" unique_id=741785731 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 6)
 data = SubResource("Resource_m0hjh")
 
-[node name="(8, 7) dirt" type="Node3D" parent="level/map" unique_id=1010174645 instance=ExtResource("5_280tk")]
+[node name="(8, 7) dirt" parent="map_editor" unique_id=1810218612 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 7)
 data = SubResource("Resource_qfppv")
 
-[node name="(8, 8) dirt" type="Node3D" parent="level/map" unique_id=836225839 instance=ExtResource("5_280tk")]
+[node name="(8, 8) dirt" parent="map_editor" unique_id=134352232 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 8)
 data = SubResource("Resource_mjd1e")
 
-[node name="(8, 9) dirt" type="Node3D" parent="level/map" unique_id=1367434060 instance=ExtResource("5_280tk")]
+[node name="(8, 9) dirt" parent="map_editor" unique_id=1497316029 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(8, 9)
 data = SubResource("Resource_smwll")
 
-[node name="(9, 0) dirt" type="Node3D" parent="level/map" unique_id=88046518 instance=ExtResource("5_280tk")]
+[node name="(9, 0) dirt" parent="map_editor" unique_id=1186719349 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 0)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 0)
 data = SubResource("Resource_niunk")
 
-[node name="(9, 1) dirt" type="Node3D" parent="level/map" unique_id=1736027459 instance=ExtResource("5_280tk")]
+[node name="(9, 1) dirt" parent="map_editor" unique_id=356497964 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 1)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 1)
 data = SubResource("Resource_w2apr")
 
-[node name="(9, 2) dirt" type="Node3D" parent="level/map" unique_id=1154646710 instance=ExtResource("5_280tk")]
+[node name="(9, 2) dirt" parent="map_editor" unique_id=744875565 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 2)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 2)
 data = SubResource("Resource_3biaw")
 
-[node name="(9, 3) dirt" type="Node3D" parent="level/map" unique_id=497791385 instance=ExtResource("5_280tk")]
+[node name="(9, 3) dirt" parent="map_editor" unique_id=320390483 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 3)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 3)
 data = SubResource("Resource_j0abv")
 
-[node name="(9, 4) dirt" type="Node3D" parent="level/map" unique_id=219059303 instance=ExtResource("5_280tk")]
+[node name="(9, 4) dirt" parent="map_editor" unique_id=1348718948 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 4)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 4)
 data = SubResource("Resource_a72y5")
 
-[node name="(9, 5) dirt" type="Node3D" parent="level/map" unique_id=1220305219 instance=ExtResource("5_280tk")]
+[node name="(9, 5) dirt" parent="map_editor" unique_id=1024501742 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 5)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 5)
 data = SubResource("Resource_wemuh")
 
-[node name="(9, 6) dirt" type="Node3D" parent="level/map" unique_id=791070357 instance=ExtResource("5_280tk")]
+[node name="(9, 6) dirt" parent="map_editor" unique_id=1134952152 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 6)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 6)
 data = SubResource("Resource_gk3cu")
 
-[node name="(9, 7) dirt" type="Node3D" parent="level/map" unique_id=708699724 instance=ExtResource("5_280tk")]
+[node name="(9, 7) dirt" parent="map_editor" unique_id=135496567 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 7)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 7)
 data = SubResource("Resource_ny3em")
 
-[node name="(9, 8) dirt" type="Node3D" parent="level/map" unique_id=2106763532 instance=ExtResource("5_280tk")]
+[node name="(9, 8) dirt" parent="map_editor" unique_id=1592693767 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 8)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 8)
 data = SubResource("Resource_mflhp")
 
-[node name="(9, 9) dirt" type="Node3D" parent="level/map" unique_id=348321484 instance=ExtResource("5_280tk")]
+[node name="(9, 9) dirt" parent="map_editor" unique_id=1945611527 instance=ExtResource("5_280tk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0, 9)
-script = ExtResource("6_610od")
 grid = Vector2i(9, 9)
 data = SubResource("Resource_85te2")
-
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1429522162]
-transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 3.1456149, 2.484357, 2.7848473)

@@ -1,8 +1,15 @@
 extends Node3D
 
 @export
-var level: LevelData
+var level_data: LevelData
 
-func _ready() -> void:
-	assert(level)
-	%level.load_data(level)
+var level: Level
+
+func bind(in_level: Level):
+	level = in_level
+	%map.bind(level.map)
+
+func _ready():
+	assert(level_data)
+	bind(Level.new())
+	level.load_data(level_data)

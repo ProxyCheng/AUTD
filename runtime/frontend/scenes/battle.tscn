@@ -2,26 +2,23 @@
 
 [ext_resource type="Script" uid="uid://b42qx2nl1vytj" path="res://runtime/frontend/scenes/battle.gd" id="1_cwvjj"]
 [ext_resource type="Resource" uid="uid://dhr454yo06se8" path="res://runtime/configs/level0.tres" id="2_cwvjj"]
-[ext_resource type="Script" uid="uid://belh0ljwiy4ae" path="res://runtime/frontend/actors/level_actor.gd" id="2_r07uj"]
-[ext_resource type="Script" uid="uid://corx64ya2cuk" path="res://runtime/frontend/actors/map_actor.gd" id="3_1kist"]
+[ext_resource type="Script" uid="uid://b56h3tshhgch3" path="res://runtime/frontend/actors/map_actor.gd" id="3_1kist"]
 [ext_resource type="Script" uid="uid://bewg8jfmdm56m" path="res://runtime/frontend/controllers/camera_controller.gd" id="5_1kist"]
 [ext_resource type="Script" uid="uid://0vmx66cv0b4f" path="res://runtime/frontend/controllers/light_controller.gd" id="6_lpaid"]
 
-[node name="battle" type="Node3D" unique_id=1984701216]
+[node name="battle" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
-level = ExtResource("2_cwvjj")
+level_data = ExtResource("2_cwvjj")
 
-[node name="level" type="Node" parent="." unique_id=48037065]
-unique_name_in_owner = true
-script = ExtResource("2_r07uj")
-
-[node name="map" type="Node" parent="level" unique_id=332152952]
+[node name="map" type="Node3D" parent="." unique_id=686692789]
 unique_name_in_owner = true
 script = ExtResource("3_1kist")
 
 [node name="camera" type="Camera3D" parent="." unique_id=1394570981]
 transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, -1.1920929e-07, 2.022642, 2.8113656)
+current = true
 script = ExtResource("5_1kist")
+zoom_speed = 10.0
 
 [node name="light" type="DirectionalLight3D" parent="." unique_id=1002172854]
 transform = Transform3D(1, 0, 0, 0, 0.3855332, 0.92269397, 0, -0.92269397, 0.3855332, 0, 0, 0)

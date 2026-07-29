@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://c431nh37p3gqc"]
+
+[ext_resource type="Script" uid="uid://dvuk37otlf7q5" path="res://editor/cell_editor.gd" id="1_fg8is"]
+[ext_resource type="Texture2D" uid="uid://b5p72nenrk4oq" path="res://runtime/frontend/textures/floor_stone.png" id="2_sv4ag"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_s84ue"]
+resource_local_to_scene = true
+albedo_texture = ExtResource("2_sv4ag")
+
+[sub_resource type="QuadMesh" id="QuadMesh_rfr0x"]
+resource_local_to_scene = true
+material = SubResource("StandardMaterial3D_s84ue")
+
+[node name="cell_editor" type="Node3D" unique_id=190669499]
+script = ExtResource("1_fg8is")
+
+[node name="floor_editor" type="MeshInstance3D" parent="." unique_id=1373424450]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+mesh = SubResource("QuadMesh_rfr0x")
