@@ -1,0 +1,6 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://dcm83fok2cymk"]
+
+[ext_resource type="Texture2D" uid="uid://bowxi8w113s77" path="res://runtime/frontend/models/entities/slime/slime_default.png" id="1_byp6r"]
+
+[resource]
+albedo_texture = ExtResource("1_byp6r")

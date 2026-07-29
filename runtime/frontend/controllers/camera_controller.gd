@@ -144,6 +144,8 @@ func is_axis_visible(axis: Vector2i) -> bool:
 		_visible_cells = _get_visible_cells()
 	return _visible_cells.has(axis)
 
+func is_position_visible(in_position: Vector2) -> bool:
+	return is_axis_visible(Vector2i(in_position.x, in_position.y))  # TODO
 
 # Project 4 screen-corner rays onto y=0, then for every cell in the AABB
 # of the resulting ground quadrilateral test all 4 corners with a 2D

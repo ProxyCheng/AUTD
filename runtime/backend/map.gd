@@ -1,7 +1,7 @@
 class_name Map
 
-var data: MapData
-var cells: Dictionary[Vector2i, Cell]
+var data: MapData = null
+var cells: Dictionary = {}
 
 signal cells_changed(axis: Dictionary[Vector2i, bool])
 
@@ -23,3 +23,7 @@ func load_data(in_data: MapData):
 
 func get_cell(in_axis: Vector2i) -> Cell:
 	return cells.get(in_axis)
+
+func tick(in_delta: float):
+	for cell: Cell in cells.values():
+		cell.tick(in_delta)

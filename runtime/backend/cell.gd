@@ -11,7 +11,7 @@ func load_data(in_data: CellData, in_axis: Vector2i):
 	floor = Floor.new()
 	floor.load_data(data.floor, self)
 	if data.building:
-		building = Building.new()
+		building = Building.create(data.building.type)
 		building.load_data(data.building, self)
 
 func get_type_key() -> String:
@@ -22,3 +22,7 @@ func get_floor() -> Floor:
 
 func get_building() -> Building:
 	return building
+
+func tick(in_delta: float):
+	if building:
+		building.tick(in_delta)

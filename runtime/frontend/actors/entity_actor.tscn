@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://02hvksu0iifn"]
+
+[ext_resource type="Script" uid="uid://clu83jjojamw2" path="res://runtime/frontend/actors/entity_actor.gd" id="1_uwtes"]
+
+[node name="entity_actor" type="Node3D" unique_id=1922527450]
+script = ExtResource("1_uwtes")
