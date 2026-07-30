@@ -10,16 +10,16 @@ func bind(in_room: Room):
 	room.entities_changed.connect(_on_entities_changed)
 
 func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Array):
-	var camera = get_viewport().get_camera_3d() as CameraController
+	var camera: CameraController = get_viewport().get_camera_3d()
 	for entity_id in in_removed_entity_ids:
 		_recycle_entity_actor(entity_id)
 	for entity_id in in_added_entity_ids:
 		var entity: Entity = room.get_entity(entity_id)
 		if not entity:
 			continue
-		if not camera or not camera.is_position_visible(entity.position):
-			continue
-		_place_entity_actor(entity_id)
+		entity.position_changed.connect(_on_entity_position_changed.bind(entity.id))
+		if camera.is_position_visible(entity.position):
+			_place_entity_actor(entity_id)
 
 func _place_entity_actor(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)
@@ -48,3 +48,13 @@ func _recycle_entity_actor(in_entity_id: int):
 	entity_actor.hide()
 	entity_actors.erase(in_entity_id)
 	entity_actors_pool.get_or_add(type_key, []).append(entity_actor)
+
+func _on_entity_position_changed(in_entity_id: int):
+	var entity: Entity = room.get_entity(in_entity_id)
+	var camera: CameraController = get_viewport().get_camera_3d()
+	if camera and camera.is_position_visible(entity.position):
+		if not entity_actors.has(in_entity_id):
+			_place_entity_actor(in_entity_id)
+	else:
+		if entity_actors.has(in_entity_id):
+			_recycle_entity_actor(in_entity_id)

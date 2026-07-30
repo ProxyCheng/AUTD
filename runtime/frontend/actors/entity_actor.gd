@@ -29,9 +29,13 @@ func get_type_key() -> String:
 	return "Entity_%s" % type
 	
 func _on_entity_position_changed():
+	if not entity:
+		return
 	position = Vector3(entity.position.x, 0, entity.position.y)
 
 func _on_entity_direction_changed():
+	if not entity:
+		return
 	look_at(global_position + Vector3(entity.direction.x, 0, entity.direction.y))
 
 func _on_entity_type_changed():

@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://jqxphxgkyjee" path="res://runtime/frontend/models/entities/slime/slime.gd" id="1_n05xc"]
 [ext_resource type="AnimationLibrary" uid="uid://bsb11oumob4ja" path="res://runtime/frontend/models/entities/slime/slime_idle.fbx" id="2_40psm"]
 [ext_resource type="AnimationLibrary" uid="uid://c5f2k8knplluf" path="res://runtime/frontend/models/entities/slime/slime_walk.fbx" id="3_n05xc"]
+[ext_resource type="AnimationLibrary" uid="uid://cdkqqyvj1sg2c" path="res://runtime/frontend/models/entities/slime/slime_die.fbx" id="3_wmrhl"]
 
 [node name="slime" type="Node3D" unique_id=1270016249]
 script = ExtResource("1_n05xc")
@@ -14,5 +15,6 @@ transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0
 [node name="animation" type="AnimationPlayer" parent="." unique_id=1960675121]
 unique_name_in_owner = true
 root_node = NodePath("../model")
+libraries/slime_die = ExtResource("3_wmrhl")
 libraries/slime_idle = ExtResource("2_40psm")
 libraries/slime_walk = ExtResource("3_n05xc")
