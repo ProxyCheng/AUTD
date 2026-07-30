@@ -1,5 +1,5 @@
-extends Node
 class_name Building
+extends Node
 
 var data: BuildingData
 var cell: Cell
@@ -14,12 +14,8 @@ var direction: Vector2i:
 	get:
 		return data.direction
 
-const BUILDING_CLASSES = {
-	"enemy_spawner": preload("res://runtime/backend/buildings/enemy_spawner.gd"),
-}
-
 static func create(in_type: String) -> Building:
-	var building_class = BUILDING_CLASSES.get(in_type, Building)
+	var building_class = load("res://runtime/backend/buildings/%s.gd" % in_type)
 	return building_class.new()
 
 func load_data(in_data: BuildingData, in_cell: Cell):

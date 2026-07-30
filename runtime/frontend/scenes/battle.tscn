@@ -20,8 +20,9 @@ unique_name_in_owner = true
 script = ExtResource("4_lpaid")
 
 [node name="camera" type="Camera3D" parent="." unique_id=1394570981]
-transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 2.0626698, 2.022642, 4.549421)
+transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 2.0626698, 3.4129174, 5.5123906)
 current = true
+fov = 53.6
 script = ExtResource("5_1kist")
 zoom_speed = 10.0
 

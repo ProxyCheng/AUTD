@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://lud07rsn5abj" path="res://editor/map_editor.gd" id="4_610od"]
 [ext_resource type="PackedScene" uid="uid://c431nh37p3gqc" path="res://editor/cell_editor.tscn" id="5_280tk"]
 [ext_resource type="Script" uid="uid://bb4pddq01qnyk" path="res://runtime/backend/data/cell_data.gd" id="7_5o4mt"]
-[ext_resource type="Script" uid="uid://ju7auesv1jn4" path="res://runtime/backend/data/floor_data.gd" id="7_5xfjm"]
+[ext_resource type="Script" uid="uid://ju7auesv1jn4" path="res://runtime/backend/data/land_data.gd" id="7_5xfjm"]
 [ext_resource type="Script" uid="uid://uuawcbwl4hsf" path="res://runtime/backend/data/building_data.gd" id="7_610od"]
 
 [sub_resource type="Resource" id="Resource_opmhu"]
@@ -123,7 +123,6 @@ floor = SubResource("Resource_hby72")
 [sub_resource type="Resource" id="Resource_v310a"]
 script = ExtResource("7_610od")
 type = "enemy_spawner"
-direction = null
 metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_t0yak"]
@@ -690,7 +689,6 @@ floor = SubResource("Resource_8krg0")
 [sub_resource type="Resource" id="Resource_mhvf2"]
 script = ExtResource("7_610od")
 type = "main_base"
-direction = null
 metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_j83db"]

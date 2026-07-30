@@ -3,7 +3,7 @@ extends Resource
 class_name CellData
 
 @export
-var floor: FloorData
+var land: LandData
 
 @export
 var building: BuildingData

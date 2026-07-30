@@ -23,9 +23,9 @@ var fill_cells = func():
 		while cells_of_row.size() > size.x:
 			cells_of_row.pop_back()
 		for cell: CellData in cells_of_row:
-			var floor = FloorData.new()
-			floor.type = "dirt"
-			cell.floor = floor
+			var land: LandData = LandData.new()
+			land.type = "dirt"
+			cell.land = land
 	emit_changed()
 	notify_property_list_changed()
 

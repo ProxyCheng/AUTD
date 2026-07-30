@@ -1,6 +1,6 @@
 @tool
-extends Node3D
 class_name CellEditor
+extends Node3D
 
 @export
 var grid: Vector2i
@@ -12,11 +12,11 @@ var building_editor: Node3D
 func load_data(in_data: CellData):
 	data = in_data
 	
-	var path = "res://runtime/frontend/textures/floor_%s.png" % data.floor.type
+	var path = "res://runtime/frontend/textures/load_%s.png" % data.load.type
 	var texture
 	if ResourceLoader.exists(path):
 		texture = load(path) as CompressedTexture2D
-	%floor_editor.mesh.material.albedo_texture = texture
+	%load_editor.mesh.material.albedo_texture = texture
 	
 	if building_editor:
 		remove_child(building_editor)
@@ -34,4 +34,4 @@ func set_grid(in_grid: Vector2i):
 	position = Vector3(grid.x, 0, grid.y)
 
 func update_name():
-	name = "(%d, %d) %s" % [grid.x, grid.y, data.floor.type]
+	name = "(%d, %d) %s" % [grid.x, grid.y, data.land.type]

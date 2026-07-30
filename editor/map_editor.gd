@@ -1,6 +1,6 @@
 @tool
-extends Node
 class_name MapEditor
+extends Node
 
 func load_data(in_data: MapData):
 	clear()
