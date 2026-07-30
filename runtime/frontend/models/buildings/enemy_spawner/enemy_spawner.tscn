@@ -12,3 +12,4 @@ visible = false
 mesh = SubResource("QuadMesh_s13a6")
 
 [node name="enemy_spawner" parent="." unique_id=875363734 instance=ExtResource("1_xid18")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)

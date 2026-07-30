@@ -12,3 +12,4 @@ visible = false
 mesh = SubResource("QuadMesh_s13a6")
 
 [node name="main_base" parent="." unique_id=176002235 instance=ExtResource("1_rc41v")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)

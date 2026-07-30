@@ -1,6 +1,4 @@
 extends Node3D
 
-
-
-func _ready() -> void:
-	%animation.play(&"slime_idle/Take 001")
+func set_state(in_state: StringName):
+	%animation.play("slime_%s/Take 001" % in_state)

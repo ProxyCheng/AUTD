@@ -4,13 +4,36 @@ static var next_id: int = 1
 
 var id: int = 0
 var type: String = ""
+
 var position: Vector2:
-	set(in_position):
-		position = in_position
-		position_changed.emit()
 	get:
 		return position
+	set(in_position):
+		if in_position == position:
+			return
+		position = in_position
+		position_changed.emit()
 signal position_changed()
+
+var direction: Vector2 = Vector2.UP:
+	get:
+		return direction
+	set(in_direction):
+		if in_direction == direction:
+			return
+		direction = in_direction
+		direction_changed.emit()
+signal direction_changed()
+
+var state: String = "idle":
+	get:
+		return state
+	set(in_state):
+		if in_state == state:
+			return
+		state = in_state
+		state_changed.emit()
+signal state_changed()
 
 const ENTITY_CLASSES = {
 	"slime": preload("res://runtime/backend/entities/enemy.gd"),

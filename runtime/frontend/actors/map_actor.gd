@@ -25,7 +25,7 @@ func _on_viewing_axis_changed(in_new_axis: Dictionary, in_old_axis: Dictionary):
 func _on_cells_changed(in_axis: Dictionary):
 	var camera = get_viewport().get_camera_3d() as CameraController
 	for axis in in_axis.keys():
-		if camera and not camera.is_axis_visible(axis):
+		if not camera or not camera.is_axis_visible(axis):
 			continue
 		_recycle_floor_actor(axis)
 		_place_floor_actor(axis)

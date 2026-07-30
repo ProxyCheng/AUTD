@@ -9,6 +9,7 @@
 script = ExtResource("1_n05xc")
 
 [node name="model" parent="." unique_id=1848676882 instance=ExtResource("1_42tpr")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
 
 [node name="animation" type="AnimationPlayer" parent="." unique_id=1960675121]
 unique_name_in_owner = true
