@@ -1,3 +1,4 @@
+extends Node
 class_name Building
 
 var data: BuildingData

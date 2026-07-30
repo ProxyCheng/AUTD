@@ -1,3 +1,4 @@
+extends Node
 class_name Cell
 
 var data: CellData = null
@@ -10,9 +11,13 @@ func load_data(in_data: CellData, in_axis: Vector2i):
 	axis = in_axis
 	floor = Floor.new()
 	floor.load_data(data.floor, self)
+	add_child(floor)
+	floor.owner = owner
 	if data.building:
 		building = Building.create(data.building.type)
 		building.load_data(data.building, self)
+		add_child(building)
+		building.owner = owner
 
 func get_type_key() -> String:
 	return data.type

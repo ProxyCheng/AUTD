@@ -7,6 +7,8 @@ var level: Level
 
 func bind(in_level: Level):
 	level = in_level
+	level.owner = self
+	add_child(level)
 	%map.bind(level.map)
 	%room.bind(level.room)
 

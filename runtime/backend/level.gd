@@ -1,9 +1,22 @@
+extends Node
 class_name Level
 
-var map: Map = Map.new()
-var room: Room = Room.new()
+var map: Map
+var room: Room
 
 static var current: Level = null
+
+func _init():
+	map = Map.new()
+	map.name = "Map"
+	add_child(map)
+	room = Room.new()
+	room.name = "Room"
+	add_child(room)
+
+func _ready():
+	map.owner = owner
+	room.owner = owner
 
 func load_data(in_data: LevelData):
 	var map_data = in_data.map

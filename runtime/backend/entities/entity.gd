@@ -1,3 +1,4 @@
+extends Node
 class_name Entity
 
 static var next_id: int = 1
