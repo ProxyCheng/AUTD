@@ -36,7 +36,8 @@ func _on_entity_position_changed():
 func _on_entity_direction_changed():
 	if not entity:
 		return
-	look_at(global_position + Vector3(entity.direction.x, 0, entity.direction.y))
+	if entity.direction != Vector2.ZERO:
+		look_at(global_position + Vector3(entity.direction.x, 0, entity.direction.y))
 
 func _on_entity_type_changed():
 	type = entity.type

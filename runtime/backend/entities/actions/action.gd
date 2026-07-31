@@ -9,8 +9,8 @@ func set_entity(in_entity: Entity):
 func enter():
 	pass
 
-func tick(in_delta: float) -> float:  # remained time, <0 mains failed
-	return 0
+func tick(in_delta: float) -> ActionStatus:
+	return ActionStatus.success(0)
 
 func leave():
 	pass

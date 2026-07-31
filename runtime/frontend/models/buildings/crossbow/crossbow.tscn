@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://cwiovncyujs5t"]
+
+[ext_resource type="PackedScene" uid="uid://b4sw60fyhhpvb" path="res://runtime/frontend/models/buildings/crossbow/crossbow.fbx" id="1_a8mo0"]
+[ext_resource type="Script" uid="uid://b4jlnt14epl7v" path="res://runtime/frontend/models/buildings/crossbow/crossbow.gd" id="2_1fxwq"]
+
+[node name="crossbow" unique_id=1923286615 instance=ExtResource("1_a8mo0")]
+script = ExtResource("2_1fxwq")
+
+[node name="base" parent="." index="0" unique_id=1804872611]
+transform = Transform3D(40, 0, 0, 0, -1.7484556e-06, 40, 0, -40, -1.7484556e-06, 0, 0, 0)
+
+[node name="Skeleton3D" parent="base/cog_top/deck/bracket/body/bone" parent_id_path=PackedInt32Array(529059659) index="0" unique_id=473370140]
+bones/1/position = Vector3(5.9819623e-12, 0.006123154, -1.948961e-10)
+bones/1/rotation = Quaternion(-0.5663837, 0.25640953, 0.60077345, 0.5025285)
+bones/1/scale = Vector3(0.99999994, 1, 1)
+bones/2/position = Vector3(1.6092513e-10, 0.010878525, -4.299424e-11)
+bones/2/rotation = Quaternion(-0.84185284, -0.074746534, -0.101325125, 0.52481437)
+bones/2/scale = Vector3(1, 1, 0.9999999)
+bones/4/position = Vector3(5.9819623e-12, 0.006123154, -1.948961e-10)
+bones/4/rotation = Quaternion(-0.44079736, -0.42364606, 0.6983758, -0.3721464)
+bones/4/scale = Vector3(0.99999976, 0.99999976, 0.9999999)
+bones/5/position = Vector3(-8.679225e-10, 0.010767395, 2.9662178e-10)
+bones/5/rotation = Quaternion(0.67978454, 0.06752363, -0.5014217, 0.53095186)
+bones/5/scale = Vector3(0.9999998, 0.9999999, 0.9999998)
+
+[node name="AnimationPlayer" parent="." index="1" unique_id=1106555953]
+unique_name_in_owner = true

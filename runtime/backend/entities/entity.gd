@@ -59,8 +59,9 @@ func tick(in_delta: float):
 			action.owner = owner
 			action.set_entity(self)
 		action.enter()
-		remained_time = action.tick(remained_time)
-		if remained_time > 0:
+		var action_status: ActionStatus = action.tick(remained_time)
+		remained_time = action_status.remained_time
+		if not action_status.is_running():
 			action.leave()
 			remove_child(action)
 			action.queue_free()

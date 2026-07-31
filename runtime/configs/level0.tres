@@ -359,7 +359,7 @@ metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_egs8u"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_6lu4u"]
 script = ExtResource("2_av5h1")
@@ -368,7 +368,7 @@ building = SubResource("Resource_v310a")
 
 [sub_resource type="Resource" id="Resource_t0yak"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_ed24o"]
 script = ExtResource("2_av5h1")
@@ -376,7 +376,7 @@ land = SubResource("Resource_t0yak")
 
 [sub_resource type="Resource" id="Resource_x3x48"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_3coy4"]
 script = ExtResource("2_av5h1")
@@ -384,7 +384,7 @@ land = SubResource("Resource_x3x48")
 
 [sub_resource type="Resource" id="Resource_ibt60"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_v2xaf"]
 script = ExtResource("2_av5h1")
@@ -392,7 +392,7 @@ land = SubResource("Resource_ibt60")
 
 [sub_resource type="Resource" id="Resource_byq37"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_8baop"]
 script = ExtResource("2_av5h1")
@@ -400,7 +400,7 @@ land = SubResource("Resource_byq37")
 
 [sub_resource type="Resource" id="Resource_cuy8o"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_ri2o2"]
 script = ExtResource("2_av5h1")
@@ -408,7 +408,7 @@ land = SubResource("Resource_cuy8o")
 
 [sub_resource type="Resource" id="Resource_lf1vr"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_uxycw"]
 script = ExtResource("2_av5h1")
@@ -422,7 +422,7 @@ metadata/_custom_type_script = "uid://uuawcbwl4hsf"
 
 [sub_resource type="Resource" id="Resource_oclbb"]
 script = ExtResource("3_av5h1")
-type = "dirt"
+type = "path"
 
 [sub_resource type="Resource" id="Resource_7lkhp"]
 script = ExtResource("2_av5h1")

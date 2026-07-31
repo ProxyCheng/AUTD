@@ -1,0 +1,6 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://blx0njrffhnns"]
+
+[ext_resource type="Texture2D" uid="uid://b2y0poufws2xu" path="res://runtime/frontend/models/buildings/crossbow/TowerDefenceLikePallet.png" id="1_hloxf"]
+
+[resource]
+albedo_texture = ExtResource("1_hloxf")

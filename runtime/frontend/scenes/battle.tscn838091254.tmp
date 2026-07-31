@@ -34,16 +34,8 @@ zoom_speed = 10.0
 transform = Transform3D(1, 0, 0, 0, 0.3855332, 0.92269397, 0, -0.92269397, 0.3855332, 0, 0, 0)
 script = ExtResource("6_lpaid")
 
-[node name="modes" type="Node" parent="." unique_id=925642696]
+[node name="building_ui" type="Control" parent="." unique_id=994196821]
 unique_name_in_owner = true
-
-[node name="roaming" type="Node" parent="modes" unique_id=1915361581]
-script = ExtResource("9_trbff")
-
-[node name="building" type="Node" parent="modes" unique_id=348069599]
-script = ExtResource("9_sfvfk")
-
-[node name="ui" type="Control" parent="modes/building" unique_id=994196821]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -52,9 +44,18 @@ grow_horizontal = 2
 grow_vertical = 2
 metadata/_edit_use_anchors_ = true
 
-[node name="BuildingCard" parent="modes/building/ui" unique_id=173864770 instance=ExtResource("7_ktigr")]
+[node name="BuildingCard" parent="building_ui" unique_id=173864770 instance=ExtResource("7_ktigr")]
 layout_mode = 1
 anchor_left = 0.8993056
 anchor_top = 0.79012346
 anchor_right = 0.9861111
 anchor_bottom = 0.97530866
+
+[node name="modes" type="Node" parent="." unique_id=925642696]
+unique_name_in_owner = true
+
+[node name="roaming" type="Node" parent="modes" unique_id=1915361581]
+script = ExtResource("9_trbff")
+
+[node name="building" type="Node" parent="modes" unique_id=348069599]
+script = ExtResource("9_sfvfk")

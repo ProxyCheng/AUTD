@@ -10,17 +10,18 @@ func enter():
 	current_action = get_child(0)
 	current_action.enter()
 
-func tick(in_delta: float) -> float:
+func tick(in_delta: float) -> ActionStatus:
 	var remained_time: float = in_delta
 	while remained_time > 0:
 		if not current_action:
 			if next_index >= get_child_count():
-				return remained_time
+				return ActionStatus.success(remained_time)
 			current_action = get_child(next_index)
 			next_index += 1
 		current_action.enter()
-		remained_time = current_action.tick(remained_time)
-		if remained_time > 0:
+		var action_status = current_action.tick(remained_time)
+		remained_time = action_status.remained_time
+		if not action_status.is_running():
 			current_action.leave()
 			current_action = null
-	return remained_time
+	return ActionStatus.running()
