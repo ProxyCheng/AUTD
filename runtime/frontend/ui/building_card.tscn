@@ -7,6 +7,8 @@
 viewport_path = NodePath("Panel/SubViewport")
 
 [node name="BuildingCard" type="Control" unique_id=173864770]
+custom_minimum_size = Vector2(100, 120)
+custom_maximum_size = Vector2(100, 120)
 layout_mode = 3
 anchor_right = 0.08680555
 anchor_bottom = 0.18518518
