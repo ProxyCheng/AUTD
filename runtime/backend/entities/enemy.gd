@@ -1,7 +1,5 @@
 class_name Enemy
-extends Entity
-
-var die_timer: float = 0
+extends Creature
 
 func create_action() -> Action:
 	return SequencialAction.new([

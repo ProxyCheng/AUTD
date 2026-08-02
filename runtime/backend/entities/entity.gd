@@ -73,9 +73,6 @@ func get_type_key() -> String:
 func create_action() -> Action:
 	return IdleAction.new()
 
-func take_damage(in_damage: float):
-	Level.current.room.remove_entity(id)
-
 func _init():
 	id = next_id
 	next_id += 1

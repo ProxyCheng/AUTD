@@ -14,5 +14,7 @@ func fire(in_delta: float):
 	for entity: Entity in entities:
 		if entity is not Enemy:
 			continue
-		entity.take_damage(10)
+		if not entity.is_alive():
+			continue
+		entity.take_damage(Damage.physical(100))
 		break
