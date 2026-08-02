@@ -43,3 +43,11 @@ func get_entity(in_entity_id: int):
 
 func tick(in_delta: float):
 	region.tick(in_delta)
+
+func get_entities_in_rect(in_rect: Rect2) -> Array:
+	var entities_in_rect: Array = []
+	for entity: Entity in entities.values():
+		if not in_rect.has_point(entity.position):
+			continue
+		entities_in_rect.append(entity)
+	return entities_in_rect

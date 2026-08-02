@@ -1,6 +1,7 @@
 class_name BuildingMode
 extends Mode
 
+var building_data: BuildingData = null
 var building_model: Node3D = null
 
 func _ready():
@@ -13,11 +14,15 @@ func enter():
 func tick(in_delta: float):
 	if Input.is_key_pressed(KEY_ESCAPE):
 		owner.set_mode(&"roaming")
+		return
 	var axis: Vector2i = get_pointing_axis()
-	var cell: Cell = Level.current.map.get_cell(axis)
+	var map: Map = Level.current.map
 	if building_model:
-		if not cell:
+		if not map.can_place_building(axis, building_data):
 			building_model.hide()
+			return
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			map.place_building(axis, building_data)
 			return
 		building_model.position = Vector3(axis.x, 0, axis.y)
 		building_model.show()
@@ -43,17 +48,22 @@ func ray_intersects_y0(in_origin: Vector3, in_direction: Vector3):
 
 func leave():
 	if building_model:
+		building_data = null
 		remove_child(building_model)
 		building_model.queue_free()
 		building_model = null
 	$"ui".hide()
 
-func _on_card_clicked(in_building_id: String):
+func _on_card_clicked(in_building_type: String):
+	if in_building_type == (building_data.type if building_data else ""):
+		return
+	building_data = BuildingData.new()
+	building_data.type = in_building_type
 	if building_model:
 		remove_child(building_model)
 		building_model.queue_free()
 		building_model = null
-	var building_path: String = "res://runtime/frontend/models/buildings/%s/%s.tscn" % [in_building_id, in_building_id]
+	var building_path: String = "res://runtime/frontend/models/buildings/%s/%s.tscn" % [building_data.type, building_data.type]
 	var building_scene: PackedScene = load(building_path)
 	building_model = building_scene.instantiate()
 	add_child(building_model)

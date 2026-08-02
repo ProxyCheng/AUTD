@@ -21,11 +21,22 @@ func load_data(in_data: MapData):
 			var cell: Cell = Cell.new()
 			cell.name = "Cell_%d_%d" % [i, j]
 			var cell_data: CellData = data.cells[j].cells[i]
-			cell.load_data(cell_data, axis)
+			cell.axis = axis
+			cell.land = Land.new()
+			cell.land.load_data(cell_data.land, cell)
+			cell.add_child(cell.land)
+			cell.land.owner = cell.owner
 			add_child(cell)
 			cell.owner = owner
 			cells.set(axis, cell)
 			changed_axis.set(axis, true)
+	for i in range(data.size.x):
+		for j in range(data.size.y):
+			var axis: Vector2i = Vector2i(i, j)
+			var cell: Cell = get_cell(axis)
+			var cell_data: CellData = data.cells[j].cells[i]
+			if cell_data.building:
+				place_building(axis, cell_data.building, false)
 	cells_changed.emit(changed_axis)
 
 func get_cell(in_axis: Vector2i) -> Cell:
@@ -34,3 +45,23 @@ func get_cell(in_axis: Vector2i) -> Cell:
 func tick(in_delta: float):
 	for cell: Cell in cells.values():
 		cell.tick(in_delta)
+
+func can_place_building(in_axis: Vector2i, in_building_data: BuildingData) -> bool:
+	var cell: Cell = get_cell(in_axis)
+	if not cell:
+		return false
+	if cell.building:
+		return false
+	if cell.land.type == "path":
+		return false
+	return true
+
+func place_building(in_axis: Vector2i, in_building_data: BuildingData, emit_signal: bool = true) -> Building:
+	var cell: Cell = get_cell(in_axis)
+	cell.building = Building.create(in_building_data.type)
+	cell.building.load_data(in_building_data, cell)
+	cell.add_child(cell.building)
+	cell.building.owner = cell.owner
+	if emit_signal:
+		cells_changed.emit({ in_axis: true })
+	return cell.building
