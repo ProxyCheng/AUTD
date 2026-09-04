@@ -7,6 +7,7 @@
 - 引擎:GDScript / Godot 4.8,Forward+,Jolt Physics
 - 主场景:`res://runtime/frontend/scenes/battle.tscn`(`project.godot` 中 `run/main_scene`)
 - 坐标系:y=0 地平面,网格单位 1×1;后端用 `Vector2(x, z)`,前端转 `Vector3(x, 0, z)`
+- Godot 编辑器为**本地自编译版本**,可执行文件:`E:\Projects\CPP\godot\bin\godot.windows.editor.dev.x86_64.exe`(日常用 `--path E:\Projects\Godot\autd --editor` 启动);命令行跑/诊断主场景可直接调该 exe 加 `--path` 与场景路径,绕过编辑器内存/缓存
 
 ---
 
