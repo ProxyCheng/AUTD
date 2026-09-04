@@ -1,3 +1,4 @@
+class_name SlimeModel
 extends Node3D
 
 var state: StringName = &""
@@ -9,4 +10,4 @@ func set_state(in_state: StringName):
 func _on_animation_animation_finished(in_anim_name: StringName) -> void:
 	match state:
 		&"hit":
-			set_state(&"idle")
+			set_state(&"dizzy")

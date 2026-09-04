@@ -1,11 +1,12 @@
 [gd_scene format=3 uid="uid://cn6yu2o0dhj58"]
 
 [ext_resource type="PackedScene" uid="uid://bh57mj3n00an6" path="res://runtime/frontend/models/entities/slime/slime.fbx" id="1_42tpr"]
-[ext_resource type="Script" uid="uid://jqxphxgkyjee" path="res://runtime/frontend/models/entities/slime/slime.gd" id="1_n05xc"]
+[ext_resource type="Script" uid="uid://jqxphxgkyjee" path="res://runtime/frontend/models/entities/slime/slime_model.gd" id="1_n05xc"]
 [ext_resource type="AnimationLibrary" uid="uid://bsb11oumob4ja" path="res://runtime/frontend/models/entities/slime/slime_idle.fbx" id="2_40psm"]
 [ext_resource type="AnimationLibrary" uid="uid://c5f2k8knplluf" path="res://runtime/frontend/models/entities/slime/slime_walk.fbx" id="3_n05xc"]
 [ext_resource type="AnimationLibrary" uid="uid://cdkqqyvj1sg2c" path="res://runtime/frontend/models/entities/slime/slime_die.fbx" id="3_wmrhl"]
 [ext_resource type="AnimationLibrary" uid="uid://b8ooajfhmv7jc" path="res://runtime/frontend/models/entities/slime/slime_hit.fbx" id="4_7hcpw"]
+[ext_resource type="AnimationLibrary" uid="uid://t23wibplq4il" path="res://runtime/frontend/models/entities/slime/slime_dizzy.fbx" id="4_765ud"]
 
 [node name="slime" type="Node3D" unique_id=1270016249]
 script = ExtResource("1_n05xc")
@@ -17,6 +18,7 @@ transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0
 unique_name_in_owner = true
 root_node = NodePath("../model")
 libraries/slime_die = ExtResource("3_wmrhl")
+libraries/slime_dizzy = ExtResource("4_765ud")
 libraries/slime_hit = ExtResource("4_7hcpw")
 libraries/slime_idle = ExtResource("2_40psm")
 libraries/slime_walk = ExtResource("3_n05xc")
