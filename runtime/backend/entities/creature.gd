@@ -1,7 +1,16 @@
 class_name Creature
 extends Entity
 
-var health: float = 100
+var max_health: float = 100
+var health: float = 100:
+	get:
+		return health
+	set(in_health):
+		if is_equal_approx(in_health, health):
+			return
+		health = in_health
+		health_changed.emit()
+signal health_changed()
 var stored_state: String = ""
 var hit_timer: float = 0
 var die_timer: float = 0
