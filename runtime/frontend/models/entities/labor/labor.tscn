@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://uqtluhhas4xb"]
+
+[ext_resource type="PackedScene" uid="uid://cnny5u5hnybki" path="res://runtime/frontend/models/entities/labor/labor.fbx" id="1_i8auj"]
+[ext_resource type="Script" uid="uid://bfe51u36fbbkh" path="res://runtime/frontend/models/entities/labor/labor_model.gd" id="1_wppqg"]
+
+[node name="Labor" type="Node3D" unique_id=41762285]
+script = ExtResource("1_wppqg")
+
+[node name="labor" parent="." unique_id=1489506686 instance=ExtResource("1_i8auj")]
+transform = Transform3D(-0.4, 0, -3.4969112e-08, 0, 0.4, 0, 3.4969112e-08, 0, -0.4, 0, 0, 0)
