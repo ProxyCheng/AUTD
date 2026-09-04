@@ -22,18 +22,25 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="Skeleton3D" parent="base/cog_top/deck/bracket/body/bone" parent_id_path=PackedInt32Array(529059659) index="0" unique_id=473370140]
+bones/0/skin_scale = Vector3(1, 1, 1)
 bones/1/position = Vector3(5.9819623e-12, 0.006123154, -1.948961e-10)
 bones/1/rotation = Quaternion(-0.5663837, 0.25640953, 0.60077345, 0.5025285)
 bones/1/scale = Vector3(0.99999994, 1, 1)
+bones/1/skin_scale = Vector3(1, 1, 1)
 bones/2/position = Vector3(1.6092513e-10, 0.010878525, -4.299424e-11)
 bones/2/rotation = Quaternion(-0.84185284, -0.074746534, -0.101325125, 0.52481437)
 bones/2/scale = Vector3(1, 1, 0.9999999)
+bones/2/skin_scale = Vector3(1, 1, 1)
+bones/3/skin_scale = Vector3(1, 1, 1)
 bones/4/position = Vector3(5.9819623e-12, 0.006123154, -1.948961e-10)
 bones/4/rotation = Quaternion(-0.44079736, -0.42364606, 0.6983758, -0.3721464)
 bones/4/scale = Vector3(0.99999976, 0.99999976, 0.9999999)
+bones/4/skin_scale = Vector3(1, 1, 1)
 bones/5/position = Vector3(-8.679225e-10, 0.010767395, 2.9662178e-10)
 bones/5/rotation = Quaternion(0.67978454, 0.06752363, -0.5014217, 0.53095186)
 bones/5/scale = Vector3(0.9999998, 0.9999999, 0.9999998)
+bones/5/skin_scale = Vector3(1, 1, 1)
+bones/6/skin_scale = Vector3(1, 1, 1)
 
 [node name="muzzle" type="Node3D" parent="base/cog_top/deck/bracket/body" index="2" unique_id=980194214]
 transform = Transform3D(1, 0, -6.3540596e-24, 0, 1, 3.5527137e-15, 6.88083e-24, -3.5527137e-15, 1, 0, -0.0052668895, 0.0048724823)
