@@ -1,5 +1,5 @@
+class_name SequenceAction
 extends CompositeAction
-class_name SequencialAction
 
 var next_index: int = 0
 var current_action: Action = null

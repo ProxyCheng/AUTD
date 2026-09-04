@@ -6,6 +6,8 @@ var stored_state: String = ""
 var hit_timer: float = 0
 var die_timer: float = 0
 
+signal damage_taken(Damage)
+
 func tick(in_delta: float):
 	if die_timer > 0:
 		die_timer -= in_delta
@@ -19,7 +21,25 @@ func tick(in_delta: float):
 			return
 		in_delta = -hit_timer
 		state = stored_state
-	super.tick(in_delta)
+	return tick_action(in_delta)
+
+func tick_action(in_delta: float):
+	var remained_time: float = in_delta
+	while remained_time > 0:
+		if not action:
+			action = create_action()
+			add_child(action)
+			action.owner = owner
+			action.set_entity(self)
+		action.enter()
+		var action_status: ActionStatus = action.tick(remained_time)
+		assert(action_status.remained_time < remained_time, "Loop Detected")
+		remained_time = action_status.remained_time
+		if not action_status.is_running():
+			action.leave()
+			remove_child(action)
+			action.queue_free()
+			action = null
 
 func take_damage(in_damage: Damage):
 	health -= in_damage.amount
@@ -28,7 +48,8 @@ func take_damage(in_damage: Damage):
 		return
 	hit_timer = 1
 	stored_state = state
-	state = "hit"
+	damage_taken.emit(in_damage)
+	state = "dizzy"
 
 func die():
 	die_timer = 3
@@ -36,3 +57,6 @@ func die():
 
 func is_alive() -> bool:
 	return state != "die"
+
+func create_action() -> Action:
+	return IdleAction.new()

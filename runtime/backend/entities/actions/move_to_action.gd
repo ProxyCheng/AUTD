@@ -4,6 +4,7 @@ class_name MoveToAction
 var target_position: Vector2 = Vector2.ZERO
 
 func _init(in_target_position: Vector2):
+	super._init()
 	target_position = in_target_position
 
 func enter():

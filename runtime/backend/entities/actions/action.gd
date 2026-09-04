@@ -14,3 +14,6 @@ func tick(in_delta: float) -> ActionStatus:
 
 func leave():
 	pass
+
+func _init():
+	name = get_script().get_global_name()
