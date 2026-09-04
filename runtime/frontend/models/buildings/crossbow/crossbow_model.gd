@@ -13,11 +13,17 @@ func _ready():
 	%AnimationPlayer.play(ANIM_NAME)
 	%AnimationPlayer.pause()
 	%AnimationPlayer.seek(%AnimationPlayer.current_animation_length, true)
+	# 初始处于 idle(空闲),箭默认隐藏,待 backend 状态落到非 idle 再显示
+	%Arrow.visible = false
+
+# 蓄力/待发/射击期间显示箭;仅 idle(空闲)隐藏。
+var _show_arrow: bool = false
 
 func set_state(in_state: String):
 	# 状态只描述 backend 所处阶段(idle/charging/ready/firing);
-	# 姿态一律由 set_progress 驱动,此处无需分支。
-	pass
+	# 箭位置由 set_progress 驱动,此处只切可见性。
+	_show_arrow = in_state != "idle"
+	%Arrow.visible = _show_arrow
 
 func _apply_pose(in_time: float):
 	# seek 需要激活态才刷新关键帧姿态:暂停中先 play 再 seek 再暂停
@@ -32,6 +38,14 @@ func set_progress(in_progress: float):
 	# 若美术动画起止语义相反,把 seek 改为 in_progress * length 即可。
 	var length: float = %AnimationPlayer.current_animation_length
 	_apply_pose((1 - in_progress) * length)
+	_update_arrow_position(in_progress)
+
+# 箭位置 = 弦位点插值,参数即 progress:满弦(progress=1,弦拉紧)贴 PointB,
+# 松弦(progress=0,弦放开)贴 PointA。蓄力 A→B 拉弦,发射 B→A 飞出。
+# 三个节点为兄弟(同在 skin 下),用父空间局部坐标插值,避开骨架/皮肤变换。
+func _update_arrow_position(in_progress: float):
+	var t: float = in_progress if _show_arrow else 0.0
+	%Arrow.position = %ArrowPointA.position.lerp(%ArrowPointB.position, t)
 
 # 当前累计水平朝向角(弧度,不 wrap),跨 ±π 边界时靠 wrapf 平滑推进,避免 cog 部件瞬间反转。
 var _current_yaw: float = 0.0
