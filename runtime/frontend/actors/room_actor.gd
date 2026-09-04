@@ -51,6 +51,8 @@ func _recycle_entity_actor(in_entity_id: int):
 
 func _on_entity_position_changed(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)
+	if not entity:
+		return
 	var camera: CameraController = get_viewport().get_camera_3d()
 	if camera and camera.is_position_visible(entity.position):
 		if not entity_actors.has(in_entity_id):

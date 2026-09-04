@@ -15,7 +15,9 @@ func tick(in_delta: float):
 	if Input.is_key_pressed(KEY_ESCAPE):
 		owner.set_mode(&"roaming")
 		return
-	var axis: Vector2i = get_pointing_axis()
+	var axis = get_pointing_axis()
+	if axis == null:
+		return
 	var map: Map = Level.current.map
 	if building_model:
 		if not map.can_place_building(axis, building_data):
