@@ -8,7 +8,12 @@ var axis: Vector2i = Vector2i.ZERO
 var direction: Vector2i = Vector2i.UP
 
 func bind(in_building: Building):
+	if building:
+		building.state_changed.disconnect(_on_building_state_changed)
+		building.progress_changed.disconnect(_on_building_progress_changed)
 	building = in_building
+	if not building:
+		return
 	if building.type != type:
 		type = building.type
 		_on_type_changed()
@@ -18,6 +23,10 @@ func bind(in_building: Building):
 	if building.direction != direction:
 		direction = building.direction
 		_on_direction_changed()
+	building.state_changed.connect(_on_building_state_changed)
+	building.progress_changed.connect(_on_building_progress_changed)
+	_on_building_state_changed()
+	_on_building_progress_changed()
 	_update_direction()
 
 func get_type_key() -> String:
@@ -54,3 +63,21 @@ func _update_direction():
 		return
 	var target_position = building.target.position
 	building_model.set_target_position(Vector3(target_position.x, 0, target_position.y))
+
+func _on_building_state_changed():
+	if not building:
+		return
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_state"):
+		return
+	building_model.set_state(building.state)
+
+func _on_building_progress_changed():
+	if not building:
+		return
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_progress"):
+		return
+	building_model.set_progress(building.progress)
