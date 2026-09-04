@@ -11,6 +11,8 @@ func bind(in_building: Building):
 	if building:
 		building.state_changed.disconnect(_on_building_state_changed)
 		building.progress_changed.disconnect(_on_building_progress_changed)
+		if building.has_signal(&"aim_direction_changed"):
+			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
 	building = in_building
 	if not building:
 		return
@@ -25,8 +27,11 @@ func bind(in_building: Building):
 		_on_direction_changed()
 	building.state_changed.connect(_on_building_state_changed)
 	building.progress_changed.connect(_on_building_progress_changed)
+	if building.has_signal(&"aim_direction_changed"):
+		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
 	_on_building_state_changed()
 	_on_building_progress_changed()
+	_on_building_aim_direction_changed()
 	_update_direction()
 
 func get_type_key() -> String:
@@ -49,9 +54,21 @@ func _on_axis_changed():
 func _on_direction_changed():
 	look_at(global_position + Vector3(direction.x, 0, direction.y))
 
-func _process(delta: float):
+func _process(_delta: float):
 	_update_direction()
 	
+# 水平朝向:跟随 backend 的 aim_direction(信号驱动)
+func _on_building_aim_direction_changed():
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_aim_direction"):
+		return
+	if not building or not building.has_signal(&"aim_direction_changed"):
+		return
+	var aim: Vector2 = building.aim_direction
+	building_model.set_aim_direction(Vector3(aim.x, 0, aim.y))
+
+# 俯仰:每帧按目标距离调整,无需信号
 func _update_direction():
 	if not building_model:
 		return

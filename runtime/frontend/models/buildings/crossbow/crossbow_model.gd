@@ -33,12 +33,22 @@ func set_progress(in_progress: float):
 	var length: float = %AnimationPlayer.current_animation_length
 	_apply_pose((1 - in_progress) * length)
 
+# 当前累计水平朝向角(弧度,不 wrap),跨 ±π 边界时靠 wrapf 平滑推进,避免 cog 部件瞬间反转。
+var _current_yaw: float = 0.0
+
+# 炮口水平朝向:由 backend 传入的 aim_direction(单位向量,y 为世界 z)决定。
+# backend 已做限速,方向向量是逐帧连续变化的;这里把它累计成连续角度(不跳变)。
+func set_aim_direction(in_direction: Vector3):
+	# 模型 rest 朝 +Z(= Vector3.BACK),故取 atan2(x, z) 为朝向角
+	var target_angle: float = atan2(in_direction.x, in_direction.z)
+	var delta: float = wrapf(target_angle - _current_yaw, -PI, PI)
+	_current_yaw += delta
+	%cog_top.rotation.z = _current_yaw
+	%cog_left.rotation.x = _current_yaw * 8 / 5
+	%cog_right.rotation.x = -_current_yaw * 8 / 5
+
+# 仅按目标距离调整俯仰;水平朝向改走 set_aim_direction。
 func set_target_position(in_position: Vector3):
-	var direction: Vector3 = in_position - global_position
-	var angle: float = direction.signed_angle_to(Vector3.BACK, Vector3.DOWN)
-	%cog_top.rotation.z = angle
-	%cog_left.rotation.x = angle * 8 / 5
-	%cog_right.rotation.x = -angle * 8 / 5
 	var distance: float = global_position.distance_squared_to(in_position)
 	var max_angle: float = 40 * PI / 180
 	%body.rotation.x = max_angle * (1 - (distance - 1) / 5)

@@ -2,6 +2,10 @@ extends Building
 
 const CHARGE_TIME: float = 3.0
 const FIRE_TIME: float = 0.1
+# 炮塔转向角速度(弧度/秒),目标变化时以该速度平滑旋转,不瞬移
+const ROTATE_SPEED: float = 2.5
+# 判定"对准"的朝向夹角容差(弧度)
+const AIM_EPSILON: float = 0.05
 
 var fire_timer: float = 0
 var fire_anim_timer: float = 0
@@ -14,6 +18,16 @@ var target: Entity:
 		target = in_target
 		target_changed.emit()
 signal target_changed()
+# 当前炮口朝向(单位向量,世界 XZ 平面;y 分量为世界 z),由 tick 限速逼近目标方位
+var aim_direction: Vector2 = Vector2(0, 1):
+	get:
+		return aim_direction
+	set(in_aim_direction):
+		if in_aim_direction.is_equal_approx(aim_direction):
+			return
+		aim_direction = in_aim_direction
+		aim_direction_changed.emit()
+signal aim_direction_changed()
 
 var input_bag: Bag
 
@@ -36,24 +50,46 @@ func tick(in_delta: float):
 			progress = 0
 		return
 	target = find_target()
+	_rotate_aim(in_delta)
 	if state == "idle":
 		# 只要不在射击窗口就持续蓄力(与是否有目标无关)
 		state = "charging"
 		progress = 0
 	fire_timer = minf(fire_timer + in_delta, CHARGE_TIME)
 	if fire_timer >= CHARGE_TIME:
-		if target:
+		if target and is_aimed():
 			fire()
 			state = "firing"
 			fire_anim_timer = FIRE_TIME
 			progress = 1
 			return
-		# 满弦但无目标:保持待发姿态,目标出现即射
+		# 满弦但尚未对准(或暂无目标):保持待发姿态,对准即射
 		state = "ready"
 		progress = 1
 		return
 	state = "charging"
 	progress = fire_timer / CHARGE_TIME
+
+# 以 ROTATE_SPEED 限速把 aim_direction 转向目标方位;无目标时保持当前朝向。
+# 跳变幅度小于单帧步进时直接吸附到目标,避免抖动。
+func _rotate_aim(in_delta: float):
+	if not target:
+		return
+	var to_target: Vector2 = _target_direction()
+	var diff: float = aim_direction.angle_to(to_target)
+	var step: float = ROTATE_SPEED * in_delta
+	if absf(diff) > step:
+		aim_direction = aim_direction.rotated(signf(diff) * step)
+	else:
+		aim_direction = to_target
+
+func _target_direction() -> Vector2:
+	return Vector2(target.position.x - axis.x, target.position.y - axis.y).normalized()
+
+func is_aimed() -> bool:
+	if not target:
+		return false
+	return absf(aim_direction.angle_to(_target_direction())) <= AIM_EPSILON
 
 func fire():
 	var room: Room = Level.current.room
