@@ -217,6 +217,7 @@ signal position_changed()
 
 ## 7. 工程纪律
 
+- **提交偏好:按功能/原子单元分开提交**(一个提交只含一个可独立回滚的功能点,参照仓库 `git log` 的关键词风格如 `actions`/`logistics`/`crossbow anim`);禁止把多个无关功能混成一坨大提交,也禁止把无关的编辑器残留/工具配置夹带进功能提交。
 - `.godot/` 已 ignore,不提交;不提交 `.tscn` 编辑器残留临时文件(如仓库里遗留的 `battle.tscn838091254.tmp`,应删除)。
 - `*.gd.uid`、`*.import`、场景与脚本的 uid 引用随源文件提交,别手动改 uid。
 - `addons/` 为第三方插件,不修改其内容;不改 `.gitattributes` / `.editorconfig` 的编码约定(UTF-8、制表符缩进)。
