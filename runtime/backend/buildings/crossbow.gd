@@ -1,4 +1,5 @@
-extends Building
+class_name Crossbow
+extends Workshop
 
 const CHARGE_TIME: float = 3.0
 const FIRE_TIME: float = 0.1
@@ -39,8 +40,9 @@ func _ready():
 	input_bag.disired_min_count = input_bag.disired_max_count
 
 func tick(in_delta: float):
-	# progress 全程连续:charging 0→1(拉弦)、firing 1→0(释放=正向播完动画)、
-	# idle/ready 停驻。模型只按归一化 progress 采样动画姿态,不依赖播放器时钟。
+	# 本塔为 workload 驱动:蓄力(充能)完全经 work() 注入,此处不消耗时间。
+	# tick 仅负责瞄准与 firing 动画计时,以及"满弦 + 对准"的发射判定。
+	# 无 worker 注入 work() 时,fire_timer 恒为 0,塔停摆不开火。
 	if state == "firing":
 		fire_anim_timer -= in_delta
 		progress = clampf(fire_anim_timer / FIRE_TIME, 0, 1)
@@ -51,19 +53,29 @@ func tick(in_delta: float):
 		return
 	target = find_target()
 	_rotate_aim(in_delta)
-	if state == "idle":
-		# 只要不在射击窗口就持续蓄力(与是否有目标无关)
-		state = "charging"
-		progress = 0
-	fire_timer = minf(fire_timer + in_delta, CHARGE_TIME)
 	if fire_timer >= CHARGE_TIME:
 		if target and is_aimed():
+			# 满弦且对准→发射;firing 松弦动画由 tick 时钟驱动
 			fire()
 			state = "firing"
 			fire_anim_timer = FIRE_TIME
 			progress = 1
 			return
 		# 满弦但尚未对准(或暂无目标):保持待发姿态,对准即射
+		state = "ready"
+		progress = 1
+
+# worker 每帧注入劳动量(delta * efficiency),累积为蓄力进度。
+# 充能命中 CHARGE_TIME 后停驻 ready,等待 tick 判定对准发射。
+func work(in_workload: float):
+	if state == "firing":
+		# 射击窗口不接受劳作
+		return
+	if state == "idle":
+		state = "charging"
+		progress = 0
+	fire_timer = minf(fire_timer + in_workload, CHARGE_TIME)
+	if fire_timer >= CHARGE_TIME:
 		state = "ready"
 		progress = 1
 		return
