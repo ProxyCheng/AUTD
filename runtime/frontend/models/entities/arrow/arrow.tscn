@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://b4x6l0pbtvtim"]
+
+[ext_resource type="PackedScene" uid="uid://cgifta4t5d6e1" path="res://runtime/frontend/models/entities/arrow/arrow.fbx" id="1_icex6"]
+[ext_resource type="Script" uid="uid://de2k4o112cim7" path="res://runtime/frontend/models/entities/arrow/arrow_model.gd" id="1_qalvi"]
+
+[node name="Arrow" type="Node3D" unique_id=1597965120]
+script = ExtResource("1_qalvi")
+
+[node name="arrow" parent="." unique_id=248754358 instance=ExtResource("1_icex6")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
