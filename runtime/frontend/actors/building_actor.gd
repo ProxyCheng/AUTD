@@ -18,6 +18,7 @@ func bind(in_building: Building):
 	if building.direction != direction:
 		direction = building.direction
 		_on_direction_changed()
+	_update_direction()
 
 func get_type_key() -> String:
 	return "Building_%s" % type
@@ -38,3 +39,18 @@ func _on_axis_changed():
 
 func _on_direction_changed():
 	look_at(global_position + Vector3(direction.x, 0, direction.y))
+
+func _process(delta: float):
+	_update_direction()
+	
+func _update_direction():
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_target_position"):
+		return
+	if not building:
+		return
+	if not building.target:
+		return
+	var target_position = building.target.position
+	building_model.set_target_position(Vector3(target_position.x, 0, target_position.y))
