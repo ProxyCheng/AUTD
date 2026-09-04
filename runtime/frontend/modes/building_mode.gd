@@ -33,7 +33,7 @@ func get_pointing_axis():
 	var mouse_position: Vector2 = viewport.get_mouse_position()
 	var origin: Vector3 = camera.project_ray_origin(mouse_position)
 	var direction: Vector3 = camera.project_ray_normal(mouse_position)
-	var hit_position: Vector3 = ray_intersects_y0(origin, direction)
+	var hit_position = ray_intersects_y0(origin, direction)
 	if not hit_position:
 		return null
 	return Vector2i(round(hit_position.x), round(hit_position.z))
