@@ -58,3 +58,11 @@ func _on_entity_position_changed(in_entity_id: int):
 	else:
 		if entity_actors.has(in_entity_id):
 			_recycle_entity_actor(in_entity_id)
+
+func _ready():
+	var camera = get_viewport().get_camera_3d() as CameraController
+	camera.viewing_axis_changed.connect(_on_viewing_axis_changed)
+
+func _on_viewing_axis_changed():
+	var camera = get_viewport().get_camera_3d() as CameraController
+	camera.viewing_axis_changed.connect(_on_viewing_axis_changed)

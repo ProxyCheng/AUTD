@@ -46,6 +46,7 @@ func _on_entity_type_changed():
 		model.queue_free()
 	var entity_path: String = "res://runtime/frontend/models/entities/%s/%s.tscn" % [type, type]
 	var entity_scene: PackedScene = load(entity_path)
+	assert(entity_scene, "Could not find scene of %s" % type)
 	model = entity_scene.instantiate()
 	if model:
 		add_child(model)
