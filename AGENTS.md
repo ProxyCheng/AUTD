@@ -190,6 +190,7 @@ var position: Vector2:
 signal position_changed()
 ```
 - setter 先 guard 相同值早退,再赋值、发信号。派生属性(如 `Building.axis`、`Land.type`)做只读 getter 从数据源推算,不存两份。
+- **`progress` 契约**:数据层恒输出 [0,1] 归一化进度(如蓄力/冷却完成度),禁止输出原始秒数等任意区间值;到动画时间轴/播放方向的换算**一律在 frontend model 的 `set_progress` 完成**,backend 不感知动画资源。`state` 取值由各对象(如 `Building` 子类)自行定义,并与对应 model `set_state` 的分支约定一致。
 
 ### 5.5 Actor 镜像 + 对象池
 - 每个可显示的 backend 对象在 frontend 有一个 **Actor** 镜像(`EntityActor`/`BuildingActor`/`LandActor`),场景内节点与 backend 状态解耦。
