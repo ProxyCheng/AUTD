@@ -1,7 +1,7 @@
-[gd_resource type="BehaviorTree" format=3]
+[gd_resource type="BehaviorTree" format=3 uid="uid://ddqx8anfv0xm1"]
 
-[ext_resource type="Script" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
-[ext_resource type="Script" path="res://runtime/backend/entities/ai/tasks/enemy_attack_task.gd" id="2_attack"]
+[ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
+[ext_resource type="Script" uid="uid://bfdembshtlgd6" path="res://runtime/backend/entities/ai/tasks/enemy_attack_task.gd" id="2_attack"]
 
 [sub_resource type="BTAction" id="BTAction_move_to_target"]
 script = ExtResource("1_move")
