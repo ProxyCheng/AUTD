@@ -1,9 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://n2pmoo2d2xrw"]
+[gd_scene load_steps=4 format=3 uid="uid://n2pmoo2d2xrw"]
 
 [ext_resource type="Script" uid="uid://crhqqauesuhvf" path="res://runtime/frontend/models/buildings/stockpile/stockpile_model.gd" id="2_m0jqw"]
 [ext_resource type="PackedScene" uid="uid://27oj8afyy57k" path="res://runtime/frontend/models/buildings/stockpile/stockpile.blend" id="1_fxriy"]
+[ext_resource type="Script" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
 
 [node name="stockpile" type="Node3D" unique_id=562135360]
 script = ExtResource("2_m0jqw")
 
 [node name="stockpile" parent="." unique_id=612207941 instance=ExtResource("1_fxriy")]
+
+[node name="content_stack" type="Node3D" parent="." index="1"]
+script = ExtResource("3_stack")
