@@ -15,6 +15,12 @@ var stored_state: String = ""
 var hit_timer: float = 0
 var die_timer: float = 0
 
+# LimboAI 执行状态:一棵树 = 一次任务,树返回非 RUNNING 即本任务结束,
+# 下一帧经 create_tree() 请求新树(无"剩余时间溢出"语义)。
+var blackboard: Blackboard = Blackboard.new()
+var current_tree: BehaviorTree = null
+var bt_instance: BTInstance = null
+
 signal damage_taken(Damage)
 
 func tick(in_delta: float):
@@ -28,31 +34,36 @@ func tick(in_delta: float):
 		hit_timer -= in_delta
 		if hit_timer >= 0:
 			return
+		# 眩晕刚好在帧内结束:把多扣的时间还给本次 tick,并恢复被打断前的 state
 		in_delta = -hit_timer
 		state = stored_state
-	return tick_action(in_delta)
+	return _run_current_tree(in_delta)
 
-func tick_action(in_delta: float):
-	var remained_time: float = in_delta
-	while remained_time > 0:
-		if not action:
-			action = create_action()
-			add_child(action)
-			action.owner = owner
-			action.set_entity(self)
-		action.enter()
-		var action_status: ActionStatus = action.tick(remained_time)
-		# 已知崩溃场景(2026-09 MCP 运行验证发现):敌人被箭矢命中 → take_damage →
-		# hit_timer 眩晕恢复后 resume 原 Action,若其 tick 返回 running 且
-		# remained_time 未递减会命中本断言使游戏卡死。疑似方向:眩晕打断/恢复时
-		# 未正确保留 action 运行上下文。修复前不要把该场景当作正常路径。
-		assert(action_status.remained_time < remained_time, "Loop Detected")
-		remained_time = action_status.remained_time
-		if not action_status.is_running():
-			action.leave()
-			remove_child(action)
-			action.queue_free()
-			action = null
+# 固定短 tick 驱动当前行为树;结束后立即要下一棵(本帧不再 update)。
+func _run_current_tree(in_delta: float):
+	if not bt_instance:
+		if current_tree == null:
+			current_tree = create_tree()
+			if current_tree == null:
+				return
+		bt_instance = current_tree.instantiate(self, blackboard, self, self)
+		if bt_instance == null:
+			current_tree = null
+			return
+	var status: int = bt_instance.update(in_delta)
+	if status != BT.Status.RUNNING:
+		bt_instance = null
+		current_tree = null
+
+# 外部(如 LaborManager 派活)直接换掉当前任务树;下一 tick 生效。
+func begin_tree(in_tree: BehaviorTree):
+	current_tree = in_tree
+	bt_instance = null
+
+func create_tree() -> BehaviorTree:
+	var tree := BehaviorTree.new()
+	tree.set_root_task(IdleTask.new())
+	return tree
 
 func take_damage(in_damage: Damage):
 	health -= in_damage.amount
@@ -70,6 +81,3 @@ func die():
 
 func is_alive() -> bool:
 	return state != "die"
-
-func create_action() -> Action:
-	return IdleAction.new()

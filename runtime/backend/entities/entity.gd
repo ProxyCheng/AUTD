@@ -37,7 +37,6 @@ var state: String = "idle":
 signal state_changed()
 
 var move_speed: float = 0.1
-var action: Action = null
 
 static func create(in_type: String) -> Entity:
 	var entity_class = load("res://runtime/backend/entities/%s.gd" % in_type)

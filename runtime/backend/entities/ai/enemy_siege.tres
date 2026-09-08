@@ -1,0 +1,17 @@
+[gd_resource type="BehaviorTree" format=3]
+
+[ext_resource type="Script" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
+[ext_resource type="Script" path="res://runtime/backend/entities/ai/tasks/enemy_attack_task.gd" id="2_attack"]
+
+[sub_resource type="BTAction" id="BTAction_move_to_target"]
+script = ExtResource("1_move")
+
+[sub_resource type="BTAction" id="BTAction_enemy_attack"]
+script = ExtResource("2_attack")
+
+[sub_resource type="BTSequence" id="BTSequence_root"]
+children = [SubResource("BTAction_move_to_target"), SubResource("BTAction_enemy_attack")]
+
+[resource]
+description = "敌人默认树:走向主基地(target_position 由实体播种到黑板),抵达即自毁。"
+root_task = SubResource("BTSequence_root")

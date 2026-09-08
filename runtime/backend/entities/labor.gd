@@ -1,29 +1,28 @@
 class_name Labor
 extends Creature
 
-var brain: Brain = null
-var brain_type: StringName = ""
-
 func _init():
 	super._init()
 	move_speed = 1
-	set_brain(&"courier")
 
-func create_action() -> Action:
-	return brain.create_action()
+# 原 LaborBrain 的注册/注销逻辑内联:进场向调度中心注册,离场注销。
+func _ready():
+	var manager := _get_manager()
+	if manager:
+		manager.register_labor(self)
 
-func set_brain(in_brain_type: StringName):
-	if in_brain_type == brain_type:
-		return
-	brain_type = in_brain_type
-	if brain:
-		brain.leave()
-		remove_child(brain)
-		brain.queue_free()
-		brain = null
-	var brain_class: GDScript = load("res://runtime/backend/entities/brains/%s_brain.gd" % brain_type)
-	assert(brain_class, "Failed to load brain %s" % brain_type)
-	brain = brain_class.new(self)
-	add_child(brain)
-	brain.owner = owner
-	brain.enter()
+func _exit_tree():
+	var manager := _get_manager()
+	if manager:
+		manager.unregister_labor(self)
+
+func create_tree() -> BehaviorTree:
+	var manager := _get_manager()
+	if manager:
+		return manager.request_work(self)
+	return super.create_tree()
+
+func _get_manager() -> LaborManager:
+	if not Level.current:
+		return null
+	return Level.current.labor_manager
