@@ -7,3 +7,4 @@
 
 # Godot-git-plugin editor temp files
 addons/godot-git-plugin/**/~*.TMP
+addons/**/~*
