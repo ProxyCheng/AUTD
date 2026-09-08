@@ -13,6 +13,10 @@ func bind(in_building: Building):
 		building.progress_changed.disconnect(_on_building_progress_changed)
 		if building.has_signal(&"aim_direction_changed"):
 			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
+		if building.has_signal(&"content_type_changed"):
+			building.content_type_changed.disconnect(_on_building_content_type_changed)
+		if building.has_signal(&"stored_count_changed"):
+			building.stored_count_changed.disconnect(_on_building_stored_count_changed)
 	building = in_building
 	if not building:
 		return
@@ -29,9 +33,15 @@ func bind(in_building: Building):
 	building.progress_changed.connect(_on_building_progress_changed)
 	if building.has_signal(&"aim_direction_changed"):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
+	if building.has_signal(&"content_type_changed"):
+		building.content_type_changed.connect(_on_building_content_type_changed)
+	if building.has_signal(&"stored_count_changed"):
+		building.stored_count_changed.connect(_on_building_stored_count_changed)
 	_on_building_state_changed()
 	_on_building_progress_changed()
 	_on_building_aim_direction_changed()
+	_on_building_content_type_changed()
+	_on_building_stored_count_changed()
 	_update_direction()
 
 func get_type_key() -> String:
@@ -98,3 +108,27 @@ func _on_building_progress_changed():
 	if not building_model.has_method(&"set_progress"):
 		return
 	building_model.set_progress(building.progress)
+
+# 料堆等存储型建筑:物品类型变化 → model 换内容物模型
+func _on_building_content_type_changed():
+	if not building:
+		return
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_content_type"):
+		return
+	if not building.has_signal(&"content_type_changed"):
+		return
+	building_model.set_content_type(building.content_type)
+
+# 料堆等存储型建筑:存量变化 → model 按 count/capacity 更新堆叠量
+func _on_building_stored_count_changed():
+	if not building:
+		return
+	if not building_model:
+		return
+	if not building_model.has_method(&"set_stored_count"):
+		return
+	if not building.has_signal(&"stored_count_changed"):
+		return
+	building_model.set_stored_count(building.stored_count, building.capacity)
