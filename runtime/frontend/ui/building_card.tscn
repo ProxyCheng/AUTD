@@ -30,6 +30,7 @@ expand_icon = true
 
 [node name="SubViewport" type="SubViewport" parent="Panel" unique_id=806733165]
 unique_name_in_owner = true
+own_world_3d = true
 transparent_bg = true
 size = Vector2i(80, 100)
 
@@ -42,5 +43,8 @@ transform = Transform3D(-1.1547005, -0.4714046, 0.47140455, 0, 0.94280905, 0.942
 projection = 1
 
 [node name="crossbow" parent="Panel/SubViewport/model_renderer" unique_id=447784750 instance=ExtResource("2_6qay5")]
+
+[node name="preview_light" type="DirectionalLight3D" parent="Panel/SubViewport/model_renderer" unique_id=1892003317]
+transform = Transform3D(1, 0, 0, 0, 0.3855332, 0.92269397, 0, -0.92269397, 0.3855332, 0, 0, 0)
 
 [connection signal="pressed" from="Panel" to="." method="_on_panel_pressed"]

@@ -7,6 +7,7 @@ var building_model: Node3D = null
 func _ready():
 	$"ui".hide()
 	$ui/cards/card_crossbow.clicked.connect(func(): _on_card_clicked("crossbow"))
+	$ui/cards/card_stockpile.clicked.connect(func(): _on_card_clicked("stockpile"))
 
 func enter():
 	$"ui".show()
