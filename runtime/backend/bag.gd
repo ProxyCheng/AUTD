@@ -56,3 +56,6 @@ func is_understocked() -> bool:
 
 func is_overstocked() -> bool:
 	return count > preferred_max_count
+
+func is_full() -> bool:
+	return count >= max_count
