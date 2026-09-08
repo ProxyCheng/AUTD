@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
 [ext_resource type="Script" uid="uid://bfdembshtlgd6" path="res://runtime/backend/entities/ai/tasks/enemy_attack_task.gd" id="2_attack"]
 
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_to0kt"]
+
 [sub_resource type="BTAction" id="BTAction_move_to_target"]
 script = ExtResource("1_move")
 
@@ -14,4 +16,5 @@ children = [SubResource("BTAction_move_to_target"), SubResource("BTAction_enemy_
 
 [resource]
 description = "敌人默认树:走向主基地(target_position 由实体播种到黑板),抵达即自毁。"
+blackboard_plan = SubResource("BlackboardPlan_to0kt")
 root_task = SubResource("BTSequence_root")
