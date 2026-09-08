@@ -43,7 +43,11 @@ func _ready():
 	add_child(input_bag)
 	input_bag.owner = owner
 	input_bag.item_type = "arrow"
-	input_bag.disired_min_count = input_bag.disired_max_count
+	# 纯请求方:低于上限即求补到满,永不外供(无富余可出)
+	input_bag.preferred_min_count = input_bag.max_count
+	input_bag.preferred_max_count = input_bag.max_count
+	input_bag.access_position = Vector2(axis)
+	_register_bag()
 	_maintain_manning()
 
 func is_work_done() -> bool:
@@ -52,7 +56,11 @@ func is_work_done() -> bool:
 # 需要工人的条件:蓄力未完(还有活要干),或满弦但本轮尚未射出(需操作手值守待敌)。
 # 发射后才暂时不需要,等松弦动画结束、fire_timer 归零再自动补位下一班。
 func _needs_worker() -> bool:
-	return not _shift_fired or fire_timer < CHARGE_TIME
+	# 无弹药时无需顶岗(等 logistics 补货);否则按未射/蓄力中判断
+	return _has_ammo() and (not _shift_fired or fire_timer < CHARGE_TIME)
+
+func _has_ammo() -> bool:
+	return input_bag and input_bag.count > 0
 
 # 机器帧推进(基类 tick 已先做值守心跳与补员维护):弩炮为 workload 驱动,
 # 蓄力经 worker 注入 work() 累积,这里负责瞄准、firing 松弦计时与发射判定。
@@ -70,14 +78,13 @@ func _tick_machine(in_delta: float):
 	target = find_target()
 	_rotate_aim(in_delta)
 	if fire_timer >= CHARGE_TIME:
-		if target and is_aimed():
-			# 满弦且对准且有人值守→发射;firing 松弦动画由 tick 时钟驱动
-			fire()
+		if target and is_aimed() and fire():
+			# 满弦且对准且有人值守且有弹药→发射;firing 松弦动画由 tick 时钟驱动
 			state = "firing"
 			fire_anim_timer = FIRE_TIME
 			progress = 1
 			return
-		# 满弦但尚未对准(或暂无目标):保持待发姿态,对准即射
+		# 满弦但尚未对准 / 暂无目标 / 弹药耗尽待补:保持待发姿态
 		state = "ready"
 		progress = 1
 		return
@@ -125,16 +132,21 @@ func is_aimed() -> bool:
 		return false
 	return absf(aim_direction.angle_to(_target_direction())) <= AIM_EPSILON
 
-func fire():
-	var room: Room = Level.current.room
+func fire() -> bool:
 	if not target:
-		return
+		return false
+	# 消耗 1 支弩箭弹药;无弹则不开火(等 logistics 补货)
+	if not _has_ammo():
+		return false
+	input_bag.remove_count(1)
+	var room: Room = Level.current.room
 	var arrow: Arrow = Entity.create("arrow")
 	arrow.position = Vector2(axis.x, axis.y)
 	arrow.move_speed = 10
 	arrow.set_target_entity(target)
 	room.add_entity(arrow)
 	_shift_fired = true  # 本班值岗完成一次生产,工人下一 tick 离岗
+	return true
 
 func find_target() -> Entity:
 	var room: Room = Level.current.room
@@ -146,3 +158,24 @@ func find_target() -> Entity:
 			continue
 		return entity
 	return null
+
+# —— Logistics 注册/注销 input_bag(供补弹调度) ——
+
+func _exit_tree():
+	_unregister_bag()
+	super._exit_tree()
+
+func _register_bag():
+	var logistics: Logistics = _get_logistics()
+	if logistics:
+		logistics.register_bag(input_bag)
+
+func _unregister_bag():
+	var logistics: Logistics = _get_logistics()
+	if logistics:
+		logistics.unregister_bag(input_bag.id)
+
+func _get_logistics() -> Logistics:
+	if not Level.current:
+		return null
+	return Level.current.logistics

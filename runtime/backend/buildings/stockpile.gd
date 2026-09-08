@@ -5,11 +5,13 @@ extends Building
 # 存量走料堆专属可观察属性(stored_count),不走 Building.progress——progress
 # 保留给"状态进度"(蓄力/冷却等过程量)语义。frontend model 据 stored_count/capacity
 # 显示堆叠物品。
-# "谁采、谁搬、谁领"由后续 labor/logistics 调度接入,本类只保证单物品存储语义正确。
+# 库存语义接入 logistics:preferred_max=0 → 本料堆作为纯供给方(有货即外供,
+# 由劳工搬到缺货请求方,如 Crossbow 弹药箱);preferred_min=0 → 自身永不求补货
+# (无生产建筑补货前,放空即停)。
 
 const CAPACITY: int = 50
-const DESIRED_MIN_COUNT: int = 0
-const DESIRED_MAX_COUNT: int = CAPACITY
+const PREFERRED_MIN_COUNT: int = 0
+const PREFERRED_MAX_COUNT: int = 0
 # 默认物品。仅当其有对应 frontend 物品模型时才可显示堆叠;其余类型无模型则暂不显示。
 const DEFAULT_ITEM_TYPE: String = "arrow"
 # 放置即满仓(原型期用于直接观察堆叠/作为初始弹药补给)。
@@ -51,9 +53,10 @@ func _ready():
 	bag = Bag.new()
 	bag.name = "Bag"
 	bag.item_type = content_type
-	bag.capacity = CAPACITY
-	bag.disired_min_count = DESIRED_MIN_COUNT
-	bag.disired_max_count = DESIRED_MAX_COUNT
+	bag.max_count = CAPACITY
+	bag.preferred_min_count = PREFERRED_MIN_COUNT
+	bag.preferred_max_count = PREFERRED_MAX_COUNT
+	bag.access_position = Vector2(axis)
 	add_child(bag)
 	bag.owner = owner
 	bag.count_changed.connect(_sync_stored_count)
