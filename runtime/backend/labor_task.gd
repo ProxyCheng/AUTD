@@ -15,6 +15,7 @@ extends Node
 const BB_JOB_TREE: StringName = &"job_tree"
 const BB_ACTIVE_TASK: StringName = &"active_task"
 
+# 调度优先级(整数,越大越先被满足):搬运=0,生产=10,涉及 Crossbow 再 +1。
 var priority: int = 0
 var required_count: int = 1
 var anchor_position: Vector2 = Vector2.ZERO  # 工作锚点,供默认 cost_for 计算距离(就近调度)

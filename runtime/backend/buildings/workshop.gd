@@ -60,7 +60,7 @@ func _is_manned() -> bool:
 func work_entry_position() -> Vector2:
 	return Vector2(axis) + WORK_ENTRY_OFFSET
 
-# —— 子类钩子:值岗生命周期 / 机器推进 ——
+# 子类钩子:值岗生命周期 / 机器推进
 
 func _reset_shift():
 	pass
@@ -70,6 +70,11 @@ func _apply_workload(in_workload: float):
 
 func _tick_machine(in_delta: float):
 	pass
+
+# 该机器顶岗任务的调度优先级(子类可覆盖;攻击建筑如 Crossbow 设为更高档,
+# 保证驱动机器产出的任务不被普通物流挤占)。默认=生产 10。
+func manning_priority() -> int:
+	return 10
 
 # —— 补员调度 ——
 
@@ -93,7 +98,7 @@ func _maintain_manning():
 		_worker_requested = false
 	if not _is_manned() and _needs_worker():
 		_worker_requested = true
-		manning_task = ManBuildingTask.new(self, work_entry_position())
+		manning_task = ManBuildingTask.new(self, work_entry_position(), 1, manning_priority())
 		manager.register_task(manning_task)
 
 func _cancel_worker_request():

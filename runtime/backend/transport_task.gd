@@ -23,7 +23,9 @@ var dest_bag: Bag = null
 var amount: int = 0
 
 func _init(in_source_bag: Bag, in_dest_bag: Bag, in_amount: int):
-	super(1, 0)
+	# 优先级取目标 bag 声明的 transport_priority(请求方定义其补货紧急度)。
+	# 默认普通搬运;攻击建筑(如 Crossbow 弹药箱)设为更高档,保证供弹不被普通物流挤占。
+	super(1, in_dest_bag.transport_priority)
 	source_bag = in_source_bag
 	dest_bag = in_dest_bag
 	amount = in_amount

@@ -67,10 +67,16 @@ func _ready():
 	input_bag.preferred_min_count = input_bag.max_count
 	input_bag.preferred_max_count = input_bag.max_count
 	input_bag.access_position = Vector2(axis)
+	# 攻击建筑:供弹(搬运)任务优先级=1(普通 0 再 +1),优先于普通物流
+	input_bag.transport_priority = 1
 	input_bag.count_changed.connect(_sync_stored_count)
 	_register_bag()
 	_sync_stored_count()
 	_maintain_manning()
+
+# 攻击建筑:驱动它的顶岗任务优先级=11(生产 10 再 +1),保证弩炮始终优先有人值守
+func manning_priority() -> int:
+	return 11
 
 # input_bag 计数变化 → 同步镜像属性,经 setter 触发 stored_count_changed
 func _sync_stored_count():

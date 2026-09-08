@@ -26,6 +26,9 @@ var count: int = 0
 # Logistics 匹配按此度量距离;搬运移动以其为直线接近目标,由 transport_haul 的
 # MoveToTargetTask.arrival_center_offset 决定"停在距建筑中心固定偏移"的停靠圈。
 var access_position: Vector2 = Vector2.ZERO
+# 补货(搬运)任务的调度优先级:由创建该 bag 的建筑按需求紧急度声明。
+# 默认普通搬运 0;Crossbow 弹药箱这类攻击建筑设为更高(供弹优先于普通物流)。
+var transport_priority: int = 0
 
 signal count_changed()
 

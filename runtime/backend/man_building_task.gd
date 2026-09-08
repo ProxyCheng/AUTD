@@ -14,7 +14,7 @@ const JOB_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/man_bu
 var building: Workshop = null
 var entry_position: Vector2 = Vector2.ZERO
 
-func _init(in_building: Workshop, in_entry_position: Vector2, in_required_count: int = 1, in_priority: int = 0):
+func _init(in_building: Workshop, in_entry_position: Vector2, in_required_count: int = 1, in_priority: int = 10):
 	super(in_required_count, in_priority)
 	building = in_building
 	entry_position = in_entry_position
