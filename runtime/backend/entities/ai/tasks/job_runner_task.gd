@@ -33,3 +33,8 @@ func _tick(in_delta: float) -> int:
 func _finish(in_bb: Blackboard):
 	if in_bb:
 		in_bb.set_var(LaborTask.BB_ACTIVE_TASK, null)
+	# 兜底:任务结束(成功/取消/失败)都清空携带表现,防取货后卸货失败残留头顶物品
+	var agent := get_agent() as Creature
+	if agent:
+		agent.carried_item_type = ""
+		agent.carried_count = 0

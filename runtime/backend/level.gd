@@ -35,3 +35,4 @@ func load_data(in_data: LevelData):
 func tick(in_delta: float):
 	map.tick(in_delta)
 	room.tick(in_delta)
+	logistics.tick(in_delta)

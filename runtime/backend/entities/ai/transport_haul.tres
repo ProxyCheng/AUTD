@@ -1,0 +1,31 @@
+[gd_resource type="BehaviorTree" format=3 uid="uid://cgx4haul7was1"]
+
+[ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
+[ext_resource type="Script" uid="uid://d1xjdd5ki1fkc" path="res://runtime/backend/entities/ai/tasks/take_from_bag_task.gd" id="2_take"]
+[ext_resource type="Script" uid="uid://dwd3s7ioirohf" path="res://runtime/backend/entities/ai/tasks/put_to_bag_task.gd" id="3_put"]
+
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_o9b1"]
+
+[sub_resource type="BTAction" id="BTAction_move_take"]
+script = ExtResource("1_move")
+target_var = &"take_access"
+arrival_distance = 0.5
+
+[sub_resource type="BTAction" id="BTAction_take"]
+script = ExtResource("2_take")
+
+[sub_resource type="BTAction" id="BTAction_move_put"]
+script = ExtResource("1_move")
+target_var = &"put_access"
+arrival_distance = 0.5
+
+[sub_resource type="BTAction" id="BTAction_put"]
+script = ExtResource("3_put")
+
+[sub_resource type="BTSequence" id="BTSequence_root"]
+children = [SubResource("BTAction_move_take"), SubResource("BTAction_take"), SubResource("BTAction_move_put"), SubResource("BTAction_put")]
+
+[resource]
+description = "搬运一趟:先走到源装卸点(take_access)取 carry_amount 件,再走到目标装卸点(put_access)卸货。参数经工人黑板传:&source_bag / &dest_bag / &carry_amount / &take_access / &put_access。"
+blackboard_plan = SubResource("BlackboardPlan_o9b1")
+root_task = SubResource("BTSequence_root")
