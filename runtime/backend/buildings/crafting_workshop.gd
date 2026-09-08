@@ -38,6 +38,14 @@ func _has_inputs() -> bool:
 	return (log_bag and log_bag.count >= CONSUME_LOG) \
 			and (stone_bag and stone_bag.count >= CONSUME_STONE)
 
+# 车间有三个 Bag(原木输入/石头输入/箭输出),容量条显示占用最满的那个。
+func occupancy_fill() -> float:
+	var best: float = 0.0
+	for bag: Bag in [log_bag, stone_bag, output_bag]:
+		if bag == null or bag.max_count <= 0:
+			continue
+		best = maxf(best, clampf(float(bag.count) / float(bag.max_count), 0.0, 1.0))
+	return best
 
 # 实际扣减一件产出所需:原木、石头各一件;不足则失败(返回 false)。
 func _consume_inputs() -> bool:

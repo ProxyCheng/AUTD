@@ -47,3 +47,17 @@ func get_type_key() -> String:
 
 func tick(in_delta: float):
 	pass
+
+# 容量占用率 [0,1],供 frontend 显示建筑容量条(参考实体血条)。
+# 返回负值表示本建筑没有"Bag 容量"语义(如敌人出生点/主基地),前端据此隐藏容量条。
+# 基类按可观察属性 stored_count/capacity 推算(料堆/弩炮/生产坊都已暴露);
+# 多 Bag 建筑(如车间)覆写本方法取各 Bag 占用最满者,见 crafting_workshop.gd。
+# 用 get() 鸭子访问:基类不含这些属性,只有具备它们的建筑才有容量条语义。
+func occupancy_fill() -> float:
+	var stored: Variant = get("stored_count")
+	var cap: Variant = get("capacity")
+	if stored is not int or cap is not int:
+		return -1.0
+	if cap <= 0:
+		return -1.0
+	return clampf(float(stored) / float(cap), 0.0, 1.0)
