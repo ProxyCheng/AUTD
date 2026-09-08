@@ -20,6 +20,8 @@ extends Node3D
 # 未在表中的类型视为无模型,不显示内容。
 const ITEM_MODEL_SCENES: Dictionary = {
 	"arrow": "res://runtime/frontend/models/entities/arrow/arrow.tscn",
+	"log": "res://runtime/frontend/models/entities/log/log.tscn",
+	"stone": "res://runtime/frontend/models/entities/stone/stone.tscn",
 }
 
 # —— 几何配置(业务层按需覆盖;默认值面向"箭垛"常见形态) ——

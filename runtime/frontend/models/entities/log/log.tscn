@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://buky1wcdhl5up"]
+
+[ext_resource type="Script" uid="uid://bnku7c0eyfuwf" path="res://runtime/frontend/models/entities/log/log_model.gd" id="1_model"]
+[ext_resource type="PackedScene" uid="uid://d305j7i6iy725" path="res://runtime/frontend/models/entities/log/log.blend" id="2_art"]
+
+[node name="Log" type="Node3D"]
+script = ExtResource("1_model")
+
+[node name="log" parent="." instance=ExtResource("2_art")]

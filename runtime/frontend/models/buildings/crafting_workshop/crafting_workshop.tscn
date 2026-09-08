@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3 uid="uid://cjmbwyr6bezh8"]
+
+[ext_resource type="Script" uid="uid://cyt86opqyoeso" path="res://runtime/frontend/models/buildings/crafting_workshop/crafting_workshop_model.gd" id="1_model"]
+[ext_resource type="PackedScene" uid="uid://dfid78jdfwudo" path="res://runtime/frontend/models/buildings/crafting_workshop/crafting_workshop.blend" id="2_art"]
+[ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
+
+[node name="crafting_workshop" type="Node3D"]
+script = ExtResource("1_model")
+
+[node name="crafting_workshop" parent="." instance=ExtResource("2_art")]
+
+[node name="content_stack" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 0, 0.7)
+script = ExtResource("3_stack")
