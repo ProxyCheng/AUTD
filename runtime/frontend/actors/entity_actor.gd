@@ -22,9 +22,6 @@ var model_height: float = 0.0
 var _model_local_box: AABB = AABB()
 # 填充 StyleBoxFlat 是 tscn 内共享 SubResource,需按实例复制后再按阵营染色
 var _health_fill_style: StyleBoxFlat = null
-# 头顶携带物根节点(搬运时显示物品小模型)
-var _carried_root: Node3D = null
-var _carried_items: Array[Node3D] = []
 
 @onready var health_bar: ProgressBar = %health_bar
 
@@ -161,65 +158,45 @@ func _on_entity_state_changed():
 
 # —— 头顶携带物(Creature.carried_*) ——
 
+# 头顶携带物通用组件:复用 ItemStack 渲染(平放摞垛),业务层只需给出锚点与计数。
+var _carried_stack: ItemStack = null
+
 func _sync_carried():
-	_clear_carried_items()
 	if not entity or entity is not Creature or _carried_count_of_entity() <= 0:
-		if _carried_root:
-			_carried_root.hide()
+		_hide_carried()
 		return
 	var creature: Creature = entity as Creature
 	if creature.carried_item_type.is_empty():
-		if _carried_root:
-			_carried_root.hide()
+		_hide_carried()
 		return
-	if not _carried_root:
-		_carried_root = Node3D.new()
-		_carried_root.name = "carried"
-		add_child(_carried_root)
+	if not _carried_stack:
+		_carried_stack = ItemStack.new()
+		_carried_stack.name = "carried"
+		# 头顶为单列纵向摞(CARRY_VISIBLE_MAX 层),不横排
+		_carried_stack.per_row = 1
+		_carried_stack.layer_count = CARRY_VISIBLE_MAX
+		_carried_stack.layer_spacing = CARRY_LAYER_SPACING
+		add_child(_carried_stack)
 	# 头顶锚点 = 模型本地合并 AABB 的顶面中心(actor 局部坐标,随 yaw 一起转);
-	# 各层 item 沿该锚点的 +Y 逐层摞。
+	# 携带物垛底面贴住该锚点 + 抬升间隙。
 	var top_center: Vector3 = _model_local_box.get_center()
-	_carried_root.position = Vector3(top_center.x, _model_local_box.end.y + CARRY_HEAD_GAP, top_center.z)
-	var item_path: String = "res://runtime/frontend/models/entities/%s/%s.tscn" % [creature.carried_item_type, creature.carried_item_type]
-	var item_scene: PackedScene = load(item_path)
-	if not item_scene:
-		return
-	# 探针:量一个未缩放道具的本地盒(链式测量在 probe 本地系,与 probe 自身 scale 无关),
-	# 后续按统一缩放因子换算真实尺寸/偏移。
-	var probe: Node3D = item_scene.instantiate()
-	var box: AABB = _measure_local_box(probe)
-	probe.free()
-	if box.size == Vector3.ZERO:
-		_carried_root.hide()
-		return
-	var scale_factor: float = _carried_target_length() / maxf(box.size.x, box.size.z)
-	# 缩放后真实层厚(含微缝);水平居中:使道具缩放后的 AABB 中心对准基座中心
-	var layer_y: float = box.size.y * scale_factor * CARRY_LAYER_SPACING
-	var bottom_y: float = box.position.y * scale_factor
-	var center_x: float = (box.position.x + box.size.x * 0.5) * scale_factor
-	var center_z: float = (box.position.z + box.size.z * 0.5) * scale_factor
-	var count: int = mini(_carried_count_of_entity(), CARRY_VISIBLE_MAX)
-	for i in range(count):
-		var item: Node3D = item_scene.instantiate()
-		_carried_root.add_child(item)
-		item.owner = owner
-		item.scale = Vector3.ONE * scale_factor
-		# 平躺同向;第 i 层底边贴住层基座顶(y=0)再沿 +Y 摞高 i 层
-		item.position = Vector3(-center_x, -bottom_y + i * layer_y, -center_z)
-		_carried_items.append(item)
-	_carried_root.show()
+	_carried_stack.position = Vector3(top_center.x, _model_local_box.end.y + CARRY_HEAD_GAP, top_center.z)
+	# 目标长度随模型身高缩放(约身高 2/3,下限保证醒目),其余尺寸复用默认
+	_carried_stack.target_length = _carried_target_length()
+	_carried_stack.set_item_type(creature.carried_item_type)
+	_carried_stack.set_count(_carried_count_of_entity())
+	if not _carried_stack.visible:
+		_carried_stack.show()
+
+func _hide_carried():
+	if _carried_stack:
+		_carried_stack.hide()
 
 func _carried_count_of_entity() -> int:
 	var creature := entity as Creature
 	if not creature:
 		return 0
 	return creature.carried_count
-
-func _clear_carried_items():
-	for item: Node3D in _carried_items:
-		if is_instance_valid(item):
-			item.queue_free()
-	_carried_items.clear()
 
 # 携带物目标长度(横躺长轴),约模型身高 2/3,下限保证足够醒目
 func _carried_target_length() -> float:
