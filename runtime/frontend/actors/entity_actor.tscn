@@ -1,20 +1,7 @@
 [gd_scene format=3 uid="uid://02hvksu0iifn"]
 
 [ext_resource type="Script" uid="uid://clu83jjojamw2" path="res://runtime/frontend/actors/entity_actor.gd" id="1_uwtes"]
-
-[sub_resource type="StyleBoxFlat" id="StyleFlat_bg"]
-bg_color = Color(0, 0, 0, 0.55)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-
-[sub_resource type="StyleBoxFlat" id="StyleFlat_fill"]
-bg_color = Color(0.85, 0.2, 0.2, 0.95)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
+[ext_resource type="Script" path="res://runtime/frontend/ui/entity_health_bar.gd" id="2_hpbar"]
 
 [node name="entity_actor" type="Node3D" unique_id=1922527450]
 script = ExtResource("1_uwtes")
@@ -23,6 +10,4 @@ script = ExtResource("1_uwtes")
 unique_name_in_owner = true
 offset_right = 46.0
 offset_bottom = 5.0
-theme_override_styles/background = SubResource("StyleFlat_bg")
-theme_override_styles/fill = SubResource("StyleFlat_fill")
-show_percentage = false
+script = ExtResource("2_hpbar")

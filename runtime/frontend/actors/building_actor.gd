@@ -7,6 +7,8 @@ var building_model: Node3D = null
 var axis: Vector2i = Vector2i.ZERO
 var direction: Vector2i = Vector2i.UP
 
+@onready var capacity_bar: BuildingCapacityBar = %capacity_bar
+
 func bind(in_building: Building):
 	if building:
 		building.state_changed.disconnect(_on_building_state_changed)
@@ -19,6 +21,7 @@ func bind(in_building: Building):
 			building.stored_count_changed.disconnect(_on_building_stored_count_changed)
 	building = in_building
 	if not building:
+		capacity_bar.configure(null)
 		return
 	if building.type != type:
 		type = building.type
@@ -37,6 +40,7 @@ func bind(in_building: Building):
 		building.content_type_changed.connect(_on_building_content_type_changed)
 	if building.has_signal(&"stored_count_changed"):
 		building.stored_count_changed.connect(_on_building_stored_count_changed)
+	capacity_bar.configure(building)
 	_on_building_state_changed()
 	_on_building_progress_changed()
 	_on_building_aim_direction_changed()
@@ -57,6 +61,7 @@ func _on_type_changed():
 	if building_model:
 		add_child(building_model)
 		building_model.owner = owner
+		capacity_bar.setup(self, building_model)
 
 func _on_axis_changed():
 	position = Vector3(axis.x, 0, axis.y)
@@ -66,7 +71,6 @@ func _on_direction_changed():
 
 func _process(_delta: float):
 	_update_direction()
-	
 # 水平朝向:跟随 backend 的 aim_direction(信号驱动)
 func _on_building_aim_direction_changed():
 	if not building_model:
