@@ -170,7 +170,8 @@ func tick(in_delta: float):                      # void → 不写 -> void
 - **type 字符串即注册表主键**:backend 脚本路径、frontend 模型路径、`get_type_key()` 全部由它推出,新增类型见 §8。
 
 ### 5.3 行为树(LimboAI)
-- 实体 AI 用 **LimboAI 行为树**(v1.8 GDExtension):叶子任务写在 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,按需 `extends BTAction/BTCondition/BTDecorator`);固定行为树以 `.tres` 存 `runtime/backend/entities/ai/`,动态派发的活(code 组装)直接在 `BehaviorTree.new()` 上 `set_root_task`。BTTask 是 **Resource**,子节点用 `add_child`;状态常量用 `BT.Status.SUCCESS/FAILURE/RUNNING`;取实体/黑板用 `get_agent()` / `get_blackboard()`。
+- 实体 AI 用 **LimboAI 行为树**(v1.8 GDExtension):叶子任务写在 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,按需 `extends BTAction/BTCondition/BTDecorator`);行为树以 `.tres` 存 `runtime/backend/entities/ai/`。BTTask 是 **Resource**,子节点用 `add_child`;状态常量用 `BT.Status.SUCCESS/FAILURE/RUNNING`;取实体/黑板用 `get_agent()` / `get_blackboard()`。
+- **行为逻辑优先落 `.tres`,不用代码组装**:实体的行为链——固定树、派发给工人的活(如 `man_building.tres`)——尽量以 `BehaviorTree` `.tres` 资源表达,用 `preload` 引用;同一 `.tres` 模板被多个实例共享是安全的(`instantiate` 时深拷贝 task 树),实例差异一律放黑板传参(`&"target_position"`、`ProvideWorkloadTask.BB_BUILDING` 等键),不要在脚本里 `BehaviorTree.new()` + `set_root_task` 手拼整树。仅当树的形态完全由运行期数据决定、无法静态定义时才允许代码组装,且叶子一律仍走 `tasks/<type>_task.gd`。
 - **一棵树 = 一次任务,跑完重建**:`Creature` 持 `current_tree + bt_instance`,每帧 `bt_instance.update(in_delta)`(固定短 tick,无时间溢出/剩余时间语义);树返回非 RUNNING 即本任务结束,下帧经虚方法 `create_tree() -> BehaviorTree` 请求新树(`begin_tree(in_tree)` 供外部直接换活,如 LaborManager 派发)。`instantiate(agent, blackboard, owner, scene_root)` 需提供非空 scene root。
 - **运行时数据走黑板**(每实体一个 `Blackboard`):目标点、派发的活等用 `set_var/get_var` 传递;instantiate 会深拷贝 task 树,故共享 `.tres` 模板安全,实体差异放黑板。
 - 树内叶子只消费 `in_delta` 计时(不用墙钟),与固定 tick 一致;dizzy 等打断只是暂停喂树,实例状态原样保留(勿在恢复时重建实例)。
@@ -236,7 +237,7 @@ signal position_changed()
 
 **新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
 
-**新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树由实体在 `create_tree()` 返回(`.tres` 放 `runtime/backend/entities/ai/` 或代码组装),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 约定见 §5.3。
+**新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树以 `.tres` 落 `runtime/backend/entities/ai/`(优先 `.tres`,不代码组装,约定见 §5.3),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 用法见 §5.3。
 
 **给 Labor 加"活":** 写 `LaborTask` 子类并实现 `make_tree(in_labor) -> BehaviorTree`(每人一棵动作链树),经 `LaborManager.register_task` 提交;不需要再动 Labor 的执行模型。
 
