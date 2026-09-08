@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
 [ext_resource type="Script" uid="uid://r15egyrrggb8" path="res://runtime/backend/entities/ai/tasks/provide_workload_task.gd" id="2_work"]
 
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_21s5x"]
+
 [sub_resource type="BTAction" id="BTAction_move"]
 script = ExtResource("1_move")
 
@@ -14,4 +16,5 @@ children = [SubResource("BTAction_move"), SubResource("BTAction_work")]
 
 [resource]
 description = "顶岗任务:先走到岗位点(target_position),再为 work_building 建筑注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building。"
+blackboard_plan = SubResource("BlackboardPlan_21s5x")
 root_task = SubResource("BTSequence_root")
