@@ -521,9 +521,54 @@ type = "dirt"
 script = ExtResource("2_av5h1")
 land = SubResource("Resource_e2rri")
 
+[sub_resource type="Resource" id="Resource_prod_tree_land"]
+script = ExtResource("3_av5h1")
+type = "dirt"
+
+[sub_resource type="Resource" id="Resource_prod_tree_bd"]
+script = ExtResource("3_v310a")
+type = "tree_workshop"
+direction = Vector2i(0, -1)
+metadata/_custom_type_script = "uid://uuawcbwl4hsf"
+
+[sub_resource type="Resource" id="Resource_prod_tree_cell"]
+script = ExtResource("2_av5h1")
+land = SubResource("Resource_prod_tree_land")
+building = SubResource("Resource_prod_tree_bd")
+
+[sub_resource type="Resource" id="Resource_prod_mine_land"]
+script = ExtResource("3_av5h1")
+type = "dirt"
+
+[sub_resource type="Resource" id="Resource_prod_mine_bd"]
+script = ExtResource("3_v310a")
+type = "stone_mine"
+direction = Vector2i(0, -1)
+metadata/_custom_type_script = "uid://uuawcbwl4hsf"
+
+[sub_resource type="Resource" id="Resource_prod_mine_cell"]
+script = ExtResource("2_av5h1")
+land = SubResource("Resource_prod_mine_land")
+building = SubResource("Resource_prod_mine_bd")
+
+[sub_resource type="Resource" id="Resource_prod_craft_land"]
+script = ExtResource("3_av5h1")
+type = "dirt"
+
+[sub_resource type="Resource" id="Resource_prod_craft_bd"]
+script = ExtResource("3_v310a")
+type = "crafting_workshop"
+direction = Vector2i(0, -1)
+metadata/_custom_type_script = "uid://uuawcbwl4hsf"
+
+[sub_resource type="Resource" id="Resource_prod_craft_cell"]
+script = ExtResource("2_av5h1")
+land = SubResource("Resource_prod_craft_land")
+building = SubResource("Resource_prod_craft_bd")
+
 [sub_resource type="Resource" id="Resource_q7jl3"]
 script = ExtResource("1_xsf5p")
-cells = Array[ExtResource("2_av5h1")]([SubResource("Resource_3f7sc"), SubResource("Resource_23gpv"), SubResource("Resource_hjunc"), SubResource("Resource_jhylu"), SubResource("Resource_72070"), SubResource("Resource_3y3lv"), SubResource("Resource_3eyn8"), SubResource("Resource_redpl"), SubResource("Resource_kf0rd"), SubResource("Resource_wemuh")])
+cells = Array[ExtResource("2_av5h1")]([SubResource("Resource_3f7sc"), SubResource("Resource_23gpv"), SubResource("Resource_hjunc"), SubResource("Resource_jhylu"), SubResource("Resource_prod_tree_cell"), SubResource("Resource_prod_mine_cell"), SubResource("Resource_prod_craft_cell"), SubResource("Resource_redpl"), SubResource("Resource_kf0rd"), SubResource("Resource_wemuh")])
 
 [sub_resource type="Resource" id="Resource_nl4e1"]
 script = ExtResource("3_av5h1")
