@@ -1,0 +1,108 @@
+class_name Stockpile
+extends Building
+
+# 料堆:单格仓库。底盘(围栏)内只存放一种物品,item_type 可配置/空仓可更换。
+# 存量走料堆专属可观察属性(stored_count),不走 Building.progress——progress
+# 保留给"状态进度"(蓄力/冷却等过程量)语义。frontend model 据 stored_count/capacity
+# 显示堆叠物品。
+# "谁采、谁搬、谁领"由后续 labor/logistics 调度接入,本类只保证单物品存储语义正确。
+
+const CAPACITY: int = 50
+const DESIRED_MIN_COUNT: int = 0
+const DESIRED_MAX_COUNT: int = CAPACITY
+# 默认物品。仅当其有对应 frontend 物品模型时才可显示堆叠;其余类型无模型则暂不显示。
+const DEFAULT_ITEM_TYPE: String = "arrow"
+# 放置即满仓(原型期用于直接观察堆叠/作为初始弹药补给)。
+# 待"生产/搬运"物流链路接入后置 false,由调度系统按需填仓。
+const AUTO_FILL_ON_PLACE: bool = true
+
+var bag: Bag = null
+
+# 当前存放的物品类型。仅在空仓时允许更换(只能存一种物品)。
+var content_type: String = DEFAULT_ITEM_TYPE:
+	get:
+		return content_type
+	set(in_type):
+		if in_type == content_type:
+			return
+		content_type = in_type
+		if bag:
+			bag.item_type = in_type
+		content_type_changed.emit()
+signal content_type_changed()
+
+# 料堆容量(只读,供 frontend 归一化显示)
+var capacity: int = CAPACITY:
+	get:
+		return capacity
+
+# 存量镜像(bag.count 的对外可观察副本)。setter 只由内部 _sync_stored_count 驱动。
+var stored_count: int = 0:
+	get:
+		return stored_count
+	set(in_count):
+		if in_count == stored_count:
+			return
+		stored_count = in_count
+		stored_count_changed.emit()
+signal stored_count_changed()
+
+func _ready():
+	bag = Bag.new()
+	bag.name = "Bag"
+	bag.item_type = content_type
+	bag.capacity = CAPACITY
+	bag.disired_min_count = DESIRED_MIN_COUNT
+	bag.disired_max_count = DESIRED_MAX_COUNT
+	add_child(bag)
+	bag.owner = owner
+	bag.count_changed.connect(_sync_stored_count)
+	_register_bag()
+	if AUTO_FILL_ON_PLACE:
+		bag.add_count(CAPACITY)
+	_sync_stored_count()
+
+func _exit_tree():
+	_unregister_bag()
+
+# 更换存储物品:仅空仓时允许(换品需先清空)。失败返回 false。
+func set_content_type(in_type: String) -> bool:
+	if in_type == content_type:
+		return true
+	if stored_count > 0:
+		return false
+	content_type = in_type
+	return true
+
+# 入库/出库入口(供搬运/生产侧调用),返回实际生效数量。
+func store(in_count: int) -> int:
+	if not bag:
+		return 0
+	return bag.add_count(in_count)
+
+func take(in_count: int) -> int:
+	if not bag:
+		return 0
+	return bag.remove_count(in_count)
+
+func is_full() -> bool:
+	return stored_count >= CAPACITY
+
+# bag.count 变化 → 同步镜像属性,经 setter 触发 stored_count_changed
+func _sync_stored_count():
+	stored_count = bag.count if bag else 0
+
+func _register_bag():
+	var logistics: Logistics = _get_logistics()
+	if logistics:
+		logistics.register_bag(bag)
+
+func _unregister_bag():
+	var logistics: Logistics = _get_logistics()
+	if logistics:
+		logistics.unregister_bag(bag.id)
+
+func _get_logistics() -> Logistics:
+	if not Level.current:
+		return null
+	return Level.current.logistics
