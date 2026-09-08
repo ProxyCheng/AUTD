@@ -153,8 +153,9 @@ func _release_task(in_task: LaborTask):
 		in_task.queue_free()
 
 func _idle_tree() -> BehaviorTree:
+	# 空闲游荡:锚点=进入空闲时的位置,半径 3 内走走停停,待派活时被任务树替换
 	var tree := BehaviorTree.new()
-	tree.set_root_task(IdleTask.new())
+	tree.set_root_task(WanderTask.new())
 	return tree
 
 func _record_comes_first(in_a: TaskRecord, in_b: TaskRecord) -> bool:
