@@ -1,4 +1,4 @@
-[gd_resource type="BehaviorTree" format=3]
+[gd_resource type="BehaviorTree" format=3 uid="uid://dyrg0lwtxr3c2"]
 
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
 [ext_resource type="Script" uid="uid://r15egyrrggb8" path="res://runtime/backend/entities/ai/tasks/provide_workload_task.gd" id="2_work"]
