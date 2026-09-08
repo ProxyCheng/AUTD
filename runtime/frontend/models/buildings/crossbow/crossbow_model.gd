@@ -3,6 +3,15 @@ extends Node3D
 
 const ANIM_NAME: StringName = &"bone|boneAction_001"
 
+# 备箭垛:显示在炮塔平台(随 %cog_top 水平转向)上的备用弩箭。
+# 弦上那支由 %Arrow 负责(仅在非 idle 显示),本垛展示"弦下"的备箭,
+# 数量 = backend 转发的 stored_count - 1。几何由 ItemStack 组件渲染(3×3=9 封顶)。
+# 备箭垛在"模型真实单位(根空间)"下的落点锚点(垛底面中心)。
+# 实测:八角形平台板(deck)顶面 y≈0.424,x∈[-0.386,0.388], z∈[-0.364,0.414];
+# 中央机构(bracket)占 x∈[-0.155,0.165], z∈[-0.05,0.28],故净空区为后部( z<0 )。
+# 锚点取平台面(y=0.424)后部右侧净空:整垛底边贴平台,避开中央机构。常量可微调。
+const AMMO_ANCHOR: Vector3 = Vector3(0.22, 0.424, -0.20)
+
 func _ready():
 	# 播放器自带时钟不用,姿态完全由 progress 每帧采样决定。
 	# 动画约定为单次"满弦→松弦",起点=满弦;换算见 set_progress。
@@ -15,6 +24,7 @@ func _ready():
 	%AnimationPlayer.seek(%AnimationPlayer.current_animation_length, true)
 	# 初始处于 idle(空闲),箭默认隐藏,待 backend 状态落到非 idle 再显示
 	%Arrow.visible = false
+	_build_ammo_stack()
 
 # 蓄力/待发/射击期间显示箭;仅 idle(空闲)隐藏。
 var _show_arrow: bool = false
@@ -66,3 +76,39 @@ func set_target_position(in_position: Vector3):
 	var distance: float = global_position.distance_squared_to(in_position)
 	var max_angle: float = 40 * PI / 180
 	%body.rotation.x = max_angle * (1 - (distance - 1) / 5)
+
+# —— 备箭垛(挂 %cog_top,随炮塔转向) ——
+
+# ItemStack 组件实例
+var _ammo_stack: ItemStack = null
+
+# 在 %cog_top 下建备箭垛。%cog_top 深在 FBX 导入层(base 含 40 缩放 + 旋转),
+# 直接用 root 空间的真实锚点经 base 逆变换写入其本地 transform,
+# 使垛内以真实尺寸落在甲板顶面,并随炮塔水平转向。
+func _build_ammo_stack():
+	var cog_top: Node3D = %cog_top
+	_ammo_stack = ItemStack.new()
+	_ammo_stack.name = "AmmoStack"
+	# 配置几何:3 支×3 层 = 9 支封顶;箭长轴略小,平放同向逐层摞
+	_ammo_stack.per_row = 3
+	_ammo_stack.layer_count = 3
+	_ammo_stack.target_length = 0.35
+	_ammo_stack.row_spacing = 1.05
+	_ammo_stack.layer_spacing = 1.2
+	# %cog_top 的父链是 root → base → cog_top(FBX 导入 base 含 40 缩放 + 旋转)。
+	# 把"root 空间真实锚点"经整条父链逆变换,换算成 %cog_top 本地坐标;
+	# 这样垛内以真实尺寸、真实方位落在锚点处,并随炮塔水平转向。
+	var base: Node3D = get_node("base")
+	var cog_top_local: Node3D = %cog_top
+	var head: Transform3D = base.transform * cog_top_local.transform
+	var real_anchor := Transform3D(Basis.IDENTITY, AMMO_ANCHOR)
+	_ammo_stack.transform = head.affine_inverse() * real_anchor
+	cog_top.add_child(_ammo_stack)
+	_ammo_stack.set_item_type("arrow")
+	_ammo_stack.set_count(0)
+
+# BuildingActor 转发存量变化:备箭数 = stored_count - 1(弦上那支由 %Arrow 显示),
+# 下限 0,上限 AMMO_STACK_SIZE。
+func set_stored_count(in_count: int, in_capacity: int):
+	if _ammo_stack:
+		_ammo_stack.set_count(maxi(in_count - 1, 0))

@@ -38,17 +38,43 @@ signal aim_direction_changed()
 var input_bag: Bag
 var _shift_fired: bool = false  # 本班值岗是否已射出一发(完成一次生产)
 
+# 内容量可观察属性(供 frontend 显示旁侧备箭;复用 BuildingActor 鸭子转发管线)。
+# 注意 stored_count 镜像 input_bag.count;前端展示时会再扣掉"在弦上的一支"。
+
+# 容量(只读,供 frontend 归一化显示)
+var capacity: int = 10:
+	get:
+		return capacity
+
+# 存量镜像(input_bag.count 的对外可观察副本)。setter 只由内部 _sync_stored_count 驱动。
+var stored_count: int = 0:
+	get:
+		return stored_count
+	set(in_count):
+		if in_count == stored_count:
+			return
+		stored_count = in_count
+		stored_count_changed.emit()
+signal stored_count_changed()
+
 func _ready():
 	input_bag = Bag.new()
 	add_child(input_bag)
 	input_bag.owner = owner
 	input_bag.item_type = "arrow"
+	input_bag.max_count = capacity
 	# 纯请求方:低于上限即求补到满,永不外供(无富余可出)
 	input_bag.preferred_min_count = input_bag.max_count
 	input_bag.preferred_max_count = input_bag.max_count
 	input_bag.access_position = Vector2(axis)
+	input_bag.count_changed.connect(_sync_stored_count)
 	_register_bag()
+	_sync_stored_count()
 	_maintain_manning()
+
+# input_bag 计数变化 → 同步镜像属性,经 setter 触发 stored_count_changed
+func _sync_stored_count():
+	stored_count = input_bag.count if input_bag else 0
 
 func is_work_done() -> bool:
 	return _shift_fired
