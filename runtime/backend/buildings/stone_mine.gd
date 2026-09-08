@@ -1,5 +1,5 @@
 class_name StoneMine
-extends ProducerWorkshop
+extends Workshop
 
 # 石矿:工人注入 workload 开采石头(stone)入输出仓。产出连续,输出仓满即停。
 # 只需覆写 _produces() 声明输出物类型;无输入要求(天然资源,不消耗)。
