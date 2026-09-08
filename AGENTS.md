@@ -28,7 +28,7 @@ editor/           ← 关卡数据编辑工具(@tool,只在编辑器内运行)
 | **editor** | 编辑 `*.tres` 数据资源 | 引用 backend 的 `*Data` 类与 frontend 的模型场景 | ❌ 被 runtime 反向引用 |
 
 **状态流约定:**
-- 后端每帧被推进:`level_actor.gd` 里 `level.tick(in_delta * speed)`,逐层下发 `Map.tick → Cell.tick → Building.tick`、`Room.tick → Entity.tick → Action.tick`。
+- 后端每帧被推进:`level_actor.gd` 里 `level.tick(in_delta * speed)`,逐层下发 `Map.tick → Cell.tick → Building.tick`、`Room.tick → Entity.tick → 当前行为树 update`。
 - backend 状态变化通过信号向外广播(`cells_changed` / `entities_changed` / `position_changed` / `state_changed`…),frontend 只依赖这些信号刷新表现。
 - frontend 的输入意图(如 `BuildingMode` 点格子)最终调用 backend 方法(`map.place_building(axis, data)`)落状态,再由信号回流刷新。
 - 可观察属性一律走"getter/setter + guard + 发信号"模式(见 §5.4),而不是轮询。
@@ -48,8 +48,7 @@ autd/
 │  │  ├─ buildings/       # 具体建筑:<type>.gd(building.gd / crossbow.gd / main_base.gd / enemy_spawner.gd)
 │  │  ├─ data/            # 纯数据 Resource 类:*_data.gd
 │  │  └─ entities/        # 具体实体:<type>.gd(entity/creature/enemy/labor/slime/arrow.gd)
-│  │     ├─ actions/      # 行为节点:action_status.gd action.gd composite/sequence/selector/idle/move_to/…
-│  │     └─ brains/       # 劳工大脑:<name>_brain.gd
+│  │     └─ ai/           # LimboAI 行为树:ai/tasks/<type>_task.gd(class_name <Type>Task)+ *.tres 树资源
 │  ├─ configs/            # *.tres 关卡/初始数据文件(如 level0.tres)
 │  └─ frontend/           # 表现层
 │     ├─ scenes/          # 顶层组合场景 + 其根脚本(battle.tscn、level_actor.gd)
@@ -80,8 +79,8 @@ autd/
 
 | 对象 | 规则 | 示例(取自现有代码) |
 |---|---|---|
-| 文件 | snake_case,与类名一致 | `building_actor.gd` `move_to_action.gd` |
-| `class_name` | PascalCase | `Cell` `LevelActor` `MapEditor` `BuildingData` `MoveToAction` |
+| 文件 | snake_case,与类名一致 | `building_actor.gd` `move_to_target_task.gd` |
+| `class_name` | PascalCase | `Cell` `LevelActor` `MapEditor` `BuildingData` `MoveToTargetTask` |
 | 变量/属性/局部量 | snake_case | `fire_timer` `move_speed` `entity_actors_pool` |
 | 常量 | UPPER_SNAKE(或类型内 `const`) | `const PHYSICAL: int = 0`;`const SUCCESS: int = 0` |
 | 枚举 | 类型名用 PascalCase,成员用 Pascal | `enum BagState { Satisified, Understocked, Overstocked }`(注意现有拼写,新枚举成员用 PascalCase) |
@@ -106,10 +105,10 @@ signal entities_changed(added_entity_ids: Array, removed_entity_ids: Array)
 ### 4.1 类型必须写清楚
 - **成员变量**:显式类型 + 默认值(`var health: float = 100`、`var target: Entity = null`、`var axis: Vector2i = Vector2i.ZERO`)。
 - **函数形参**:全部显式类型。
-- **返回值**:非 void **必须**标注(`-> Land`、`-> ActionStatus`、`-> bool`);**void 一律省略 `-> void`**(存量 `camera_controller.gd` 等带 `-> void` 的写法不沿用)。
+- **返回值**:非 void **必须**标注(`-> Land`、`-> BehaviorTree`、`-> bool`);**void 一律省略 `-> void`**(存量 `camera_controller.gd` 等带 `-> void` 的写法不沿用)。
 - **局部变量**:用显式类型或 `:=` 推导均可,现有代码两种都用;禁止无标注、无初始化的动态 `var x;`。
 - **容器**:优先泛型容器 `Array[T]`、`Dictionary[K, V]`,如 `Array[CellRowData]`、`Dictionary[Vector2i, bool]`。
-- **类型化遍历**:`for cell: Cell in cells.values()`、`for child: Action in get_children()`。
+- **类型化遍历**:`for cell: Cell in cells.values()`、`for worker: Labor in chosen`。
 - 不写动态类型后置转型的绕行 hack(如把字段声明成 `var x` 再在别处 `as` 来回转)。
 
 ```gdscript
@@ -124,7 +123,7 @@ func tick(in_delta: float):                      # void → 不写 -> void
 
 ### 4.2 函数形参一律 `in_` 前缀
 - **所有**函数入参(包括 setter 形参、`bind`/`load_data`/回调形参)前缀 `in_`:
-  `tick(in_delta: float)`、`load_data(in_data: MapData)`、`set_brain(in_brain_type: StringName)`、`_init(in_type: int, in_remained_time: float = 0)`、属性 `set(in_target)`。
+  `tick(in_delta: float)`、`load_data(in_data: MapData)`、`begin_tree(in_tree: BehaviorTree)`、`_init(in_required_count: int, in_priority: int)`、属性 `set(in_target)`。
 - 例外:无。参考 `runtime/backend/cell.gd` `room.gd` `buildings/crossbow.gd`、`runtime/frontend/actors/*`。
 - **属性 getter/setter 内局部暂存量、`for` 迭代变量不要求 `in_`**(它们不是入参)。
 
@@ -135,7 +134,7 @@ func tick(in_delta: float):                      # void → 不写 -> void
 - 事件回调里避免魔法数字拼接 UI;路径、数值集中管理(如需可加常量/数据字段)。
 
 ### 4.4 字符串与 StringName
-- **StringName** 用 `&"..."` 字面量:`set_mode(&"roaming")`、`%AnimationPlayer.play(&"bone|boneAction_001")`、`set_brain(&"courier")` —— 用于跨帧缓存比较的 id / 动画名。
+- **StringName** 用 `&"..."` 字面量:`set_mode(&"roaming")`、`%AnimationPlayer.play(&"bone|boneAction_001")`、`blackboard.set_var(&"target_position", …)` —— 用于跨帧缓存比较的 id / 动画名 / 黑板变量名。
 - 游戏内普通文本/可变化值用 `String`(`var state: String`、`item_type: String`)。
 - 字符串拼接统一 `%`:`"Entity_%s" % type`、`"res://runtime/backend/entities/%s.gd" % in_type`。
 
@@ -167,15 +166,16 @@ func tick(in_delta: float):                      # void → 不写 -> void
       entity.type = in_type
       return entity
   ```
-- 轻值对象用"命名构造"式静态方法(如 `Damage.physical(10)`、`ActionStatus.success(0)`),返回类型标注清楚。
+- 轻值对象用"命名构造"式静态方法(如 `Damage.physical(10)`),返回类型标注清楚。
 - **type 字符串即注册表主键**:backend 脚本路径、frontend 模型路径、`get_type_key()` 全部由它推出,新增类型见 §8。
 
-### 5.3 行为树 Actions / Brains
-- `Entity` 持有 `action: Action`;`Creature.tick_action()` 用 `while remained_time > 0` 消费时间,`assert(action_status.remained_time < remained_time, "Loop Detected")` 防死循环。
-- `Action`: `enter()` / `tick(in_delta) -> ActionStatus` / `leave()`;`ActionStatus` 返回剩余时间并带 `is_success/is_failure/is_running()`。
-- 组合用 `CompositeAction`(把子 Action `add_child`),派生出 `SequenceAction` / `SelectorAction`。
-- 实体把"当前该干什么"委托给一个 `Action`(`Enemy.create_action()` 返回 `SequenceAction([...])`);`Labor` 更进一步用 `Brain`(`set_brain(&"courier")` 动态 `load` `brains/%s_brain.gd`)。
-- Action/Brain 运行时才挂到实体下:记得 `add_child` + `owner = owner`,`leave()` 后 `queue_free()`。
+### 5.3 行为树(LimboAI)
+- 实体 AI 用 **LimboAI 行为树**(v1.8 GDExtension):叶子任务写在 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,按需 `extends BTAction/BTCondition/BTDecorator`);固定行为树以 `.tres` 存 `runtime/backend/entities/ai/`,动态派发的活(code 组装)直接在 `BehaviorTree.new()` 上 `set_root_task`。BTTask 是 **Resource**,子节点用 `add_child`;状态常量用 `BT.Status.SUCCESS/FAILURE/RUNNING`;取实体/黑板用 `get_agent()` / `get_blackboard()`。
+- **一棵树 = 一次任务,跑完重建**:`Creature` 持 `current_tree + bt_instance`,每帧 `bt_instance.update(in_delta)`(固定短 tick,无时间溢出/剩余时间语义);树返回非 RUNNING 即本任务结束,下帧经虚方法 `create_tree() -> BehaviorTree` 请求新树(`begin_tree(in_tree)` 供外部直接换活,如 LaborManager 派发)。`instantiate(agent, blackboard, owner, scene_root)` 需提供非空 scene root。
+- **运行时数据走黑板**(每实体一个 `Blackboard`):目标点、派发的活等用 `set_var/get_var` 传递;instantiate 会深拷贝 task 树,故共享 `.tres` 模板安全,实体差异放黑板。
+- 树内叶子只消费 `in_delta` 计时(不用墙钟),与固定 tick 一致;dizzy 等打断只是暂停喂树,实例状态原样保留(勿在恢复时重建实例)。
+- **frontend state 契约**:叶子输出的 `state` 取值与 model 动画约定一致(`"idle"`/`"walk"`…,参考 §5.4),由叶子 `_enter/_tick` 里设实体可观察属性。
+- **LaborManager 派活**:每工人一棵 `JobRunnerTask` 包装树,运行数据(`job_tree`/`active_task`)写进该工人黑板;JobRunnerTask 每 tick 查 `active_task.is_cancelled`,取消即 FAILURE,工人经 `request_work` 归还调度池。
 
 ### 5.4 可观察属性模式
 凡"外部(frontend)需要跟随变化"的属性,统一走:
@@ -234,7 +234,11 @@ signal position_changed()
 2. `runtime/frontend/models/buildings/foo/foo.tscn` + `foo_model.gd`(`class_name FooModel`;含模型/动画,脚本 `set_state`/`set_progress` 等可选);
 3. 数据层字段 `BuildingData.type = "foo"`;`Building.create("foo")` 自动生效,无需改工厂。
 
-**新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`);若需新行为,加 `entities/actions/`;若 Labor 要新大脑,加 `entities/brains/<name>_brain.gd`。
+**新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
+
+**新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树由实体在 `create_tree()` 返回(`.tres` 放 `runtime/backend/entities/ai/` 或代码组装),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 约定见 §5.3。
+
+**给 Labor 加"活":** 写 `LaborTask` 子类并实现 `make_tree(in_labor) -> BehaviorTree`(每人一棵动作链树),经 `LaborManager.register_task` 提交;不需要再动 Labor 的执行模型。
 
 **新增地表类型 `baz`:** 确保 `land.gd` 的 `type` 取值 `"baz"`,并放 `runtime/frontend/textures/land_baz.png`(贴图路径由 `"land_%s" % type` 推导)。
 
