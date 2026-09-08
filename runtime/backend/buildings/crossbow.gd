@@ -7,6 +7,10 @@ const FIRE_TIME: float = 0.1
 const ROTATE_SPEED: float = 2.5
 # 判定"对准"的朝向夹角容差(弧度)
 const AIM_EPSILON: float = 0.05
+# 有人值守的判定窗口:超过该时长无 worker 注入 work() 即视为无人,塔停摆
+const MANNED_TIMEOUT: float = 0.2
+# 岗位点:机器所在格子的一个固定角(相对机器坐标的偏移),可按模型微调方向/大小
+const WORK_ENTRY_OFFSET: Vector2 = Vector2(0.4, 0.4)
 
 var fire_timer: float = 0
 var fire_anim_timer: float = 0
@@ -31,6 +35,10 @@ var aim_direction: Vector2 = Vector2(0, 1):
 signal aim_direction_changed()
 
 var input_bag: Bag
+var manning_task: ManBuildingTask = null
+var _worker_requested: bool = false
+var _manned_timer: float = 0  # >0 表示有人值守(近期有 worker 注入 work())
+var _shift_fired: bool = false  # 本班值岗是否已射出一发(完成一次生产)
 
 func _ready():
 	input_bag = Bag.new()
@@ -38,11 +46,56 @@ func _ready():
 	input_bag.owner = owner
 	input_bag.item_type = "arrow"
 	input_bag.disired_min_count = input_bag.disired_max_count
+	_maintain_manning()
+
+func _exit_tree():
+	_cancel_worker_request()
+
+# 一次生产 = 本班值岗期间射出一发弩箭。满弦但未开火时工人继续值守(负责转身瞄准);
+# 射出后工人离岗,塔再请求补员。无人值守时塔不寻敌、不转向、不开火。
+func is_work_done() -> bool:
+	return _shift_fired
+
+func _get_manager() -> LaborManager:
+	if not Level.current:
+		return null
+	return Level.current.labor_manager
+
+# 每帧按需维护:无人且未满弦、没有在途请求时,向 LaborManager 注册一个顶岗任务。
+# 任务在射出一发后完成(或工人流失被取消),节点释放后自动补位;
+# LaborManager 会派最近的空闲劳工(通常仍是刚离岗、守在岗位旁的那位)。
+func _maintain_manning():
+	if not is_inside_tree():
+		return
+	var manager := _get_manager()
+	if not manager:
+		return
+	if _worker_requested:
+		if manning_task and is_instance_valid(manning_task):
+			return
+		_worker_requested = false
+	if fire_timer < CHARGE_TIME and not _is_manned():
+		_worker_requested = true
+		manning_task = ManBuildingTask.new(self, _work_entry_position())
+		manager.register_task(manning_task)
+
+func _cancel_worker_request():
+	_worker_requested = false
+	var manager := _get_manager()
+	if is_instance_valid(manager) and manning_task and is_instance_valid(manning_task):
+		manager.cancel_task(manning_task)
+	manning_task = null
+
+# 岗位点:机器所在格子固定一个角(相对自身坐标 WORK_ENTRY_OFFSET),贴机器且不重叠。
+func _work_entry_position() -> Vector2:
+	return Vector2(axis) + WORK_ENTRY_OFFSET
+
+func _is_manned() -> bool:
+	return _manned_timer > 0
 
 func tick(in_delta: float):
-	# 本塔为 workload 驱动:蓄力(充能)完全经 work() 注入,此处不消耗时间。
-	# tick 仅负责瞄准与 firing 动画计时,以及"满弦 + 对准"的发射判定。
-	# 无 worker 注入 work() 时,fire_timer 恒为 0,塔停摆不开火。
+	# 本塔为 workload 驱动:蓄力经 worker 注入 work(),tick 负责瞄准与 firing 计时,
+	# 以及"满弦 + 对准 + 有人值守"的发射判定。无人值守时整塔停摆(不寻敌/不转/不射)。
 	if state == "firing":
 		fire_anim_timer -= in_delta
 		progress = clampf(fire_anim_timer / FIRE_TIME, 0, 1)
@@ -51,11 +104,15 @@ func tick(in_delta: float):
 			state = "idle"
 			progress = 0
 		return
+	_manned_timer = maxf(_manned_timer - in_delta, 0)
+	_maintain_manning()
+	if not _is_manned():
+		return
 	target = find_target()
 	_rotate_aim(in_delta)
 	if fire_timer >= CHARGE_TIME:
 		if target and is_aimed():
-			# 满弦且对准→发射;firing 松弦动画由 tick 时钟驱动
+			# 满弦且对准且有人值守→发射;firing 松弦动画由 tick 时钟驱动
 			fire()
 			state = "firing"
 			fire_anim_timer = FIRE_TIME
@@ -66,8 +123,12 @@ func tick(in_delta: float):
 		progress = 1
 
 # worker 每帧注入劳动量(delta * efficiency),累积为蓄力进度。
-# 充能命中 CHARGE_TIME 后停驻 ready,等待 tick 判定对准发射。
+# 每次注入都刷新"有人值守"窗口;新一轮值岗(上一工人离岗后首次注入)清零发射标记。
 func work(in_workload: float):
+	var was_unmanned := not _is_manned()
+	_manned_timer = MANNED_TIMEOUT
+	if was_unmanned:
+		_shift_fired = false
 	if state == "firing":
 		# 射击窗口不接受劳作
 		return
@@ -112,6 +173,7 @@ func fire():
 	arrow.move_speed = 10
 	arrow.set_target_entity(target)
 	room.add_entity(arrow)
+	_shift_fired = true  # 本班值岗完成一次生产,工人下一 tick 离岗
 
 func find_target() -> Entity:
 	var room: Room = Level.current.room
