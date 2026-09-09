@@ -12,7 +12,8 @@ func _ready():
 	# 堆垛几何:每排 3、共 3 层 → 满堆 9;目标长轴 0.5,微缝防 z-fight
 	content_stack.per_row = 3
 	content_stack.layer_count = 3
-	content_stack.target_length = 0.5
+	# 目标长轴缩小:原木堆需落在所属格子 [-0.5, 0.5] 内,整垛半宽需 < 格子半径
+	content_stack.target_length = 0.45
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
 	# 本建筑专产原木;后端输出仓变化经 set_stored_count 驱动显示

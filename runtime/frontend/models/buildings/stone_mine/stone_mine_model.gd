@@ -8,9 +8,10 @@ extends Node3D
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
-	content_stack.per_row = 3
+	content_stack.per_row = 2
 	content_stack.layer_count = 3
-	content_stack.target_length = 0.5
+	# 石块本身很宽:每排降到 2 并缩短长轴,使整垛落在格子 [-0.5, 0.5] 内
+	content_stack.target_length = 0.38
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
 	# 本建筑专产石头

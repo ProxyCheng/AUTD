@@ -10,7 +10,8 @@ extends Node3D
 func _ready():
 	content_stack.per_row = 3
 	content_stack.layer_count = 3
-	content_stack.target_length = 0.5
+	# 箚:箭头很长但很窄,缩短长轴使整垛落在格子 [-0.5, 0.5] 内
+	content_stack.target_length = 0.4
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
 	# 本建筑专产箭
