@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://k7py4fxsm8wbd" path="res://runtime/frontend/ui/crossbow_inspector_panel.tscn" id="13_inspec"]
 [ext_resource type="PackedScene" uid="uid://j5nw2dvcq9kyf" path="res://runtime/frontend/ui/workshop_inspector_panel.tscn" id="14_inspec"]
 [ext_resource type="Script" uid="uid://biwufuh3iict1" path="res://runtime/frontend/ui/building_inspector_host.gd" id="15_host"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/stockpile_inspector_panel.tscn" id="16_sip"]
 
 [node name="level" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
@@ -105,3 +106,5 @@ script = ExtResource("15_host")
 [node name="CrossbowPanel" parent="inspector/Panel" unique_id=1113869203 instance=ExtResource("13_inspec")]
 
 [node name="WorkshopPanel" parent="inspector/Panel" unique_id=1113869204 instance=ExtResource("14_inspec")]
+
+[node name="StockpilePanel" parent="inspector/Panel" unique_id=1113869205 instance=ExtResource("16_sip")]

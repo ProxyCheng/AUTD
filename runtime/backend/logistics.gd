@@ -130,15 +130,20 @@ func _on_task_finished(in_task: LaborTask):
 		return  # 非本调度生成的搬运任务(如顶岗任务)忽略
 	var info: Dictionary = _tasks.get(in_task)
 	_tasks.erase(in_task)
-	var dest_bag: Bag = info.get("dest_bag")
-	if dest_bag and is_instance_valid(dest_bag) and bags.has(dest_bag.id):
-		var reserved: int = int(_inbound_reserved.get(dest_bag.id, 0))
-		_inbound_reserved.set(dest_bag.id, maxi(0, reserved - int(info.get("amount"))))
-		changed_bags.set(dest_bag.id, true)
+	# 先把字典里的 bag 取出为无类型临时变量,再 is_instance_valid 判定后才赋给 typed 变量。
+	# 若先 `var x: Bag = info.get(...)`,赋值瞬间遇上已 queue_free 的 bag 就会抛
+	# "Trying to assign invalid previously freed instance"(赋值本身即崩,is_instance_valid 赶不上)。
+	var raw_dest: Variant = info.get("dest_bag")
+	# is_instance_valid 对已 freed 的 Variant 是安全的(返回 false);先判它,true 才敢用 `is`
+	# (freed 对象上做 `is` 也会崩)。故顺序必须是 is_instance_valid → is。
+	if is_instance_valid(raw_dest) and raw_dest is Bag and bags.has(raw_dest.id):
+		var reserved: int = int(_inbound_reserved.get(raw_dest.id, 0))
+		_inbound_reserved.set(raw_dest.id, maxi(0, reserved - int(info.get("amount"))))
+		changed_bags.set(raw_dest.id, true)
 	# 任务结束必然动了源 bag(取货)或目标 bag(放货);标记源侧以备再估
-	var source_bag: Bag = info.get("source_bag")
-	if source_bag and is_instance_valid(source_bag) and bags.has(source_bag.id):
-		changed_bags.set(source_bag.id, true)
+	var raw_source: Variant = info.get("source_bag")
+	if is_instance_valid(raw_source) and raw_source is Bag and bags.has(raw_source.id):
+		changed_bags.set(raw_source.id, true)
 
 func _cancel_tasks_for_bag(in_bag_id: int):
 	var manager := _get_manager()
@@ -147,9 +152,13 @@ func _cancel_tasks_for_bag(in_bag_id: int):
 	var doomed: Array = []
 	for task: TransportTask in _tasks.keys():
 		var info: Dictionary = _tasks.get(task)
-		var source_bag: Bag = info.get("source_bag")
-		var dest_bag: Bag = info.get("dest_bag")
-		if source_bag and source_bag.id == in_bag_id or dest_bag and dest_bag.id == in_bag_id:
+		# 用无类型临时变量,Avoid 赋值瞬间遇上已 freed 的 bag(typed 赋值即崩)
+		var raw_source: Variant = info.get("source_bag")
+		var raw_dest: Variant = info.get("dest_bag")
+		# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+		var src_id: int = raw_source.id if (is_instance_valid(raw_source) and raw_source is Bag) else -1
+		var dst_id: int = raw_dest.id if (is_instance_valid(raw_dest) and raw_dest is Bag) else -1
+		if src_id == in_bag_id or dst_id == in_bag_id:
 			doomed.append(task)
 	for task: TransportTask in doomed:
 		if is_instance_valid(task) and not task.is_cancelled:

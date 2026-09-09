@@ -25,10 +25,12 @@ func configure(in_building: Building) -> bool:
 		chosen.call(&"configure", in_building)
 	return true
 
-# 按建筑类型选子面板(Crossbow 先于 Workshop)。
+# 按建筑类型选子面板(Crossbow 先于 Workshop;Stockpile 是独立 Building 子类,非 Workshop)。
 func _select_panel(in_building: Building) -> Control:
 	if in_building is Crossbow:
 		return get_node_or_null("CrossbowPanel")
+	if in_building is Stockpile:
+		return get_node_or_null("StockpilePanel")
 	if in_building is Workshop:
 		return get_node_or_null("WorkshopPanel")
 	return null
@@ -50,9 +52,18 @@ func _ready():
 			child.hide()
 			if not child.closed.is_connected(_on_child_closed):
 				child.closed.connect(_on_child_closed)
+			if not child.delete_requested.is_connected(_on_child_delete_requested):
+				child.delete_requested.connect(_on_child_delete_requested)
 
 # 任一子面板被关闭(×):级联 LevelActor.close_inspector 回 roaming。
 func _on_child_closed():
 	if _closing:
 		return
 	owner.close_inspector()
+
+# 任一子面板点 Delete:级联 LevelActor.delete_building(building)(销毁建筑),再由其关闭面板。
+func _on_child_delete_requested(in_building: Building):
+	if _closing:
+		return
+	if owner.has_method(&"delete_building"):
+		owner.call(&"delete_building", in_building)

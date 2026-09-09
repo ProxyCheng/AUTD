@@ -36,9 +36,12 @@ func inspect_building(in_building: Building):
 	var panel: Node = %inspector.get_node("Panel")
 	if not panel or not panel.has_method(&"configure"):
 		return
-	# configure 返回 true 才说明有对应面板被打开;main_base/enemy_spawner 等无面板时保持 roaming
+	# configure 返回 true 才说明有对应面板被打开;
+	# 无面板建筑(main_base/enemy_spawner 等)撤销选中(去掉高亮),保持 roaming。
 	if panel.call(&"configure", in_building):
 		set_mode(&"inspect")
+	else:
+		clear_selection()
 
 # 记录当前选中建筑并广播(高亮 actor 由 map_actor 监听 selected_changed 驱动)。
 func select_building(in_building: Building):
@@ -59,6 +62,15 @@ func close_inspector():
 	clear_selection()
 	%inspector.get_node("Panel").call(&"close")
 	set_mode(&"roaming")
+
+# 删除建筑(检视面板内 Delete 按钮触发):先关闭面板(断开其对 building 的绑定),
+# 再经 backend map.remove_building(axis) 销毁建筑并广播 cells_changed,由 frontend 回收 actor。
+func delete_building(in_building: Building):
+	if in_building == null:
+		return
+	close_inspector()
+	if level and level.map:
+		level.map.remove_building(in_building.axis)
 
 func set_mode(in_mode_id: StringName):
 	if mode:

@@ -65,3 +65,14 @@ func place_building(in_axis: Vector2i, in_building_data: BuildingData, emit_sign
 	if emit_signal:
 		cells_changed.emit({ in_axis: true })
 	return cell.building
+
+# 删除指定格的建筑:清引用 → 广播(驱动 frontend 回收 actor)→ 销毁节点
+# (建筑/子类 _exit_tree 负责注销参与逻辑的 bag、取消 worker 请求)。无建筑则空操作。
+func remove_building(in_axis: Vector2i):
+	var cell: Cell = get_cell(in_axis)
+	if not cell or not cell.building:
+		return
+	var building: Building = cell.building
+	cell.building = null
+	cells_changed.emit({ in_axis: true })
+	building.queue_free()

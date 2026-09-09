@@ -11,8 +11,13 @@ var _inner: BTInstance = null
 
 func _tick(in_delta: float) -> int:
 	var bb := get_blackboard()
-	var task: LaborTask = bb.get_var(LaborTask.BB_ACTIVE_TASK, null, false)
-	if task == null or task.is_cancelled:
+	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+	var raw_task: Variant = bb.get_var(LaborTask.BB_ACTIVE_TASK, null, false)
+	if not is_instance_valid(raw_task) or not (raw_task is LaborTask):
+		_finish(bb)
+		return BT.Status.FAILURE
+	var task: LaborTask = raw_task
+	if task.is_cancelled:
 		_finish(bb)
 		return BT.Status.FAILURE
 	if _inner == null:

@@ -20,9 +20,11 @@ func _tick(in_delta: float) -> int:
 	var entity := get_agent() as Entity
 	if not entity:
 		return BT.Status.FAILURE
-	var building: Workshop = get_blackboard().get_var(BB_BUILDING, null, false)
-	if not building or not is_instance_valid(building):
+	var raw_building: Variant = get_blackboard().get_var(BB_BUILDING, null, false)
+	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+	if not is_instance_valid(raw_building) or not (raw_building is Workshop):
 		return BT.Status.FAILURE
+	var building: Workshop = raw_building
 	if entity.state != "work":
 		entity.state = "work"
 	building.work(in_delta * efficiency)

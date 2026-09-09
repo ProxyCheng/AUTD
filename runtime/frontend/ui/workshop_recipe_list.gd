@@ -22,6 +22,12 @@ func populate(in_building: Workshop):
 		_append_row(recipe, row_index)
 		row_index += 1
 
+# 公开清空:移除全部配方行并重置 building 引用。
+# 关闭面板/解绑时调用,避免行 _process 在建筑被释放后仍访问已失效 _building(freed instance)。
+func clear():
+	_building = null
+	_clear()
+
 func _clear():
 	for child in get_children():
 		remove_child(child)

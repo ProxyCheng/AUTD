@@ -37,11 +37,14 @@ func _on_viewing_axis_changed(in_new_axis: Dictionary, in_old_axis: Dictionary):
 func _on_cells_changed(in_axis: Dictionary):
 	var camera = get_viewport().get_camera_3d() as CameraController
 	for axis in in_axis.keys():
+		# 建筑可能被删除(cell.building → null + queue_free):无论该轴当前是否可见都要先
+		# 回收其 building actor,否则 orphaned actor 在树上 _process 会访问已释放的 building
+		# (freed instance)。land actor 常驻(依赖可见性),仍按可见性回收/放置。
+		_recycle_building_actor(axis)
 		if not camera or not camera.is_axis_visible(axis):
 			continue
 		_recycle_land_actor(axis)
 		_place_land_actor(axis)
-		_recycle_building_actor(axis)
 		_place_building_actor(axis)
 
 func _recycle_actor(in_axis: Vector2i, ref_actors: Dictionary, ref_actors_pool: Dictionary):
@@ -50,6 +53,11 @@ func _recycle_actor(in_axis: Vector2i, ref_actors: Dictionary, ref_actors_pool: 
 		return
 	var type_key: String = actor.get_type_key()
 	actor.hide()
+	# 建筑被删除后 building 会 queue_free;回收时先解绑(bind(null)),断开全部信号并清空
+	# building 引用,避免 actor 在树上 _process 仍访问已释放的 building(freed instance)。
+	# land/room 常驻不删,无需解绑;仅 BuildingActor 有 freed 风险。
+	if actor is BuildingActor and actor.has_method(&"bind"):
+		actor.call(&"bind", null)
 	ref_actors.erase(in_axis)
 	ref_actors_pool.get_or_add(type_key, []).append(actor)
 

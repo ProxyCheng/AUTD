@@ -38,6 +38,10 @@ func _disconnect_signals():
 		return
 	building.recipe_order_changed.disconnect(_refresh)
 	building.active_recipe_changed.disconnect(_refresh)
+	# 解绑/关闭时清空配方列表:移除全部行并置空 building 引用,防行 _process 在建筑释放后
+	# 触碰已失效 building(freed instance)。重绑后 _refresh 会重新 populate。
+	if _recipe_list and _recipe_list.has_method(&"clear"):
+		_recipe_list.call(&"clear")
 
 func _refresh():
 	if not building or not _recipe_list:

@@ -7,9 +7,12 @@ extends BTAction
 
 func _tick(_in_delta: float) -> int:
 	var bb := get_blackboard()
-	var bag: Bag = bb.get_var(TransportTask.BB_SOURCE_BAG, null, false)
-	if not bag or not is_instance_valid(bag):
+	# 无类型临时变量先判定有效再赋 typed,避免赋值瞬间遇已 freed 的 bag 即崩。
+	var raw_bag: Variant = bb.get_var(TransportTask.BB_SOURCE_BAG, null, false)
+	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+	if not is_instance_valid(raw_bag) or not (raw_bag is Bag):
 		return BT.Status.FAILURE
+	var bag: Bag = raw_bag
 	var wanted: int = bb.get_var(TransportTask.BB_CARRY_AMOUNT, 0, false)
 	var taken: int = bag.remove_count(wanted)
 	bb.set_var(TransportTask.BB_CARRIED_COUNT, taken)

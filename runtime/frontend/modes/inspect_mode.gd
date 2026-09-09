@@ -20,7 +20,9 @@ func tick(_in_delta: float):
 		return
 	var map: Map = Level.current.map
 	var cell: Cell = map.get_cell(axis)
+	# 点空白处(无建筑格):关闭检视面板并清选中,回 roaming。
 	if not cell or not cell.building:
+		owner.close_inspector()
 		return
 	# 点到了另一建筑:重新选中并刷新面板(切换);点到当前选中建筑则保持
 	if cell.building != owner.selected_building:

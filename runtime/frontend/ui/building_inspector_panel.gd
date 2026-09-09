@@ -16,10 +16,13 @@ extends Control
 # 基类负责通用装配:标题、关闭按钮、绑定信号生命周期。
 
 signal closed()
+# 点击 Delete 按钮:请求删除当前检视的建筑(由 LevelActor 监听处理;面板本身不删)。
+signal delete_requested(building: Building)
 
 var building: Building = null
 var _title_label: Label = null
 var _close_button: Button = null
+var _delete_button: Button = null
 
 # 绑定检视对象:先解绑旧连接再全量刷新(防重绑重复回调)。
 func configure(in_building: Building):
@@ -76,9 +79,19 @@ func _ensure_widgets():
 	# 若 .tscn 未预置标题/关闭钮,这里兜底建最小 UI(纯逻辑版本无 .tscn 时仍可用)
 	_title_label = get_node_or_null("Title") as Label
 	_close_button = get_node_or_null("CloseButton") as Button
+	_delete_button = get_node_or_null("DeleteButton") as Button
 	if _close_button and not _close_button.pressed.is_connected(_on_close_pressed):
 		_close_button.pressed.connect(_on_close_pressed)
+	if _delete_button and not _delete_button.pressed.is_connected(_on_delete_pressed):
+		_delete_button.pressed.connect(_on_delete_pressed)
 	hide()
 
 func _on_close_pressed():
 	close()
+
+# 删除按钮:发出 delete_requested(building) 交由 LevelActor 处理(关面板+销毁建筑)。
+# 面板本身不删建筑(哑组件,只表达意图,经信号回调),遵循 AGENTS §6 约定。
+func _on_delete_pressed():
+	if not building:
+		return
+	delete_requested.emit(building)
