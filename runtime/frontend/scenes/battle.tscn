@@ -7,12 +7,12 @@
 [ext_resource type="Script" uid="uid://bewg8jfmdm56m" path="res://runtime/frontend/controllers/camera_controller.gd" id="5_1kist"]
 [ext_resource type="Script" uid="uid://0vmx66cv0b4f" path="res://runtime/frontend/controllers/light_controller.gd" id="6_lpaid"]
 [ext_resource type="PackedScene" uid="uid://iuogs1qyuer6" path="res://runtime/frontend/ui/building_card.tscn" id="7_ktigr"]
-[ext_resource type="PackedScene" uid="uid://5lel4pxcsrzu" path="res://runtime/frontend/ui/card_stockpile.tscn" id="8_ktigr"]
+[ext_resource type="PackedScene" uid="uid://5lel4pxcsr0u" path="res://runtime/frontend/ui/card_stockpile.tscn" id="8_ktigr"]
 [ext_resource type="PackedScene" uid="uid://c5mbu7yrh4wsp" path="res://runtime/frontend/ui/card_tree_workshop.tscn" id="9_ctree"]
-[ext_resource type="PackedScene" uid="uid://cg3damnzuw9bt" path="res://runtime/frontend/ui/card_stone_mine.tscn" id="10_cmine"]
-[ext_resource type="PackedScene" uid="uid://cipkdhz6cnu2yt" path="res://runtime/frontend/ui/card_crafting_workshop.tscn" id="11_ccraft"]
 [ext_resource type="Script" uid="uid://cdi1gr7uut2em" path="res://runtime/frontend/modes/building_mode.gd" id="9_sfvfk"]
 [ext_resource type="Script" uid="uid://dc1ymte6f4bbh" path="res://runtime/frontend/modes/roaming_mode.gd" id="9_trbff"]
+[ext_resource type="PackedScene" uid="uid://cg3damn0uxabt" path="res://runtime/frontend/ui/card_stone_mine.tscn" id="10_cmine"]
+[ext_resource type="PackedScene" uid="uid://dastaxpjw1glb" path="res://runtime/frontend/ui/card_crafting_workshop.tscn" id="11_ccraft"]
 
 [node name="level" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
@@ -70,14 +70,14 @@ grow_vertical = 0
 [node name="card_crossbow" parent="modes/building/ui/cards" unique_id=173864770 instance=ExtResource("7_ktigr")]
 layout_mode = 2
 
-[node name="card_stockpile" parent="modes/building/ui/cards" instance=ExtResource("8_ktigr")]
+[node name="card_stockpile" parent="modes/building/ui/cards" unique_id=1007150483 instance=ExtResource("8_ktigr")]
 layout_mode = 2
 
-[node name="card_tree_workshop" parent="modes/building/ui/cards" instance=ExtResource("9_ctree")]
+[node name="card_tree_workshop" parent="modes/building/ui/cards" unique_id=1109757853 instance=ExtResource("9_ctree")]
 layout_mode = 2
 
-[node name="card_stone_mine" parent="modes/building/ui/cards" instance=ExtResource("10_cmine")]
+[node name="card_stone_mine" parent="modes/building/ui/cards" unique_id=1457414240 instance=ExtResource("10_cmine")]
 layout_mode = 2
 
-[node name="card_crafting_workshop" parent="modes/building/ui/cards" instance=ExtResource("11_ccraft")]
+[node name="card_crafting_workshop" parent="modes/building/ui/cards" unique_id=517539230 instance=ExtResource("11_ccraft")]
 layout_mode = 2
