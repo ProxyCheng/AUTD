@@ -7,8 +7,10 @@ extends Workshop
 # 无人值守时整塔停摆(不寻敌、不转向、不开火);有待发/蓄力中需求时才需要操作手。
 #
 # 区别于产出建筑:弩炮只有一只弹药输入仓(arrow,纯需求方),没有输出仓——产出的是一次
-# 发射这一即时效果,而非可存放的物品。故 recipes 为空(基类不会建输出仓),弹药仓作为
-# 展示镜像(前端据 stored_count/capacity 显示旁侧备箭)。本类完全走自有攻击逻辑。
+# 发射这一即时效果,而非可存放的物品。该"攻击"按瞬时效果机械形态声明为一张配方:
+#   inputs = [arrow × 1], output = "", workload_per_unit = CHARGE_TIME(蓄满一发的蓄力)
+# 配方用于 GUI 展示(消耗箭、耗时、进度)与 active_recipe 高亮;弹药仓仍作为展示镜像
+# (前端据 stored_count/capacity 显示旁侧备箭)。蓄力/瞄准/开火时序由本类自有状态机驱动。
 #
 # 攻击倾向:target_preference 决定攻击目标的选取偏好,取值见 TARGET_PREF* 常量
 # (nearest 最近 / front 最前 / strongest 最强),经 set_target_preference() 切换并广播。
@@ -21,6 +23,24 @@ const ROTATE_SPEED: float = 2.5
 const AIM_EPSILON: float = 0.05
 # 弹药仓容量(纯需求方:低于上限即求补到满)
 const AMMO_CAPACITY: int = 10
+
+# —— 配方声明:攻击 = 一次即时效果(无输出仓,消耗箭矢触发开火) ——
+# 蓄满一发的蓄力由 base._apply_workload 累积 progress;满弦后由 _tick_machine 负责瞄准/发射。
+
+func _ready():
+	recipes = [_make_fire_recipe()]
+	super._ready()
+
+func _make_fire_recipe() -> RecipeData:
+	var recipe := RecipeData.new()
+	recipe.label = "Fire"
+	recipe.output = ""
+	recipe.workload_per_unit = CHARGE_TIME
+	var arrow_input := RecipeInputData.new()
+	arrow_input.item_type = "arrow"
+	arrow_input.count = 1
+	recipe.inputs = [arrow_input]
+	return recipe
 
 # —— 攻击倾向(可观察配置)——
 # 取值常量:String(全小写 snake,符合仓库"类型标识字符串"惯例)
@@ -87,8 +107,10 @@ func is_work_done() -> bool:
 
 # 需要工人的条件:蓄力未完(还有活要干),或满弦但本轮尚未射出(需操作手值守待敌)。
 # 发射后才暂时不需要,等松弦动画结束、fire_timer 归零再自动补位下一班。
+# 顺带 _selected_recipe() 同步 active_recipe(GUI 高亮当前 Fire 配方)。
 func _needs_worker() -> bool:
-	return _has_ammo() and (not _shift_fired or fire_timer < CHARGE_TIME)
+	var has_fire_recipe: bool = _selected_recipe() != null
+	return has_fire_recipe and (not _shift_fired or fire_timer < CHARGE_TIME)
 
 func _has_ammo() -> bool:
 	return input_bag and input_bag.count > 0

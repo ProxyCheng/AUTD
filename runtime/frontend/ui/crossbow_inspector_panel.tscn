@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dhv8xb4bit5rt"]
 
 [ext_resource type="Script" uid="uid://b0qad7qd3qavf" path="res://runtime/frontend/ui/crossbow_inspector_panel.gd" id="1_cip"]
+[ext_resource type="Script" uid="uid://8cfpojok72d5" path="res://runtime/frontend/ui/workshop_recipe_list.gd" id="2_wip"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0.07, 0.08, 0.11, 0.92)
@@ -47,9 +48,9 @@ anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
 offset_left = -268.0
-offset_top = -50.0
+offset_top = -240.0
 offset_right = -8.0
-offset_bottom = 50.0
+offset_bottom = 240.0
 grow_horizontal = 0
 grow_vertical = 2
 script = ExtResource("1_cip")
@@ -95,13 +96,40 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
 text = "×"
 
-[node name="PreferenceOption" type="OptionButton" parent="."]
+[node name="PreferenceLabel" type="Label" parent="."]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 16.0
 offset_top = 44.0
 offset_right = -16.0
-offset_bottom = 74.0
+offset_bottom = 62.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Target Preference"
+
+[node name="PreferenceOption" type="OptionButton" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 64.0
+offset_right = -16.0
+offset_bottom = 92.0
 grow_horizontal = 2
 theme_override_font_sizes/font_size = 14
+
+[node name="RecipeList" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 100.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 4
+script = ExtResource("2_wip")
