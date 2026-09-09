@@ -27,12 +27,24 @@ func _ready():
 	_build_ammo_stack()
 
 # 蓄力/待发/射击期间显示箭;仅 idle(空闲)隐藏。
+# 弦上箭必须在"真的有一发装填"时才显示:非 idle 且备箭存量 > 0。
+# 若弹药耗尽(stored_count=0,等待 logistics 补货),即使后端状态停在 ready/charging,
+# 弦上也应无箭(备箭垛同步显示 0 支)。
 var _show_arrow: bool = false
+# 当前后端阶段(idle/charging/ready/firing),由 set_state 记录,供可见性重算
+var _state: String = "idle"
+# 逻辑装填在弦上的箭数(= stored_count);<=0 表示无箭可挂
+var _loaded_count: int = 0
 
 func set_state(in_state: String):
 	# 状态只描述 backend 所处阶段(idle/charging/ready/firing);
 	# 箭位置由 set_progress 驱动,此处只切可见性。
-	_show_arrow = in_state != "idle"
+	_state = in_state
+	_update_arrow_visibility()
+
+func _update_arrow_visibility():
+	# 弦上箭 = 弦上有货(非 idle)且弹药仓还有一支真正的主力
+	_show_arrow = _state != "idle" and _loaded_count > 0
 	%Arrow.visible = _show_arrow
 
 func _apply_pose(in_time: float):
@@ -110,5 +122,7 @@ func _build_ammo_stack():
 # BuildingActor 转发存量变化:备箭数 = stored_count - 1(弦上那支由 %Arrow 显示),
 # 下限 0,上限 AMMO_STACK_SIZE。
 func set_stored_count(in_count: int, in_capacity: int):
+	_loaded_count = in_count
 	if _ammo_stack:
 		_ammo_stack.set_count(maxi(in_count - 1, 0))
+	_update_arrow_visibility()
