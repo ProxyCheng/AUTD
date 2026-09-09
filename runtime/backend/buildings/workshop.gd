@@ -1,34 +1,30 @@
 class_name Workshop
 extends Building
 
-# 工人驱动的机器基类(作坊)。机器 = 一张配方 + 一名工人注入工作量;配方未必同时有
-# 输入与输出,可能只有其一甚至两者皆无:
+# 工人驱动的机器基类(作坊)。机器 = 一张(或多张)配方 + 一名工人注入工作量。
+#
+# 配方体系:本基类持有 recipes(Array[RecipeData])作为配方列表,按数组顺序决定执行
+# 优先级(越靠前越优先)。每次生产从列表里按优先级挑出"当前可执行"的配方
+# (见 _selected_recipe:输入齐备且输出仓未满),消费其 inputs、兑现其 output。
+# GUI 通过 move_recipe(from, to) 调整顺序即可改变执行优先级,无需改代码。
+#
+# 配方形态(与 RecipeData 注释一致):
 #   * 无输入有输出:伐木场/石矿(采天然资源入输出仓);
 #   * 有输入有输出:车间(消耗原木+石头 → 产箭);
-#   * 有输入无输出:弩炮(消耗箭矢弹药,产出的是一次发射这一即时效果,不落输出仓)。
-# 本基类负责整条通用生命周期:无人值守时自动补员 → 工人沿行为树走到岗位点 → 每 tick
-# 注入工作量(work) → 工作量按配方兑现 → 一次生产完成(is_work_done)后放工人离岗。
+#   * 有输入无输出:弩炮(消耗箭矢,产出的是一次发射这一即时效果,不落输出仓)。
+#
+# 子类约定:在 _ready() 里调用 super._ready() 之前填充 recipes。需要额外输入仓的
+# 子类(如车间建原木/石头输入仓)可覆写 _setup_bags 并在开头 super;或用 _make_bag
+# 自建。弩炮这类即时效果机器不纳配方(recipes 为空),完全走自有 _tick_machine/_apply_workload。
 #
 # 生命周期:机器在 _needs_worker() 为真且无人值守时,向 LaborManager 注册一个
 # ManBuildingTask(required_count=1, priority=manning_priority()):派一名工人沿行为树走到
 # 岗位点(work_entry_position),每 tick 由 ProvideWorkloadTask 调 work(in_workload) 注入
 # 驱动量;注入同时维护"有人值守"窗口(_manned_timer)。直到 is_work_done() 判定本轮一次
-# 生产完成,工人离岗归还调度池,机器随后按 _needs_worker() 再次补位。无人值守期间机器
-# 表现(是否停摆)由子类决定。
+# 生产完成,工人离岗归还调度池,机器随后按 _needs_worker() 再次补位。
 #
-# 子类钩子(按需覆盖):
-#   _produces()             输出物类型;返回 "" = 无输出仓(默认 "",弩炮等即时效果机器)
-#   _setup_bags()           装配仓:默认按 _produces() 建一个纯供给输出仓;需要输入仓的
-#                           子类(车间/弩炮)覆写并在开头调用 super._setup_bags()
-#   _needs_worker() -> bool 是否需要顶岗工人(默认:输出仓未满且输入齐备)
-#   is_work_done()  -> bool  本轮一次生产是否已完成(默认 = 输出仓满或输入耗尽)
-#   _apply_workload(amount)  把注入的驱动量换算成自身进度/产出(默认:攒满一件产出入仓)
-#   _tick_machine(in_delta)  机器每帧推进(基类 tick 先做值守维护再调它;默认维护 idle/working)
-#   _reset_shift()           新一轮值岗(工人更替后首次注入)开始时的复位(默认空)
-#   _has_inputs() / _consume_inputs()  配方的输入校验/实际扣减(默认恒真 = 无输入)
-#   work_entry_position()    岗位点(默认 = 自身格子 + WORK_ENTRY_OFFSET)
-#   manning_priority()       顶岗任务调度优先级(默认 10;攻击建筑如 Crossbow 覆写更高)
-# 不要覆盖 tick()/work() —— 通用生命周期已在基类实现,需要机器帧推进请实现 _tick_machine。
+# 子类钩子(按需覆盖):_setup_bags/_needs_worker/is_work_done/_reset_shift/_tick_machine/
+# work_entry_position/manning_priority。勿覆盖 tick()/work() —— 通用生命周期已在基类实现。
 
 # 有人值守判定窗口:超过该时长无 work() 注入即视为无人,机器可据此停摆
 const MANNED_TIMEOUT: float = 0.2
@@ -43,22 +39,35 @@ var _manned_timer: float = 0  # >0 表示有人值守(近期有工人注入 work
 
 # —— 配方 / 生产参数 ——
 
-# 产出一件所需的累计工作量(秒,工人效率=1 时)
+# 配方列表(顺序 = 执行优先级,越靠前越优先)。子类在 _ready 填充。
+var recipes: Array[RecipeData] = []
+
+# 当前被选中的配方(只读,见 _selected_recipe;null = 当前无可行配方)
+var active_recipe: RecipeData = null:
+	get:
+		return active_recipe
+	set(in_recipe):
+		if in_recipe == active_recipe:
+			return
+		active_recipe = in_recipe
+		active_recipe_changed.emit()
+signal active_recipe_changed()
+
 @export var workload_per_unit: float = 2.0
 # 输出仓/输入仓物理上限(满则停止生产、工人离岗等物流搬空/补足)
 @export var output_capacity: int = 30
 
-# 输出仓(纯供给方:有货即外供)。仅 _produces() 非空时由基类 _setup_bags 创建。
+# 输出仓(纯供给方:有货即外供)。仅当前配方声明输出物时由基类建仓。
 var output_bag: Bag = null
 
-# 本机创建的全部仓(输出仓 + 子类输入仓),退出时统一注销
+# 本机创建的全部仓(输出仓 + 输入仓),退出时统一注销
 var _bags: Array[Bag] = []
 
-# 当前累计工作量(本件产出的进度)
+# 当前累计工作量(本件产出的进度;相对 active_recipe.workload_per_unit)
 var work_accum: float = 0
 
 # —— 对外可观察存量镜像 ——
-# 镜像目标:生产类 = 输出仓;弩炮等消耗类 = 弹药输入仓。由 _bind_mirror 指定。
+# 镜像目标:生产类 = 输出仓;消耗类 = 弹药输入仓。由 _bind_mirror 指定。
 
 var stored_count: int = 0:
 	get:
@@ -76,6 +85,23 @@ var _mirror_bag: Bag = null  # stored_count/capacity 的镜像源
 var capacity: int:
 	get:
 		return _mirror_bag.max_count if _mirror_bag else 0
+
+# —— 配方列表操作(GUI 拖动排序入口)——
+
+# 把配方从 in_from 移到 in_to(索引),其余配方顺序保持不变;越靠前越优先。
+func move_recipe(in_from: int, in_to: int):
+	if in_from < 0 or in_from >= recipes.size():
+		return
+	if in_to < 0 or in_to >= recipes.size():
+		return
+	if in_from == in_to:
+		return
+	var recipe: RecipeData = recipes[in_from]
+	recipes.remove_at(in_from)
+	recipes.insert(in_to, recipe)
+	recipe_order_changed.emit()
+
+signal recipe_order_changed()
 
 func _ready():
 	_setup_bags()
@@ -103,9 +129,7 @@ func is_work_done() -> bool:
 	return not _needs_worker()
 
 func _needs_worker() -> bool:
-	if not output_bag or output_bag.is_full():
-		return false
-	return _has_inputs()
+	return _selected_recipe() != null
 
 func _is_manned() -> bool:
 	return _manned_timer > 0
@@ -119,66 +143,171 @@ func work_entry_position() -> Vector2:
 func manning_priority() -> int:
 	return 10
 
+# —— 配方查询:当前应执行的配方 ——
+
+# 从 recipes 按优先级挑出第一个"当前可执行"的配方。
+# 可执行 = 输出仓未满(若无输出则视为真)且输入齐备。
+# 返回前同步 active_recipe(有变化则触发 active_recipe_changed),供 frontend 高亮当前执行配方。
+func _selected_recipe() -> RecipeData:
+	var chosen: RecipeData = null
+	for recipe: RecipeData in recipes:
+		if _is_recipe_executable(recipe):
+			chosen = recipe
+			break
+	active_recipe = chosen
+	return chosen
+
+# 单张配方的可执行性:输出仓未满(无输出则视为真)且输入齐备。
+func _is_recipe_executable(in_recipe: RecipeData) -> bool:
+	if in_recipe.output != "" and output_bag and output_bag.is_full():
+		return false
+	return _has_inputs_for(in_recipe)
+
 # —— 子类钩子:值岗生命周期 / 机器推进 ——
 
 func _reset_shift():
 	pass
 
-# 默认配方兑现:工作量线性累计,攒满 workload_per_unit 即产出一件入输出仓,
-# 剩余部分留作下一件进度(连续产出,直到输出仓满或输入耗尽)。
+# 默认配方兑现:工作量线性累计,攒满一件即产出入仓,剩余部分留作下一件进度。
 func _apply_workload(in_workload: float):
-	if not output_bag or output_bag.is_full():
+	var recipe := _selected_recipe()
+	if recipe == null:
+		return
+	if recipe.output != "" and output_bag and output_bag.is_full():
 		return
 	work_accum += in_workload
-	while work_accum >= workload_per_unit:
+	while work_accum >= recipe.workload_per_unit:
 		if not _produce_unit():
 			break
-		work_accum -= workload_per_unit
-	progress = clampf(work_accum / workload_per_unit, 0.0, 1.0)
+		work_accum -= recipe.workload_per_unit
+	progress = clampf(work_accum / recipe.workload_per_unit, 0.0, 1.0)
 
 # 机器帧推进:维护建筑可观察 state(供 frontend 播/静止)。产出进度归零语义留给子类。
 func _tick_machine(_in_delta: float):
-	if not _is_manned() or (output_bag and output_bag.is_full()) or not _has_inputs():
+	var recipe := _selected_recipe()
+	if recipe == null or (recipe.output != "" and output_bag and output_bag.is_full()):
 		if state != "idle":
 			state = "idle"
 	else:
 		if state != "working":
 			state = "working"
 
-# —— 配方声明(默认:无输出、无输入;子类覆写) ——
+# —— 配方产出物(供 GUI/档位显示;派生自当前配方)——
 
-# 输出物类型;返回 "" = 无输出仓(即时效果机器,如弩炮)。
+# 当前优先选中配方的输出物类型;无配方或瞬时效果机器返回 ""。
 func _produces() -> String:
+	var recipe := _selected_recipe()
+	return recipe.output if recipe else ""
+
+# 声明输出物(不依赖输入齐备):取 recipes 里第一个非空 output 的配方;recipes 空则 ""。
+# 供 _setup_bags 决定建设哪只输出仓 —— 输出仓类型由配方"声明"决定,而非"当前是否可执行"
+# (否则输入仓未建齐时会因输入不足误判为空,连输出仓都建不出来)。
+func _declared_output() -> String:
+	for recipe: RecipeData in recipes:
+		if recipe.output != "":
+			return recipe.output
 	return ""
 
-# 输入是否齐备(是否满足本件产出的输入;树/石矿无输入恒真;车间需原木+石头)
-func _has_inputs() -> bool:
+# —— 输入校验/扣减(按配方 inputs 泛化)——
+
+# 校验某配方全部输入是否齐备(各输入 bag 数量足够)。
+func _has_inputs_for(in_recipe: RecipeData) -> bool:
+	if in_recipe.inputs.is_empty():
+		return true
+	for input: RecipeInputData in in_recipe.inputs:
+		var bag: Bag = _find_input_bag(input.item_type)
+		if bag == null or bag.count < input.count:
+			return false
 	return true
 
-# 实际消耗一件所需的输入(车间扣原木+石头;树/石矿为空)
-func _consume_inputs() -> bool:
+# 扣减某配方全部输入;任一不足则整体失败(返回 false,不做部分扣减)。
+func _consume_inputs_for(in_recipe: RecipeData) -> bool:
+	if in_recipe.inputs.is_empty():
+		return true
+	# 先全量校验再扣,避免半扣
+	for input: RecipeInputData in in_recipe.inputs:
+		var bag: Bag = _find_input_bag(input.item_type)
+		if bag == null or bag.count < input.count:
+			return false
+	for input: RecipeInputData in in_recipe.inputs:
+		_find_input_bag(input.item_type).remove_count(input.count)
 	return true
+
+# 按原料类型查找本机输入仓;不存在实例时返回 null(调用方决定是否自建)。
+func _find_input_bag(in_item_type: String) -> Bag:
+	for bag: Bag in _bags:
+		if bag.item_type == in_item_type:
+			return bag
+	return null
+
+# 公开只读:某物料在当前建筑全部仓中的存量(输入仓 + 输出仓按类型匹配)。
+# 供 frontend 配方行显示库存;无该物料仓时返回 0。只读,不改状态。
+func get_stock(in_item_type: String) -> int:
+	var total: int = 0
+	for bag: Bag in _bags:
+		if bag.item_type == in_item_type:
+			total += bag.count
+	return total
+
+# 公开只读:某物料在当前建筑对应仓的容量上限(供 frontend 竖向条显示库存占比分母)。
+# 无该物料仓时返回 0。只读。
+func get_capacity(in_item_type: String) -> int:
+	for bag: Bag in _bags:
+		if bag.item_type == in_item_type:
+			return bag.max_count
+	return 0
 
 # —— 仓装配 ——
 
-# 默认配方仓:声明了产出物(_produces() 非空)才建一只纯供给输出仓并作展示镜像。
-# 需要输入仓的子类(车间建原木/石头输入仓,弩炮建弹药仓)覆写本方法并在开头调用 super。
+# 由配方综合推断并建仓:每种"所需物品类型"只建一只仓。
+# 规则(Bag 按类型一只):把全部配方声明收集起来,凡某类型出现在任一配方的 input 中,
+# 就建一只该类型的纯需求方输入仓;凡某类型是某配方的 output,就建一只该类型的纯供给方
+# 输出仓。子类只需声明 recipes,无需手写建 input_bag/log_bag/stone_bag。
+# 弩炮这类即时效果机器(recipes 为空)完全覆写本方法自建弹药仓。
 func _setup_bags():
-	var produced: String = _produces()
+	# 输入仓:收集全部配方所需的输入类型(去重),每种建一只纯需求方
+	for item_type: String in _collect_input_types():
+		_make_bag("InputBag_%s" % item_type, item_type, output_capacity, true)
+	# 输出仓:以第一个声明输出为准(同类型去重;跨弓等无输出则跳过)
+	var produced: String = _declared_output()
 	if produced == "":
 		return
 	output_bag = _make_bag("OutputBag", produced, output_capacity, false)
 	_bind_mirror(output_bag)
 
+# 收集全部配方所需的输入类型(去重,保持出现顺序)。
+func _collect_input_types() -> Array[String]:
+	var types: Array[String] = []
+	for recipe: RecipeData in recipes:
+		for input: RecipeInputData in recipe.inputs:
+			if input.item_type in types:
+				continue
+			types.append(input.item_type)
+	return types
+
+# 多 Bag 建筑容量条显示占用最满的那个(默认遍历全部仓;单仓建筑退化为该仓占比)。
+func occupancy_fill() -> float:
+	var best: float = 0.0
+	for bag: Bag in _bags:
+		if bag == null or bag.max_count <= 0:
+			continue
+		best = maxf(best, clampf(float(bag.count) / float(bag.max_count), 0.0, 1.0))
+	return best
+
 # —— 内部 ——
 
 # 实际产出一件:先扣输入(可过),再向输出仓塞一件(自带上限截断)。
 func _produce_unit() -> bool:
-	if not output_bag or output_bag.is_full():
+	var recipe := _selected_recipe()
+	if recipe == null:
 		return false
-	if not _consume_inputs():
+	if recipe.output != "" and output_bag and output_bag.is_full():
 		return false
-	output_bag.add_count(1)
+	if not _consume_inputs_for(recipe):
+		return false
+	if recipe.output != "":
+		# 按配方 output_count 一次入仓多件(默认 1);"2x+3y->2z" 等比例方与实际产出一致
+		output_bag.add_count(recipe.output_count)
 	return true
 
 # 建一只参与物流的仓并注册。is_demand = true 为纯需求方(低于上限即求补到满,永不外供,
@@ -242,8 +371,6 @@ func _get_logistics() -> Logistics:
 	return Level.current.logistics
 
 # 每帧按需维护:无人且机器需要工人、且没有在途请求时,注册一个顶岗任务。
-# 任务在 is_work_done()(射出一发/产出一件)后完成,或工人流失被取消;
-# 任务节点被释放后自动补位(LaborManager 派最近空闲工人,通常仍是刚离岗、守在岗位旁的那位)。
 func _maintain_manning():
 	if not is_inside_tree():
 		return

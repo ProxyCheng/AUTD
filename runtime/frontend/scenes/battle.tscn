@@ -13,6 +13,10 @@
 [ext_resource type="Script" uid="uid://dc1ymte6f4bbh" path="res://runtime/frontend/modes/roaming_mode.gd" id="9_trbff"]
 [ext_resource type="PackedScene" uid="uid://cg3damn0uxabt" path="res://runtime/frontend/ui/card_stone_mine.tscn" id="10_cmine"]
 [ext_resource type="PackedScene" uid="uid://dastaxpjw1glb" path="res://runtime/frontend/ui/card_crafting_workshop.tscn" id="11_ccraft"]
+[ext_resource type="Script" uid="uid://r5rair2gpiym" path="res://runtime/frontend/modes/inspect_mode.gd" id="12_inspec"]
+[ext_resource type="PackedScene" uid="uid://k7py4fxsm8wbd" path="res://runtime/frontend/ui/crossbow_inspector_panel.tscn" id="13_inspec"]
+[ext_resource type="PackedScene" uid="uid://j5nw2dvcq9kyf" path="res://runtime/frontend/ui/workshop_inspector_panel.tscn" id="14_inspec"]
+[ext_resource type="Script" uid="uid://biwufuh3iict1" path="res://runtime/frontend/ui/building_inspector_host.gd" id="15_host"]
 
 [node name="level" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
@@ -81,3 +85,23 @@ layout_mode = 2
 
 [node name="card_crafting_workshop" parent="modes/building/ui/cards" unique_id=517539230 instance=ExtResource("11_ccraft")]
 layout_mode = 2
+
+[node name="inspect" type="Node" parent="modes" unique_id=1113869200]
+script = ExtResource("12_inspec")
+
+[node name="inspector" type="CanvasLayer" parent="." unique_id=1113869201]
+unique_name_in_owner = true
+
+[node name="Panel" type="Control" parent="inspector" unique_id=1113869202]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("15_host")
+
+[node name="CrossbowPanel" parent="inspector/Panel" unique_id=1113869203 instance=ExtResource("13_inspec")]
+
+[node name="WorkshopPanel" parent="inspector/Panel" unique_id=1113869204 instance=ExtResource("14_inspec")]

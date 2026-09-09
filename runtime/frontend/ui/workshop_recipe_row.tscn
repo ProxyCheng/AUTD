@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://dwvp4ysvecf1"]
+
+[ext_resource type="Script" uid="uid://b5k7rlf5g84sf" path="res://runtime/frontend/ui/workshop_recipe_row.gd" id="1_wrr"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0, 0, 0, 0.35)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
+bg_color = Color(0.35, 0.85, 0.95, 0.9)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[node name="WorkshopRecipeRow" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 96)
+script = ExtResource("1_wrr")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Name" type="Label" parent="Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
+theme_override_font_sizes/font_size = 13
+text = "Recipe"
+vertical_alignment = 1
+
+[node name="Items" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="ProgressRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Progress" type="ProgressBar" parent="Layout/ProgressRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 8)
+mouse_filter = 2
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_fill")
+
+[node name="ProgressLabel" type="Label" parent="Layout/ProgressRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "进度 0%"
+vertical_alignment = 1

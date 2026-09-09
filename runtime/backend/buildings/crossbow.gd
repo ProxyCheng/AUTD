@@ -5,9 +5,13 @@ extends Workshop
 # 一次生产 = 本班值岗期间射出一发弩箭。满弦但未开火时工人继续值守(负责转身瞄准);
 # 射出后工人离岗,基类按 _needs_worker() 自动补员。
 # 无人值守时整塔停摆(不寻敌、不转向、不开火);有待发/蓄力中需求时才需要操作手。
+#
 # 区别于产出建筑:弩炮只有一只弹药输入仓(arrow,纯需求方),没有输出仓——产出的是一次
-# 发射这一即时效果,而非可存放的物品。故 _produces() 返回 ""(基类不会建输出仓),
-# 弹药仓作为展示镜像(前端据 stored_count/capacity 显示旁侧备箭)。
+# 发射这一即时效果,而非可存放的物品。故 recipes 为空(基类不会建输出仓),弹药仓作为
+# 展示镜像(前端据 stored_count/capacity 显示旁侧备箭)。本类完全走自有攻击逻辑。
+#
+# 攻击倾向:target_preference 决定攻击目标的选取偏好,取值见 TARGET_PREF* 常量
+# (nearest 最近 / front 最前 / strongest 最强),经 set_target_preference() 切换并广播。
 
 const CHARGE_TIME: float = 3.0
 const FIRE_TIME: float = 0.1
@@ -17,6 +21,29 @@ const ROTATE_SPEED: float = 2.5
 const AIM_EPSILON: float = 0.05
 # 弹药仓容量(纯需求方:低于上限即求补到满)
 const AMMO_CAPACITY: int = 10
+
+# —— 攻击倾向(可观察配置)——
+# 取值常量:String(全小写 snake,符合仓库"类型标识字符串"惯例)
+const TARGET_PREF_NEAREST: String = "nearest"
+const TARGET_PREF_FRONT: String = "front"
+const TARGET_PREF_STRONGEST: String = "strongest"
+# 默认:最近
+const TARGET_PREF_DEFAULT: String = TARGET_PREF_NEAREST
+
+var target_preference: String = TARGET_PREF_DEFAULT:
+	get:
+		return target_preference
+	set(in_preference):
+		if in_preference == target_preference:
+			return
+		target_preference = in_preference
+		target_preference_changed.emit()
+signal target_preference_changed()
+
+func set_target_preference(in_preference: String):
+	if in_preference not in [TARGET_PREF_NEAREST, TARGET_PREF_FRONT, TARGET_PREF_STRONGEST]:
+		return
+	target_preference = in_preference
 
 var fire_timer: float = 0
 var fire_anim_timer: float = 0
@@ -46,7 +73,7 @@ var input_bag: Bag
 var _shift_fired: bool = false  # 本班值岗是否已射出一发(完成一次生产)
 
 # 无输出仓配方:只建弹药输入仓并指定其为展示镜像(不调用 super,基类默认会按
-# _produces() 建输出仓,而弩炮 _produces() 为空)。
+# _produces() 建输出仓,而弩炮无配方产出)。
 func _setup_bags():
 	input_bag = _make_bag("AmmoBag", "arrow", AMMO_CAPACITY, true, 1)
 	_bind_mirror(input_bag)
@@ -61,7 +88,6 @@ func is_work_done() -> bool:
 # 需要工人的条件:蓄力未完(还有活要干),或满弦但本轮尚未射出(需操作手值守待敌)。
 # 发射后才暂时不需要,等松弦动画结束、fire_timer 归零再自动补位下一班。
 func _needs_worker() -> bool:
-	# 无弹药时无需顶岗(等 logistics 补货);否则按未射/蓄力中判断
 	return _has_ammo() and (not _shift_fired or fire_timer < CHARGE_TIME)
 
 func _has_ammo() -> bool:
@@ -84,12 +110,10 @@ func _tick_machine(in_delta: float):
 	_rotate_aim(in_delta)
 	if fire_timer >= CHARGE_TIME:
 		if target and is_aimed() and fire():
-			# 满弦且对准且有人值守且有弹药→发射;firing 松弦动画由 tick 时钟驱动
 			state = "firing"
 			fire_anim_timer = FIRE_TIME
 			progress = 1
 			return
-		# 满弦但尚未对准 / 暂无目标 / 弹药耗尽待补:保持待发姿态
 		state = "ready"
 		progress = 1
 		return
@@ -100,7 +124,6 @@ func _tick_machine(in_delta: float):
 # 新一轮值岗(上一工人离岗后首次注入)经基类 _reset_shift() 清零发射标记。
 func _apply_workload(in_workload: float):
 	if state == "firing":
-		# 射击窗口不接受劳作
 		return
 	if state == "idle":
 		state = "charging"
@@ -140,7 +163,6 @@ func is_aimed() -> bool:
 func fire() -> bool:
 	if not target:
 		return false
-	# 消耗 1 支弩箭弹药;无弹则不开火(等 logistics 补货)
 	if not _has_ammo():
 		return false
 	input_bag.remove_count(1)
@@ -150,16 +172,40 @@ func fire() -> bool:
 	arrow.move_speed = 10
 	arrow.set_target_entity(target)
 	room.add_entity(arrow)
-	_shift_fired = true  # 本班值岗完成一次生产,工人下一 tick 离岗
+	_shift_fired = true
 	return true
 
+# —— 攻击目标选取:按 target_preference 排序 ——
+
+# 范围内(axis±3, 6×6)所有存活敌方,按 target_preference 排序后取第一个。
+#   nearest:距离平方最小(离弩炮最近)
+#   front:y 最小(越靠前,即越接近主基地推进方向;y 越负越靠前)
+#   strongest:health 最高
 func find_target() -> Entity:
 	var room: Room = Level.current.room
 	var entities: Array = room.get_entities_in_rect(Rect2(axis.x - 3, axis.y - 3, 6, 6))
+	var candidates: Array[Entity] = []
 	for entity: Entity in entities:
 		if entity is not Enemy:
 			continue
 		if not entity.is_alive():
 			continue
-		return entity
-	return null
+		candidates.append(entity)
+	if candidates.is_empty():
+		return null
+	match target_preference:
+		TARGET_PREF_FRONT:
+			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
+				return a.position.y < b.position.y)
+		TARGET_PREF_STRONGEST:
+			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
+				return a.health > b.health)
+		_:  # nearest(默认)
+			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
+				return _distance_sq(a.position) < _distance_sq(b.position))
+	return candidates[0]
+
+# 到弩炮的距离平方(避免开方)。
+func _distance_sq(in_position: Vector2) -> float:
+	var delta: Vector2 = in_position - Vector2(axis)
+	return delta.length_squared()

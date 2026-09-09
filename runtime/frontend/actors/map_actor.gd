@@ -10,9 +10,21 @@ func bind(in_map: Map):
 	map = in_map
 	map.cells_changed.connect(_on_cells_changed)
 
+# 选中变化 → 遍历当前全部建筑 actor,仅与选中 building 相同的 actor 高亮。
+# actor 用 axis 反查(building.axis);选中对象可能在可视区外无 actor,静默忽略。
+func _on_selected_changed(in_building: Building):
+	for axis in building_actors.keys():
+		var actor: BuildingActor = building_actors.get(axis)
+		var is_selected: bool = in_building != null and axis == in_building.axis
+		actor.set_selected(is_selected)
+
 func _ready():
 	var camera = get_viewport().get_camera_3d() as CameraController
 	camera.viewing_axis_changed.connect(_on_viewing_axis_changed)
+	# 监听 LevelActor 的选中切换,驱动建筑 actor 高亮
+	var la := get_parent() as LevelActor
+	if la:
+		la.selected_changed.connect(_on_selected_changed)
 
 func _on_viewing_axis_changed(in_new_axis: Dictionary, in_old_axis: Dictionary):
 	for axis in in_old_axis.keys():

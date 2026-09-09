@@ -7,7 +7,48 @@ var building_model: Node3D = null
 var axis: Vector2i = Vector2i.ZERO
 var direction: Vector2i = Vector2i.UP
 
+# —— 选中高亮 ——
+# 选中状态由 frontend(LevelActor.selected_building)持有;本 actor 只是表现层:
+# set_selected(true/false) 显隐选中地盘(SelectionRing),不接触 backend 玩法。
+var selected: bool = false
+var _selection_ring: Node3D = null
+
 @onready var work_progress: HeadBarGroup = %work_progress
+
+# 显隐选中高亮(点击选中建筑时由 LevelActor 驱动)。
+func set_selected(in_selected: bool):
+	if in_selected == selected:
+		return
+	selected = in_selected
+	if not _selection_ring:
+		_build_selection_ring()
+	if _selection_ring:
+		_selection_ring.visible = selected
+
+# 程序化生成选中地盘:一个略大于建筑基座、半透明发光的圆环,铺在 y=0 地面。
+# 用 TorusMesh 环而非改模型材质(模型共享,污染大);中心镂空不遮模型,对任意建筑通用。
+func _build_selection_ring():
+	var ring := MeshInstance3D.new()
+	ring.name = "SelectionRing"
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.58
+	ring_mesh.outer_radius = 0.72
+	ring_mesh.rings = 16
+	ring_mesh.ring_segments = 32
+	ring.mesh = ring_mesh
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.25, 0.85, 1.0, 0.7)
+	mat.emission_enabled = true
+	mat.emission = Color(0.25, 0.85, 1.0)
+	mat.emission_energy_multiplier = 1.5
+	ring.material_override = mat
+	# TorusMesh 默认已在 XZ 平面(绕 Y 轴的平躺环),直接平铺地面即可,勿再绕 X 旋转(会立起来)。
+	# 略抬 y 防与地面 z-fight。
+	ring.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.03, 0))
+	ring.visible = false
+	add_child(ring)
+	_selection_ring = ring
 
 func bind(in_building: Building):
 	if building:
@@ -20,6 +61,10 @@ func bind(in_building: Building):
 		if building.has_signal(&"stored_count_changed"):
 			building.stored_count_changed.disconnect(_on_building_stored_count_changed)
 	building = in_building
+	# 重绑(复用池回收/重建)时复位选中,避免上个建筑的高亮残留
+	selected = false
+	if _selection_ring:
+		_selection_ring.visible = false
 	if not building:
 		work_progress.bind_source(null)
 		return
