@@ -51,8 +51,10 @@ func _process(_in_delta: float):
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	if not camera:
 		return
-	# 沿相机 up 方向抬升模型顶上一基准点,投影后把条居中放到其上方
-	var anchor := host.global_position + camera.transform.basis.y * (model_height + TOP_GAP_WORLD)
+	# 头顶锚点是世界坐标:沿世界 Y 抬升模型顶上一基准点,投影后把条居中放到其上方。
+	# 不能沿相机 up(camera.transform.basis.y)抬升——俯角相机该向量在世界里是斜的,
+	# 会同时引入随 model_height 放大的水平偏移,导致高模型的血条/容量条远离对象。
+	var anchor := host.global_position + Vector3.UP * (model_height + TOP_GAP_WORLD)
 	if camera.is_position_behind(anchor):
 		hide()
 		return
