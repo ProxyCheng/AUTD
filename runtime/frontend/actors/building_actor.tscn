@@ -2,12 +2,26 @@
 
 [ext_resource type="Script" uid="uid://dfbc4b520fgsj" path="res://runtime/frontend/actors/building_actor.gd" id="1_gxxwq"]
 [ext_resource type="Script" path="res://runtime/frontend/ui/building_capacity_bar.gd" id="2_capbar"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/head_bar_group.gd" id="3_workgrp"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/work_progress_bar.gd" id="4_workbar"]
 
 [node name="building_actor" type="Node3D" unique_id=1404712367]
 script = ExtResource("1_gxxwq")
 
-[node name="capacity_bar" type="ProgressBar" parent="." unique_id=-838178284]
+[node name="work_progress" type="VBoxContainer" parent="." unique_id=-838178285]
+unique_name_in_owner = true
+offset_right = 46.0
+offset_bottom = 5.0
+theme_override_constants/separation = 0
+script = ExtResource("3_workgrp")
+
+[node name="capacity_bar" type="ProgressBar" parent="work_progress" unique_id=-838178284]
 unique_name_in_owner = true
 offset_right = 46.0
 offset_bottom = 5.0
 script = ExtResource("2_capbar")
+
+[node name="work_bar" type="ProgressBar" parent="work_progress" unique_id=-838178286]
+offset_right = 46.0
+offset_bottom = 5.0
+script = ExtResource("4_workbar")

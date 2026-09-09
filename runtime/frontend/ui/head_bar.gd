@@ -21,6 +21,10 @@ var host: Node3D = null        # 承载条的世界锚点(actor 根);其 global_
 var model: Node3D = null       # 要测量头顶高度的模型(host 的子节点)
 var model_height: float = 0.0  # 模型头顶高度(相对 host 本地 y),由 AABB 结算
 
+# 是否自主做 billboard 定位。放入 HeadBarGroup(竖排组)的多条应设 false,
+# 由组统一定位每条自身跳过 position 计算;单条(血条/容量条)保持 true。
+var allow_auto_position: bool = true
+
 var _fill_style: StyleBoxFlat = null
 
 func setup(in_host: Node3D, in_model: Node3D):
@@ -42,25 +46,38 @@ func _ready():
 
 func _process(_in_delta: float):
 	var value := _value()
-	if value < 0.0 or model_height <= 0.0 or not host:
+	if value < 0.0:
 		hide()
 		return
 	_update_visual(value)
 	max_value = 100.0
 	self.value = clampf(value, 0.0, 1.0) * 100.0
+	if not allow_auto_position:
+		# 置于 HeadBarGroup(竖排组)内:值/显隐由本条按 _value() 结算,
+		# 定位交给组,自身不再要求 host/model(host/model 由组持有)。
+		show()
+		return
+	if model_height <= 0.0 or not host:
+		hide()
+		return
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	if not camera:
 		return
-	# 头顶锚点是世界坐标:沿世界 Y 抬升模型顶上一基准点,投影后把条居中放到其上方。
-	# 不能沿相机 up(camera.transform.basis.y)抬升——俯角相机该向量在世界里是斜的,
-	# 会同时引入随 model_height 放大的水平偏移,导致高模型的血条/容量条远离对象。
-	var anchor := host.global_position + Vector3.UP * (model_height + TOP_GAP_WORLD)
-	if camera.is_position_behind(anchor):
+	var screen := project_screen(host, model_height, camera)
+	if screen.x < 0.0:
 		hide()
 		return
-	var screen := camera.unproject_position(anchor)
 	position = Vector2(screen.x - size.x * 0.5, screen.y - size.y - BAR_GAP_PX)
 	show()
+
+# 头顶锚点投影到屏幕;锚点在世界空间沿 Y 抬升(见 _process 注释)。
+# 返回屏幕坐标;锚点在相机背后时返回 x = -1 表示不可见,调用方据此隐藏。
+static func project_screen(in_host: Node3D, in_model_height: float,
+		in_camera: Camera3D) -> Vector2:
+	var anchor := in_host.global_position + Vector3.UP * (in_model_height + TOP_GAP_WORLD)
+	if in_camera.is_position_behind(anchor):
+		return Vector2(-1.0, 0.0)
+	return in_camera.unproject_position(anchor)
 
 # —— 样式(自建 bg/fill,fill 复制一份避免跨实例污染颜色) ——
 

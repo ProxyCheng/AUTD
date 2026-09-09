@@ -7,7 +7,7 @@ var building_model: Node3D = null
 var axis: Vector2i = Vector2i.ZERO
 var direction: Vector2i = Vector2i.UP
 
-@onready var capacity_bar: BuildingCapacityBar = %capacity_bar
+@onready var work_progress: HeadBarGroup = %work_progress
 
 func bind(in_building: Building):
 	if building:
@@ -21,7 +21,7 @@ func bind(in_building: Building):
 			building.stored_count_changed.disconnect(_on_building_stored_count_changed)
 	building = in_building
 	if not building:
-		capacity_bar.configure(null)
+		work_progress.bind_source(null)
 		return
 	if building.type != type:
 		type = building.type
@@ -40,7 +40,8 @@ func bind(in_building: Building):
 		building.content_type_changed.connect(_on_building_content_type_changed)
 	if building.has_signal(&"stored_count_changed"):
 		building.stored_count_changed.connect(_on_building_stored_count_changed)
-	capacity_bar.configure(building)
+	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
+	work_progress.bind_source(building)
 	_on_building_state_changed()
 	_on_building_progress_changed()
 	_on_building_aim_direction_changed()
@@ -61,7 +62,8 @@ func _on_type_changed():
 	if building_model:
 		add_child(building_model)
 		building_model.owner = owner
-		capacity_bar.setup(self, building_model)
+		# 组统一定位/测量;容量条与工作量条均为其子条,随组竖排
+		work_progress.setup(self, building_model)
 
 func _on_axis_changed():
 	position = Vector3(axis.x, 0, axis.y)
