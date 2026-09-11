@@ -7,6 +7,8 @@ const CARRY_VISIBLE_MAX: int = 5
 const CARRY_HEAD_GAP: float = 0.08
 # 相邻两层垂直间距系数(相对道具厚度),留微缝防 z-fight(与料堆 LAYER_SPACING 同义)
 const CARRY_LAYER_SPACING: float = 1.3
+# 实体模型统一缩放(美术源按米制,缩到格子视觉尺度)
+const MODEL_SCALE: float = 0.3
 
 var entity: Entity = null
 var type: String = ""
@@ -55,12 +57,27 @@ func _on_entity_position_changed():
 	if not entity:
 		return
 	position = Vector3(entity.position.x, 0, entity.position.y)
+	_sync_flight()
 
 func _on_entity_direction_changed():
 	if not entity:
 		return
-	if entity.direction != Vector2.ZERO:
+	if entity.direction == Vector2.ZERO:
+		return
+	# 飞行物由模型按抛物线切线统一处理朝向;普通实体保持 -Z 前向水平 look_at。
+	if not _sync_flight():
 		look_at(global_position + Vector3(entity.direction.x, 0, entity.direction.y))
+
+# 飞行物(Arrow)表现:把 backend 的弹道数据转发给模型,由模型负责抛物线 Y 与俯仰朝向。
+# 以"模型是否实现 set_flight"为能力判据——非飞行模型直接跳过(保持贴地、水平朝向)。
+func _sync_flight() -> bool:
+	if not model or not model.has_method(&"set_flight"):
+		return false
+	var arrow: Arrow = entity as Arrow
+	if not arrow:
+		return false
+	model.set_flight(arrow.flight_progress(), arrow.direction, arrow.launch_height, arrow.flight_time, arrow.move_speed)
+	return true
 
 func _on_entity_type_changed():
 	type = entity.type
@@ -75,7 +92,7 @@ func _on_entity_type_changed():
 	if model:
 		add_child(model)
 		model.owner = owner
-		model.scale = Vector3.ONE * 0.3
+		model.scale = Vector3.ONE * MODEL_SCALE
 		_refresh_model_metrics()
 
 # 刷新模型度量:本地合并 AABB(头顶携带物定位用)与头顶高度(血条用)。
@@ -96,7 +113,8 @@ func _refresh_model_metrics():
 
 func _on_entity_state_changed():
 	state = entity.state
-	model.set_state(state)
+	if model and model.has_method(&"set_state"):
+		model.set_state(state)
 
 # —— 头顶携带物(Creature.carried_*) ——
 
