@@ -2,20 +2,19 @@ class_name CraftingWorkshopModel
 extends Node3D
 
 # 车间表现脚本(哑脚本,不接触 backend 逻辑):由 BuildingActor 转发
-# state / stored_count。产出物(箭)经 ItemStack 子节点在建筑侧方显示一小垛,
-# 随后端输出仓存量变化增减。
+# state 与展示仓(bag)。产出物(箭)经 ItemStack 子节点在建筑侧方显示一小垛,
+# 跟随绑定 Bag 的数量变化增减。
 
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
 	content_stack.per_row = 3
 	content_stack.layer_count = 3
-	# 箚:箭头很长但很窄,缩短长轴使整垛落在格子 [-0.5, 0.5] 内
-	content_stack.target_length = 0.4
+	# 箭:箭头很长但很窄;垛大小由 content_stack 节点的 Transform Scale 控制
+	# (见 crafting_workshop.tscn),使整垛落在格子 [-0.5, 0.5] 内
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
-	# 本建筑专产箭
-	content_stack.set_item_type("arrow")
 
-func set_stored_count(in_count: int, in_capacity: int):
-	content_stack.set_count(in_count)
+# 绑定后端展示仓:物品类型与数量均由 Bag 驱动(见 ItemStack.bind)。
+func bind_bag(in_bag: Bag):
+	content_stack.bind(in_bag)

@@ -2,23 +2,21 @@ class_name TreeWorkshopModel
 extends Node3D
 
 # 伐木场表现脚本(哑脚本,不接触 backend 逻辑):由 BuildingActor 转发
-# state / stored_count。产出物(原木)经 ItemStack 子节点在建筑侧方显示一小垛,
-# 随后端输出仓存量变化增减。
+# state 与展示仓(bag)。产出物(原木)经 ItemStack 子节点在建筑侧方显示一小垛,
+# 跟随绑定 Bag 的数量变化增减。
 
 # 内容物堆叠组件(子节点,类型标注 ItemStack 便于用 capacity)
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
-	# 堆垛几何:每排 3、共 3 层 → 满堆 9;目标长轴 0.5,微缝防 z-fight
+	# 堆垛几何:每排 3、共 3 层 → 满堆 9;微缝防 z-fight。
+	# 垛大小(原木长轴)改由 content_stack 节点的 Transform Scale 控制(见 tree_workshop.tscn),
+	# 原木堆需落在所属格子 [-0.5, 0.5] 内。
 	content_stack.per_row = 3
 	content_stack.layer_count = 3
-	# 目标长轴缩小:原木堆需落在所属格子 [-0.5, 0.5] 内,整垛半宽需 < 格子半径
-	content_stack.target_length = 0.45
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
-	# 本建筑专产原木;后端输出仓变化经 set_stored_count 驱动显示
-	content_stack.set_item_type("log")
 
-# 由 BuildingActor 转发:后端输出仓存量变化 → 显示对应数量原木堆
-func set_stored_count(in_count: int, in_capacity: int):
-	content_stack.set_count(in_count)
+# 绑定后端展示仓:物品类型与数量均由 Bag 驱动(见 ItemStack.bind)。
+func bind_bag(in_bag: Bag):
+	content_stack.bind(in_bag)

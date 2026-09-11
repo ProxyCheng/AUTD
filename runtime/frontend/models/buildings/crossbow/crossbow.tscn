@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://b4sw60fyhhpvb" path="res://runtime/frontend/models/buildings/crossbow/crossbow.fbx" id="1_a8mo0"]
 [ext_resource type="Script" uid="uid://b4jlnt14epl7v" path="res://runtime/frontend/models/buildings/crossbow/crossbow_model.gd" id="2_1fxwq"]
 [ext_resource type="PackedScene" uid="uid://cgifta4t5d6e1" path="res://runtime/frontend/models/entities/arrow/arrow.fbx" id="3_jhk12"]
+[ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="4_stack"]
 
 [node name="crossbow" unique_id=1923286615 instance=ExtResource("1_a8mo0")]
 script = ExtResource("2_1fxwq")
@@ -18,6 +19,12 @@ unique_name_in_owner = true
 
 [node name="cog_top" parent="base" index="2" unique_id=685148222]
 unique_name_in_owner = true
+
+[node name="AmmoStack" type="Node3D" parent="base/cog_top" index="0" unique_id=1721235444]
+unique_name_in_owner = true
+transform = Transform3D(-0.0048, -4.1962936e-10, -1.8342581e-17, 0, -2.0981468e-10, 0.0048, -4.1962936e-10, 0.0048, 2.0981468e-10, 0.005492572, 0.0057604364, 0.001833518)
+script = ExtResource("4_stack")
+item_type = "arrow"
 
 [node name="body" parent="base/cog_top/deck/bracket" parent_id_path=PackedInt32Array(98314146) index="0" unique_id=1700663247]
 unique_name_in_owner = true

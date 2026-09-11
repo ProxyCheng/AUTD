@@ -56,10 +56,6 @@ func bind(in_building: Building):
 		building.progress_changed.disconnect(_on_building_progress_changed)
 		if building.has_signal(&"aim_direction_changed"):
 			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
-		if building.has_signal(&"content_type_changed"):
-			building.content_type_changed.disconnect(_on_building_content_type_changed)
-		if building.has_signal(&"stored_count_changed"):
-			building.stored_count_changed.disconnect(_on_building_stored_count_changed)
 	building = in_building
 	# 重绑(复用池回收/重建)时复位选中,避免上个建筑的高亮残留
 	selected = false
@@ -67,6 +63,7 @@ func bind(in_building: Building):
 		_selection_ring.visible = false
 	if not building:
 		work_progress.bind_source(null)
+		_bind_display_bag()
 		return
 	if building.type != type:
 		type = building.type
@@ -81,17 +78,12 @@ func bind(in_building: Building):
 	building.progress_changed.connect(_on_building_progress_changed)
 	if building.has_signal(&"aim_direction_changed"):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
-	if building.has_signal(&"content_type_changed"):
-		building.content_type_changed.connect(_on_building_content_type_changed)
-	if building.has_signal(&"stored_count_changed"):
-		building.stored_count_changed.connect(_on_building_stored_count_changed)
 	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
 	work_progress.bind_source(building)
 	_on_building_state_changed()
 	_on_building_progress_changed()
 	_on_building_aim_direction_changed()
-	_on_building_content_type_changed()
-	_on_building_stored_count_changed()
+	_bind_display_bag()
 	_update_direction()
 
 func get_type_key() -> String:
@@ -160,26 +152,11 @@ func _on_building_progress_changed():
 		return
 	building_model.set_progress(building.progress)
 
-# 料堆等存储型建筑:物品类型变化 → model 换内容物模型
-func _on_building_content_type_changed():
-	if not building:
+# 把 backend 展示仓转发给 model,由其绑定到 ItemStack(见 ItemStack.bind;解绑时 bag 传 null)。
+func _bind_display_bag():
+	if not building_model or not building_model.has_method(&"bind_bag"):
 		return
-	if not building_model:
-		return
-	if not building_model.has_method(&"set_content_type"):
-		return
-	if not building.has_signal(&"content_type_changed"):
-		return
-	building_model.set_content_type(building.content_type)
-
-# 料堆等存储型建筑:存量变化 → model 按 count/capacity 更新堆叠量
-func _on_building_stored_count_changed():
-	if not building:
-		return
-	if not building_model:
-		return
-	if not building_model.has_method(&"set_stored_count"):
-		return
-	if not building.has_signal(&"stored_count_changed"):
-		return
-	building_model.set_stored_count(building.stored_count, building.capacity)
+	var display_bag: Bag = null
+	if building and building.has_method(&"get_display_bag"):
+		display_bag = building.get_display_bag()
+	building_model.bind_bag(display_bag)

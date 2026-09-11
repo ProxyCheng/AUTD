@@ -3,15 +3,10 @@ extends Node3D
 
 const ANIM_NAME: StringName = &"bone|boneAction_001"
 
-# 备箭垛:显示在炮塔平台(随 %cog_top 水平转向)上的备用弩箭。
-# 弦上那支由 %Arrow 负责(仅在非 idle 显示),本垛展示"弦下"的备箭。
-# 数量 = backend 转发的 stored_count - 1(弦上已占一支)。几何由 ItemStack 组件渲染(3×3=9 封顶)。
-# 备箭垛在"模型真实单位(根空间)"下的落点锚点(垛底面中心)。
-# 实测:八角形平台板(deck)顶面 y≈0.424,x∈[-0.386,0.388], z∈[-0.364,0.414];
-# 中央机构(bracket)占 x∈[-0.155,0.165], z∈[-0.05,0.28],故净空区为后部( z<0 )。
-# 锚点取平台面(y=0.424)后部右侧净空:整垛底边贴平台,避开中央机构。常量可微调。
-const AMMO_ANCHOR: Vector3 = Vector3(0.22, 0.424, -0.20)
-
+# 备箭垛(场景节点 %AmmoStack,挂在 base/cog_top 下随炮塔水平转向):显示弦下备箭。
+# 弦上那支由 %Arrow 负责(仅在非 idle 显示);本垛数量 = bag.count - 1。
+# 垛的姿态/几何(item_type、target_length、摆放锚点…)全部在 crossbow.tscn 里配,
+# 编辑器里可直观调;ItemStack 自带摆放范围 Gizmo 线框。
 # 上弦动作时长(秒):与 backend Crossbow.LOAD_TIME 语义一致——装填期间弦保持松弛。
 const NOCK_TIME: float = 0.55
 # 弹射动作时长(秒):与 backend Crossbow.FIRE_TIME 一致——松弦沿弩身飞出。
@@ -29,8 +24,11 @@ func _ready():
 	%AnimationPlayer.seek(%AnimationPlayer.current_animation_length, true)
 	# 初始处于 idle(空闲),箭默认隐藏,待 backend 状态落到非 idle 再显示
 	%Arrow.visible = false
-	_build_ammo_stack()
+	# 弦上箭的静止姿态(position/rotation/scale 全量),作为上弦动画的终点 TRS
+	_arrow_rest_transform = %Arrow.transform
 	_ensure_anchors()
+	# 备垛显示数 = 仓存量 - 1:弦上那支由 %Arrow 单独显示(见 count_offset 语义)。
+	_ammo_stack.count_offset = 1
 
 # ---------------------------------------------------------------- #
 # 动画关键锚点(skin 局部坐标,即 %Arrow 的父空间)
@@ -101,20 +99,29 @@ func _ensure_direction():
 var _show_arrow: bool = false
 # 当前后端阶段(idle/loading/charging/ready/firing),由 set_state 记录
 var _state: String = "idle"
-# 逻辑装填在弦上的箭数(= stored_count);<=0 表示无箭可挂
+# 逻辑装填在弦上的箭数(= bag.count);<=0 表示无箭可挂
 var _loaded_count: int = 0
+# 后端备箭展示仓(由 BuildingActor 经 bind_bag 转发);数量变化驱动箭垛与弦上箭显隐
+var _bag: Bag = null
 # 上弦动画进行中的时间进度 0..1;-1 表示未在装填
 var _nock_t: float = -1.0
 # 弹射动画进行中的时间进度 0..1;-1 表示未在弹射
 var _release_t: float = -1.0
+# 弦上箭静止姿态(skin 局部 TRS);上弦动画的终点
+var _arrow_rest_transform: Transform3D = Transform3D.IDENTITY
+# 上弦动画起点 TRS(skin 局部)= 备垛最后一支箭的姿态;进入装填后懒计算一次
+var _nock_from: Transform3D = Transform3D.IDENTITY
+var _nock_from_ready: bool = false
 
 func set_state(in_state: String):
 	_state = in_state
 	match in_state:
 		"loading":
-			# 进入装填:从备垛顶拾取→上到弛弦位。弦保持松弛(progress=0),只动箭。
+			# 进入装填:从备垛最后一支箭拾取→上到弛弦位。弦保持松弛(progress=0),只动箭。
+			# 起点 TRS 延后到首个 _process 帧再取(垛/骨架的 global 变换需先 refresh 一帧)。
 			_nock_t = 0.0
 			_release_t = -1.0
+			_nock_from_ready = false
 		"firing":
 			# 进入弹射:从满弦位沿弩身朝弩口飞出。弦姿态随 progress 松弦,箭走 _process。
 			_release_t = 0.0
@@ -152,18 +159,22 @@ func _update_arrow_position(in_progress: float):
 		return
 	_ensure_anchors()
 	var t: float = in_progress if _show_arrow else 0.0
-	%Arrow.position = _string_rest_local.lerp(_string_draw_local, t)
+	# 姿态恒为静止 TRS(rotation/scale 不变),只把位置沿弦位点插值
+	%Arrow.transform = Transform3D(_arrow_rest_transform.basis, _string_rest_local.lerp(_string_draw_local, t))
 
 func _process(in_delta: float):
-	# 装填上弦:从拾取点 → 弛弦位,弦保持松弛。
+	# 装填上弦:整支箭从"备垛最后一支"的 TRS 插值到"弛弦位静止"的 TRS
+	# (位置 + 旋转 + 缩放一起过渡,避免只动位置时朝向/大小的突跳)。
 	if _state == "loading" and _nock_t >= 0.0:
-		_ensure_direction()
+		if not _nock_from_ready:
+			_nock_from = _compute_nock_from()
+			_nock_from_ready = true
 		_nock_t += in_delta / NOCK_TIME
 		var t := clampf(_ease_nock(_nock_t), 0.0, 1.0)
-		%Arrow.position = _pickup_skin_local().lerp(_string_rest_local, t)
+		%Arrow.transform = _nock_from.interpolate_with(_arrow_rest_transform, t)
 		if _nock_t >= 1.0:
 			_nock_t = -1.0
-			%Arrow.position = _string_rest_local
+			%Arrow.transform = _arrow_rest_transform
 		return
 	# 弹射:从满弦位沿弩身朝弩口加速飞出(离心),不再被弦拖回 A。
 	if _state == "firing" and _release_t >= 0.0:
@@ -183,40 +194,26 @@ func _ease_nock(in_t: float) -> float:
 func _ease_release(in_t: float) -> float:
 	return in_t * in_t
 
-var _pickup_local: Vector3 = Vector3.ZERO
-var _pickup_computed: bool = false
-
-# 取备垛顶那支可抓取的箭的 global 位置,换算到 skin 局部作为拾取起点。
-func _pickup_skin_local() -> Vector3:
-	if not _pickup_computed:
-		var grab_world := _ammo_stack_top_world()
-		_pickup_local = _skin.to_local(grab_world) if _skin else _string_rest_local
-		_pickup_computed = true
-	return _pickup_local
-
-func _ammo_stack_top_world() -> Vector3:
-	if not _ammo_stack:
-		return _string_rest_local
-	# 垛内最高(最上层)可见箭的 global 位置:取可见 prop 里 y 最大者,近似"顶部可抓取那支"。
-	var top: Vector3 = _ammo_stack.global_position + Vector3(0, 0.15, 0)
-	var found := false
-	for prop in _ammo_stack.find_children("", "Node3D", true, false):
-		if not (prop is Node3D):
-			continue
-		var p3: Node3D = prop
-		if not p3.visible:
-			continue
-		if not found or p3.global_position.y > top.y:
-			top = p3.global_position
-			found = true
-	return top
+# 上弦起点 TRS(skin 局部):取备垛"最后一支箭"的世界空间 TRS(ItemStack 约定),
+# 经"世界 → skin"变换搬到弦上箭的父空间,供与静止 TRS 做整段插值。
+# 垛里没有箭(或场景缺节点)时退回静止 TRS,动画退化为原地不动。
+func _compute_nock_from() -> Transform3D:
+	if not _ammo_stack or not _skin:
+		return _arrow_rest_transform
+	var src: Variant = _ammo_stack.get_prop_transform(_ammo_stack.visible_count() - 1)
+	if not (src is Transform3D):
+		return _arrow_rest_transform
+	return _skin.global_transform.affine_inverse() * (src as Transform3D)
 
 # 当前累计水平朝向角(弧度,不 wrap),跨 ±π 边界时靠 wrapf 平滑推进,避免 cog 部件瞬间反转。
 var _current_yaw: float = 0.0
+# 世界 XZ 单位朝向向量(与 backend aim_direction 同);用于推算与 fire() 一致的出膛点。
+var _aim_dir: Vector3 = Vector3.FORWARD
 
 # 炮口水平朝向:由 backend 传入的 aim_direction(单位向量,y 为世界 z)决定。
 # backend 已做限速,方向向量是逐帧连续变化的;这里把它累计成连续角度(不跳变)。
 func set_aim_direction(in_direction: Vector3):
+	_aim_dir = in_direction
 	# 模型 rest 朝 +Z(= Vector3.BACK),故取 atan2(x, z) 为朝向角
 	var target_angle: float = atan2(in_direction.x, in_direction.z)
 	var delta: float = wrapf(target_angle - _current_yaw, -PI, PI)
@@ -225,45 +222,38 @@ func set_aim_direction(in_direction: Vector3):
 	%cog_left.rotation.x = _current_yaw * 8 / 5
 	%cog_right.rotation.x = -_current_yaw * 8 / 5
 
-# 仅按目标距离调整俯仰;水平朝向改走 set_aim_direction。
+# 炮身仰角与 body.rotation.x 成 1:1 线性,但符号相反:要炮口对齐弹道切线 pitch,
+# 取 body.rotation.x = -pitch + BARREL_REST_ELEVATION。补偿值由弹道调试场景
+# arrow_traj_test.tscn 实测定为 15°(≈0.2618 rad,最贴合)。用 static var 便于该场景实时试参。
+static var BARREL_REST_ELEVATION: float = 0.261799  # 弧度(= 15°)
+
+# 俯仰对齐箭离弦瞬间的抛物线切线(与 backend fire() 共用 Crossbow.aim_pitch),使箭"顺膛而出"。
+# 起点几何(转轴 P + 起点偏移 S)也由 Crossbow 统一给出,保证与箭实际弹道一致。
 func set_target_position(in_position: Vector3):
-	var distance: float = global_position.distance_squared_to(in_position)
-	var max_angle: float = 40 * PI / 180
-	%body.rotation.x = max_angle * (1 - (distance - 1) / 5)
+	var center := Vector2(global_position.x, global_position.z)
+	var aim := Vector2(_aim_dir.x, _aim_dir.z)
+	if aim == Vector2.ZERO:
+		return
+	var pitch: float = Crossbow.aim_pitch(center, aim, Vector2(in_position.x, in_position.z))
+	%body.rotation.x = -pitch + BARREL_REST_ELEVATION
 
-# —— 备箭垛(挂 %cog_top,随炮塔转向) ——
+# —— 备箭垛(场景节点 %AmmoStack,挂 base/cog_top 下随炮塔转向) ——
 
-# ItemStack 组件实例
-var _ammo_stack: ItemStack = null
+# 垛节点在 crossbow.tscn 里;姿态/几何也在那里配
+@onready var _ammo_stack: ItemStack = %AmmoStack
 
-# 在 %cog_top 下建备箭垛。%cog_top 深在 FBX 导入层(base 含 40 缩放 + 旋转),
-# 直接用 root 空间的真实锚点经 base 逆变换写入其本地 transform,
-# 使垛内以真实尺寸落在甲板顶面,并随炮塔水平转向。
-func _build_ammo_stack():
-	var cog_top: Node3D = %cog_top
-	_ammo_stack = ItemStack.new()
-	_ammo_stack.name = "AmmoStack"
-	# 配置几何:3 支×3 层 = 9 支封顶;箭长轴略小,平放同向逐层摞
-	_ammo_stack.per_row = 3
-	_ammo_stack.layer_count = 3
-	_ammo_stack.target_length = 0.35
-	_ammo_stack.row_spacing = 1.05
-	_ammo_stack.layer_spacing = 1.2
-	# %cog_top 的父链是 root → base → cog_top(FBX 导入 base 含 40 缩放 + 旋转)。
-	var base: Node3D = get_node("base")
-	var cog_top_local: Node3D = %cog_top
-	var head: Transform3D = base.transform * cog_top_local.transform
-	var real_anchor := Transform3D(Basis.IDENTITY, AMMO_ANCHOR)
-	_ammo_stack.transform = head.affine_inverse() * real_anchor
-	cog_top.add_child(_ammo_stack)
-	_ammo_stack.set_item_type("arrow")
-	_ammo_stack.set_count(0)
-
-# BuildingActor 转发存量变化:备箭数 = stored_count - 1(弦上那支由 %Arrow 显示),
-# 下限 0,上限 AMMO_STACK_SIZE。in_capacity 仅作镜像展示用,本模型按 9 封顶内部截断。
-func set_stored_count(in_count: int, _in_capacity: int):
-	_loaded_count = in_count
+# 绑定后端展示仓(由 BuildingActor 转发):箭垛跟随 Bag;弦上箭显隐另按 bag.count 判断。
+func bind_bag(in_bag: Bag):
+	if is_instance_valid(_bag) and _bag.count_changed.is_connected(_on_bag_count_changed):
+		_bag.count_changed.disconnect(_on_bag_count_changed)
+	_bag = in_bag
+	if is_instance_valid(_bag) and not _bag.count_changed.is_connected(_on_bag_count_changed):
+		_bag.count_changed.connect(_on_bag_count_changed)
 	if _ammo_stack:
-		_ammo_stack.set_count(maxi(in_count - 1, 0))
+		_ammo_stack.bind(_bag)
+	_on_bag_count_changed()
+
+# bag.count 变化 → 同步"弦上是否有箭"语义(供 %Arrow 显隐)。
+func _on_bag_count_changed():
+	_loaded_count = _bag.count if is_instance_valid(_bag) else 0
 	_update_arrow_visibility()
-	# 存量变化可能会重置拾取点(垛顶箭变了),但上弦中途不必重算,保持一次连贯即可

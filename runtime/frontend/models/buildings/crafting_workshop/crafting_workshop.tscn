@@ -11,5 +11,5 @@ script = ExtResource("1_model")
 transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 
 [node name="content_stack" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, 0.25)
+transform = Transform3D(0.2195, 0, 0, 0, 0.2195, 0, 0, 0, 0.2195, 0.3, 0, 0.25)
 script = ExtResource("3_stack")
