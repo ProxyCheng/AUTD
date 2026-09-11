@@ -182,10 +182,11 @@ func _apply_workload(in_workload: float):
 		work_accum -= recipe.workload_per_unit
 	progress = clampf(work_accum / recipe.workload_per_unit, 0.0, 1.0)
 
-# 机器帧推进:维护建筑可观察 state(供 frontend 播/静止)。产出进度归零语义留给子类。
+# 机器帧推进:维护建筑可观察 state(供 frontend 播/静止)。仅"有人值守且在产出"时
+# 置 "working",否则 "idle" —— 前端动画只在真正生产时播放。产出进度归零语义留给子类。
 func _tick_machine(_in_delta: float):
 	var recipe := _selected_recipe()
-	if recipe == null or (recipe.output != "" and output_bag and output_bag.is_full()):
+	if recipe == null or (recipe.output != "" and output_bag and output_bag.is_full()) or not _is_manned():
 		if state != "idle":
 			state = "idle"
 	else:
