@@ -17,7 +17,15 @@ extends Node
 static var next_id: int = 1
 var id: int = 0
 
-var item_type: String = ""
+# 物品类型(可观察:变化时广播 item_type_changed,供 frontend ItemStack 跟随)。
+var item_type: String = "":
+	get:
+		return item_type
+	set(in_type):
+		if in_type == item_type:
+			return
+		item_type = in_type
+		item_type_changed.emit()
 var max_count: int = 10
 var preferred_min_count: int = 0
 var preferred_max_count: int = max_count
@@ -31,6 +39,7 @@ var access_position: Vector2 = Vector2.ZERO
 var transport_priority: int = 0
 
 signal count_changed()
+signal item_type_changed()
 
 func _init():
 	id = next_id

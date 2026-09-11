@@ -341,6 +341,10 @@ func _bind_mirror(in_bag: Bag):
 		_mirror_bag.count_changed.connect(_sync_stored_count)
 	_sync_stored_count()
 
+# 展示仓 = 已注册为展示镜像的仓(Workshop 为 output_bag;Crossbow 经 _bind_mirror 为 input_bag)。
+func get_display_bag() -> Bag:
+	return _mirror_bag
+
 # 镜像仓 count 变化 → 同步镜像属性,经 setter 触发 stored_count_changed
 func _sync_stored_count():
 	stored_count = _mirror_bag.count if _mirror_bag else 0

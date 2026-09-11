@@ -20,17 +20,10 @@ const AUTO_FILL_ON_PLACE: bool = true
 
 var bag: Bag = null
 
-# 当前存放的物品类型。仅在空仓时允许更换(只能存一种物品)。
-var content_type: String = DEFAULT_ITEM_TYPE:
+# 当前存放的物品类型(派生自 bag.item_type;空仓时可更换)。
+var content_type: String:
 	get:
-		return content_type
-	set(in_type):
-		if in_type == content_type:
-			return
-		content_type = in_type
-		if bag:
-			bag.item_type = in_type
-		content_type_changed.emit()
+		return bag.item_type if bag else DEFAULT_ITEM_TYPE
 signal content_type_changed()
 
 # 料堆容量(只读,供 frontend 归一化显示)
@@ -52,7 +45,7 @@ signal stored_count_changed()
 func _ready():
 	bag = Bag.new()
 	bag.name = "Bag"
-	bag.item_type = content_type
+	bag.item_type = DEFAULT_ITEM_TYPE
 	bag.max_count = CAPACITY
 	bag.preferred_min_count = PREFERRED_MIN_COUNT
 	bag.preferred_max_count = PREFERRED_MAX_COUNT
@@ -60,6 +53,7 @@ func _ready():
 	add_child(bag)
 	bag.owner = owner
 	bag.count_changed.connect(_sync_stored_count)
+	bag.item_type_changed.connect(_on_bag_item_type_changed)
 	_register_bag()
 	if AUTO_FILL_ON_PLACE:
 		bag.add_count(CAPACITY)
@@ -74,7 +68,7 @@ func set_content_type(in_type: String) -> bool:
 		return true
 	if stored_count > 0:
 		return false
-	content_type = in_type
+	bag.item_type = in_type
 	return true
 
 # 入库/出库入口(供搬运/生产侧调用),返回实际生效数量。
@@ -94,6 +88,13 @@ func is_full() -> bool:
 # bag.count 变化 → 同步镜像属性,经 setter 触发 stored_count_changed
 func _sync_stored_count():
 	stored_count = bag.count if bag else 0
+
+func get_display_bag() -> Bag:
+	return bag
+
+# bag.item_type 变化 → 转发为 content_type_changed(供 UI/表现)。
+func _on_bag_item_type_changed():
+	content_type_changed.emit()
 
 func _register_bag():
 	var logistics: Logistics = _get_logistics()

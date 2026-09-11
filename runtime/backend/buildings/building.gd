@@ -45,6 +45,10 @@ func load_data(in_data: BuildingData, in_cell: Cell):
 func get_type_key() -> String:
 	return "Building_%s" % type
 
+# 供 frontend 镜像的展示仓(BuildingActor 转发给 model → ItemStack)。基类无仓返回 null。
+func get_display_bag() -> Bag:
+	return null
+
 func tick(in_delta: float):
 	pass
 
