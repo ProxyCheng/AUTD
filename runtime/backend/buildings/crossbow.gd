@@ -79,8 +79,8 @@ func _make_fire_recipe() -> RecipeData:
 const TARGET_PREF_NEAREST: String = "nearest"
 const TARGET_PREF_FRONT: String = "front"
 const TARGET_PREF_STRONGEST: String = "strongest"
-# 默认:最近
-const TARGET_PREF_DEFAULT: String = TARGET_PREF_NEAREST
+# 默认:最前(越靠前即越接近主基地推进方向,y 越负越前)
+const TARGET_PREF_DEFAULT: String = TARGET_PREF_FRONT
 
 var target_preference: String = TARGET_PREF_DEFAULT:
 	get:
