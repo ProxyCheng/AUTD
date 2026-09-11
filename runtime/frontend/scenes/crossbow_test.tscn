@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dhrrhworsr0vs"]
+
+[ext_resource type="Script" uid="uid://5soi0bbf3x4g" path="res://runtime/frontend/scenes/crossbow_test.gd" id="1_test"]
+
+[node name="CrossbowTest" type="Node3D" unique_id=1716249031]
+script = ExtResource("1_test")
