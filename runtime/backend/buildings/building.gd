@@ -49,6 +49,11 @@ func get_type_key() -> String:
 func get_display_bag() -> Bag:
 	return null
 
+# 攻击范围(半边长,格子单位):以建筑所在格为中心的正方形,边长 = 2×本值。
+# 返回 <=0 表示本建筑无攻击能力,前端据此不显示范围面;攻击型建筑覆写本方法。
+func get_attack_range() -> float:
+	return 0.0
+
 func tick(in_delta: float):
 	pass
 

@@ -13,6 +13,11 @@ var direction: Vector2i = Vector2i.UP
 var selected: bool = false
 var _selection_ring: Node3D = null
 
+# —— 攻击范围显示 ——
+# 选中攻击型建筑时,在其所在格铺一块半透明圆形范围面(半径取自 backend.get_attack_range())。
+# 与 _selection_ring 同属表现层,由 set_selected 显隐;backend 不感知本节点。
+var _range_indicator: Node3D = null
+
 @onready var work_progress: HeadBarGroup = %work_progress
 
 # 显隐选中高亮(点击选中建筑时由 LevelActor 驱动)。
@@ -24,6 +29,7 @@ func set_selected(in_selected: bool):
 		_build_selection_ring()
 	if _selection_ring:
 		_selection_ring.visible = selected
+	_update_range_indicator()
 
 # 程序化生成选中地盘:一个略大于建筑基座、半透明发光的圆环,铺在 y=0 地面。
 # 用 TorusMesh 环而非改模型材质(模型共享,污染大);中心镂空不遮模型,对任意建筑通用。
@@ -50,6 +56,76 @@ func _build_selection_ring():
 	add_child(ring)
 	_selection_ring = ring
 
+# 范围面显隐:仅当选中且建筑有攻击范围(backend.get_attack_range() > 0)时显示。
+# 非攻击建筑不构建、不显示;惰性构建,尺寸由 backend 值决定(单一事实来源)。
+func _update_range_indicator():
+	var range_half: float = 0.0
+	if building:
+		range_half = building.get_attack_range()
+	if range_half <= 0.0:
+		if _range_indicator:
+			_range_indicator.visible = false
+		return
+	if not _range_indicator:
+		_build_range_indicator(range_half)
+	if _range_indicator:
+		_range_indicator.visible = selected
+
+# 程序化生成范围面:一个容器节点,内含半透明圆形填充(极扁圆柱,顶/底面即圆盘)
+# 与半径处的环形边框。以建筑所在格为中心铺在 XZ 平面;略抬 y 防 z-fight,且低于选中环(y=0.03)。
+# 建筑方向为 4 向(90° 倍数),look_at 旋转下圆形外观不变,无需额外对齐。
+func _build_range_indicator(in_range_half: float):
+	var indicator := Node3D.new()
+	indicator.name = "AttackRangeIndicator"
+	# 填充:极扁圆柱,top/bottom 半径 = in_range_half
+	var fill := MeshInstance3D.new()
+	fill.name = "Fill"
+	var disk := CylinderMesh.new()
+	disk.height = 0.01
+	disk.top_radius = in_range_half
+	disk.bottom_radius = in_range_half
+	disk.radial_segments = 48
+	disk.rings = 1
+	fill.mesh = disk
+	var fill_mat := StandardMaterial3D.new()
+	fill_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fill_mat.albedo_color = Color(1.0, 0.35, 0.25, 0.20)
+	fill_mat.emission_enabled = true
+	fill_mat.emission = Color(1.0, 0.35, 0.25)
+	fill_mat.emission_energy_multiplier = 1.0
+	fill_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	fill_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	fill.material_override = fill_mat
+	fill.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.02, 0))
+	indicator.add_child(fill)
+	# 边框:半径处一圈细环(TorusMesh 默认平躺 XZ),更实更亮,render_priority 保证盖在填充之上
+	var border := MeshInstance3D.new()
+	border.name = "Border"
+	var ring := TorusMesh.new()
+	var border_half_width: float = 0.05
+	ring.inner_radius = in_range_half - border_half_width
+	ring.outer_radius = in_range_half + border_half_width
+	ring.rings = 96
+	ring.ring_segments = 12
+	border.mesh = ring
+	var border_mat := StandardMaterial3D.new()
+	border_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	border_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	border_mat.albedo_color = Color(1.0, 0.45, 0.30, 0.9)
+	border_mat.emission_enabled = true
+	border_mat.emission = Color(1.0, 0.45, 0.30)
+	border_mat.emission_energy_multiplier = 1.5
+	border_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	border_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	border.material_override = border_mat
+	border.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.025, 0))
+	border_mat.render_priority = 1
+	indicator.add_child(border)
+	indicator.visible = false
+	add_child(indicator)
+	_range_indicator = indicator
+
 func bind(in_building: Building):
 	if building:
 		building.state_changed.disconnect(_on_building_state_changed)
@@ -61,6 +137,8 @@ func bind(in_building: Building):
 	selected = false
 	if _selection_ring:
 		_selection_ring.visible = false
+	if _range_indicator:
+		_range_indicator.visible = false
 	if not building:
 		work_progress.bind_source(null)
 		_bind_display_bag()
@@ -93,6 +171,11 @@ func _on_type_changed():
 	if building_model:
 		remove_child(building_model)
 		building_model.queue_free()
+	# 类型变化后攻击范围可能不同,销毁旧范围面,下次选中按新类型重建
+	if _range_indicator:
+		remove_child(_range_indicator)
+		_range_indicator.queue_free()
+		_range_indicator = null
 	var building_path: String = "res://runtime/frontend/models/buildings/%s/%s.tscn" % [type, type]
 	var building_scene: PackedScene = load(building_path)
 	building_model = building_scene.instantiate()

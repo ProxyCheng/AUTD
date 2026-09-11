@@ -37,6 +37,9 @@ static var SPAWN_HEIGHT: float = 0.09
 # 飞行时长 T = 水平距离 / 本速度,故目标越远飞得越久、弧顶越高。弩身预览俯仰也用它。
 const ARROW_SPEED: float = 10
 
+# 攻击范围(半边长,格子单位):寻敌区域为以弩炮所在格为中心、边长 2×ATTACK_RANGE 的正方形。
+const ATTACK_RANGE: float = 3.0
+
 # 给定离弦仰角 θ,返回射箭起点相对弩中心地面点 O 的偏移:(水平前移, 高度)。
 # S = P + R(θ)·(SPAWN_FORWARD, SPAWN_HEIGHT);P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT。
 static func spawn_offset_at(in_pitch: float) -> Vector2:
@@ -135,6 +138,10 @@ func _setup_bags():
 # 攻击建筑:驱动它的顶岗任务优先级=11(生产 10 再 +1),保证弩炮始终优先有人值守
 func manning_priority() -> int:
 	return 11
+
+# 攻击范围半边长(格子单位),见 ATTACK_RANGE;供前端绘制范围面。
+func get_attack_range() -> float:
+	return ATTACK_RANGE
 
 func is_work_done() -> bool:
 	return _shift_fired
@@ -255,18 +262,23 @@ func fire() -> bool:
 
 # —— 攻击目标选取:按 target_preference 排序 ——
 
-# 范围内(axis±3, 6×6)所有存活敌方,按 target_preference 排序后取第一个。
+# 范围内(以 axis 为圆心、半径 ATTACK_RANGE 的圆形)所有存活敌方,按 target_preference 排序后取第一个。
 #   nearest:距离平方最小(离弩炮最近)
 #   front:y 最小(越靠前,即越接近主基地推进方向;y 越负越靠前)
 #   strongest:health 最高
 func find_target() -> Entity:
 	var room: Room = Level.current.room
-	var entities: Array = room.get_entities_in_rect(Rect2(axis.x - 3, axis.y - 3, 6, 6))
+	var range_half: float = get_attack_range()
+	# Room 只提供矩形查询:先用外接正方形粗筛,再按圆形半径精筛(剔除四角)。
+	var entities: Array = room.get_entities_in_rect(Rect2(axis.x - range_half, axis.y - range_half, range_half * 2.0, range_half * 2.0))
+	var max_distance_sq: float = range_half * range_half
 	var candidates: Array[Entity] = []
 	for entity: Entity in entities:
 		if entity is not Enemy:
 			continue
 		if not entity.is_alive():
+			continue
+		if _distance_sq(entity.position) > max_distance_sq:
 			continue
 		candidates.append(entity)
 	if candidates.is_empty():
