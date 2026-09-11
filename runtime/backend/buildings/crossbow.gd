@@ -26,11 +26,35 @@ const ROTATE_SPEED: float = 2.5
 const AIM_EPSILON: float = 0.05
 # 弹药仓容量(纯需求方:低于上限即求补到满)
 const AMMO_CAPACITY: int = 10
-# 弩口相对弩中心的水平前移偏移(沿瞄准方向;世界单位)。发射时箭从弩口一侧飞出,
-# 而非从格子中心弹出,便于前端"从弦上连贯射出"的视觉衔接。
-const MUZZLE_FORWARD_OFFSET: float = 0.35
-# 发射时的世界高度(弩口离地,约等于模型甲板+弩身中线;前端据此把箭抬高再画抛物线)。
-const LAUNCH_HEIGHT: float = 0.78
+# —— 射箭几何(由弹道调试场景 arrow_traj_test 实测定值;static var 便于该场景继续试参)——
+# 俯仰转轴 P(相对弩中心地面点 O):forward 沿瞄准方向前移、height 离地。
+static var PIVOT_FORWARD: float = 0.16
+static var PIVOT_HEIGHT: float = 0.62
+# 射箭起点 S 相对转轴 P 的偏移(弩身局部系):forward 沿弩身、height 垂直弩身,随俯仰角 θ 旋转。
+static var SPAWN_FORWARD: float = 0.44
+static var SPAWN_HEIGHT: float = 0.09
+# 弩矢水平飞行速度(世界单位/秒)。与前端弹道(Arrow 的重力抛物线)共用同一值:
+# 飞行时长 T = 水平距离 / 本速度,故目标越远飞得越久、弧顶越高。弩身预览俯仰也用它。
+const ARROW_SPEED: float = 10
+
+# 给定离弦仰角 θ,返回射箭起点相对弩中心地面点 O 的偏移:(水平前移, 高度)。
+# S = P + R(θ)·(SPAWN_FORWARD, SPAWN_HEIGHT);P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT。
+static func spawn_offset_at(in_pitch: float) -> Vector2:
+	var c: float = cos(in_pitch)
+	var s: float = sin(in_pitch)
+	return Vector2(
+		PIVOT_FORWARD + SPAWN_FORWARD * c - SPAWN_HEIGHT * s,
+		PIVOT_HEIGHT + SPAWN_FORWARD * s + SPAWN_HEIGHT * c
+	)
+
+# 求命中目标所需的离弦仰角:发射点随 θ 抬升,θ 与发射高度互相依赖,做几次不动点迭代收敛。
+static func aim_pitch(in_center: Vector2, in_aim_dir: Vector2, in_target_pos: Vector2) -> float:
+	var pitch: float = 0.0
+	for _i in range(4):
+		var off: Vector2 = spawn_offset_at(pitch)
+		var spawn_pos: Vector2 = in_center + in_aim_dir * off.x
+		pitch = Arrow.launch_pitch(spawn_pos.distance_to(in_target_pos), off.y, ARROW_SPEED)
+	return pitch
 
 # —— 配方声明:攻击 = 一次即时效果(无输出仓,消耗箭矢触发开火) ——
 # 蓄满一发的蓄力由 base._apply_workload 累积 progress;满弦后由 _tick_machine 负责瞄准/发射。
@@ -218,11 +242,12 @@ func fire() -> bool:
 	input_bag.remove_count(1)
 	var room: Room = Level.current.room
 	var arrow: Arrow = Entity.create("arrow")
-	# 从弩口发射:水平位置 = 弩中心 + 沿瞄准方向前移一个小偏移(弩口朝目标一侧);
-	# 视觉高度由 launch_height 给出(frontend 据此把箭抬高到弩口,再画抛物线)。
-	arrow.position = Vector2(axis) + aim_direction * MUZZLE_FORWARD_OFFSET
-	arrow.launch_height = LAUNCH_HEIGHT
-	arrow.move_speed = 10
+	# 射箭起点由俯仰几何决定:随离弦仰角 θ 绕转轴 P 旋转(高度不再固定)。
+	var pitch: float = aim_pitch(Vector2(axis), aim_direction, target.position)
+	var off: Vector2 = spawn_offset_at(pitch)
+	arrow.position = Vector2(axis) + aim_direction * off.x
+	arrow.launch_height = off.y
+	arrow.move_speed = ARROW_SPEED
 	arrow.set_target_entity(target)
 	room.add_entity(arrow)
 	_shift_fired = true

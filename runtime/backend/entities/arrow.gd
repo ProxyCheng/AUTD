@@ -1,6 +1,23 @@
 class_name Arrow
 extends Entity
 
+# —— 弹道物理(前后端共用同一套公式:弩身瞄准与箭矢视觉都读它,避免两份实现)——
+# 重力加速度(世界单位/秒²)。水平速度恒定 v_h,飞行时长 T = 水平距离/v_h,拱高系数 A = ½·G·T²。
+static var GRAVITY: float = 9.8
+
+# 抛物线在进度 t 处的竖直斜率 dy/dt(未除以水平速率):-h + A·(1-2t)。
+static func arc_slope(in_t: float, in_launch_height: float, in_flight_time: float) -> float:
+	var arc: float = 0.5 * GRAVITY * in_flight_time * in_flight_time
+	return -in_launch_height + arc * (1.0 - 2.0 * in_t)
+
+# 离弦仰角(弧度):抛物线在 t=0 处切线俯仰角 = atan2(竖直速率/水平速率, 1)。
+# 竖直速率/水平速率 = (dy/dt0 / T) / v_h = dy/dt0 / 水平距离。
+static func launch_pitch(in_horizontal_distance: float, in_launch_height: float, in_move_speed: float) -> float:
+	if in_horizontal_distance <= 0.0 or in_move_speed <= 0.0:
+		return 0.0
+	var flight_time: float = in_horizontal_distance / in_move_speed
+	return atan2(arc_slope(0.0, in_launch_height, flight_time) / in_horizontal_distance, 1.0)
+
 var damage: Damage = Damage.physical(10)
 
 var target_entity_ref: WeakRef = null
