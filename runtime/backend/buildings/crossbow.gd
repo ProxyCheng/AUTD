@@ -17,12 +17,20 @@ extends Workshop
 
 const CHARGE_TIME: float = 3.0
 const FIRE_TIME: float = 0.1
+# 装填耗时:工人到位后先把一支弩矢从备箭垛端上弦(前端播上弦动画),随后才开始拉弦。
+# 这段时间弦保持松弛(progress=0),属于"端箭准备",不占用蓄力工作量。
+const LOAD_TIME: float = 0.6
 # 炮塔转向角速度(弧度/秒),目标变化时以该速度平滑旋转,不瞬移
 const ROTATE_SPEED: float = 2.5
 # 判定"对准"的朝向夹角容差(弧度)
 const AIM_EPSILON: float = 0.05
 # 弹药仓容量(纯需求方:低于上限即求补到满)
 const AMMO_CAPACITY: int = 10
+# 弩口相对弩中心的水平前移偏移(沿瞄准方向;世界单位)。发射时箭从弩口一侧飞出,
+# 而非从格子中心弹出,便于前端"从弦上连贯射出"的视觉衔接。
+const MUZZLE_FORWARD_OFFSET: float = 0.35
+# 发射时的世界高度(弩口离地,约等于模型甲板+弩身中线;前端据此把箭抬高再画抛物线)。
+const LAUNCH_HEIGHT: float = 0.78
 
 # —— 配方声明:攻击 = 一次即时效果(无输出仓,消耗箭矢触发开火) ——
 # 蓄满一发的蓄力由 base._apply_workload 累积 progress;满弦后由 _tick_machine 负责瞄准/发射。
@@ -67,6 +75,8 @@ func set_target_preference(in_preference: String):
 
 var fire_timer: float = 0
 var fire_anim_timer: float = 0
+# 装填计时:工人到位进入 loading 后倒计时;归零转为 charging(开始拉弦),再累计蓄力。
+var load_timer: float = 0
 var target: Entity:
 	get:
 		return target
@@ -110,13 +120,14 @@ func is_work_done() -> bool:
 # 顺带 _selected_recipe() 同步 active_recipe(GUI 高亮当前 Fire 配方)。
 func _needs_worker() -> bool:
 	var has_fire_recipe: bool = _selected_recipe() != null
+	# 装填/蓄力期间都需工人值守(装填时弦待发、需操作手,蓄力时注入工作量)。
 	return has_fire_recipe and (not _shift_fired or fire_timer < CHARGE_TIME)
 
 func _has_ammo() -> bool:
 	return input_bag and input_bag.count > 0
 
 # 机器帧推进(基类 tick 已先做值守心跳与补员维护):弩炮为 workload 驱动,
-# 蓄力经 worker 注入 work() 累积,这里负责瞄准、firing 松弦计时与发射判定。
+# 装填/蓄力经 worker 值守,这里负责 loading 倒计时、瞄准、firing 松弦计时与发射判定。
 func _tick_machine(in_delta: float):
 	if state == "firing":
 		fire_anim_timer -= in_delta
@@ -127,6 +138,14 @@ func _tick_machine(in_delta: float):
 			progress = 0
 		return
 	if not _is_manned():
+		return
+	# 装填态:弦保持松弛(progress=0),倒计时结束转入 charging 开始拉弦。
+	if state == "loading":
+		load_timer -= in_delta
+		if load_timer <= 0:
+			load_timer = 0
+			state = "charging"
+			progress = clampf(fire_timer / CHARGE_TIME, 0, 1)
 		return
 	target = find_target()
 	_rotate_aim(in_delta)
@@ -143,9 +162,10 @@ func _tick_machine(in_delta: float):
 	progress = fire_timer / CHARGE_TIME
 
 # worker 每帧注入劳动量(delta * efficiency),累积为蓄力进度。
-# 新一轮值岗(上一工人离岗后首次注入)经基类 _reset_shift() 清零发射标记。
+# 装填/松弦期间注入的工作量被忽略(操作手在端箭/松弦,不拉弦);其余状态才累计。
+# 新一轮值岗(上一工人离岗后首次注入)经基类 _reset_shift() 清零发射标记并进入装填。
 func _apply_workload(in_workload: float):
-	if state == "firing":
+	if state == "firing" or state == "loading":
 		return
 	if state == "idle":
 		state = "charging"
@@ -160,6 +180,14 @@ func _apply_workload(in_workload: float):
 
 func _reset_shift():
 	_shift_fired = false
+	# 新一轮值岗:先端一支新箭上弦(loading,弦保持松弛)。已蓄火力(若有)保留不丢。
+	# 仅在"全新一发"(火力未开始累计)才装填端箭;若是中断续弦(0<fire_timer<CHARGE,
+	# 弦上已有箭、张弦已拉一半),直接回 charging 继续拉,不重复端箭(否则弦会弹回、重复端)。
+	# 已满弦(fire_timer>=CHARGE)则直接维持备战。
+	if _has_ammo() and fire_timer <= 0.0:
+		state = "loading"
+		load_timer = LOAD_TIME
+		progress = 0
 
 # 以 ROTATE_SPEED 限速把 aim_direction 转向目标方位;无目标时保持当前朝向。
 # 跳变幅度小于单帧步进时直接吸附到目标,避免抖动。
@@ -190,7 +218,10 @@ func fire() -> bool:
 	input_bag.remove_count(1)
 	var room: Room = Level.current.room
 	var arrow: Arrow = Entity.create("arrow")
-	arrow.position = Vector2(axis.x, axis.y)
+	# 从弩口发射:水平位置 = 弩中心 + 沿瞄准方向前移一个小偏移(弩口朝目标一侧);
+	# 视觉高度由 launch_height 给出(frontend 据此把箭抬高到弩口,再画抛物线)。
+	arrow.position = Vector2(axis) + aim_direction * MUZZLE_FORWARD_OFFSET
+	arrow.launch_height = LAUNCH_HEIGHT
 	arrow.move_speed = 10
 	arrow.set_target_entity(target)
 	room.add_entity(arrow)
