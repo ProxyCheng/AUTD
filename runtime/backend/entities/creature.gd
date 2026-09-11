@@ -15,26 +15,6 @@ var stored_state: String = ""
 var hit_timer: float = 0
 var die_timer: float = 0
 
-# 携带物品的可观察状态(供搬运表现:工人取货后头顶显示物品小模型)。
-# count > 0 时以 item_type 标注携带物品类型;取货/卸货叶子在搬运途中更新。
-var carried_item_type: String = "":
-	get:
-		return carried_item_type
-	set(in_type):
-		if in_type == carried_item_type:
-			return
-		carried_item_type = in_type
-		carried_changed.emit()
-var carried_count: int = 0:
-	get:
-		return carried_count
-	set(in_count):
-		if in_count == carried_count:
-			return
-		carried_count = in_count
-		carried_changed.emit()
-signal carried_changed()
-
 # LimboAI 执行状态:一棵树 = 一次任务,树返回非 RUNNING 即本任务结束,
 # 下一帧经 create_tree() 请求新树(无"剩余时间溢出"语义)。
 var blackboard: Blackboard = Blackboard.new()

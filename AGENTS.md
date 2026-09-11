@@ -192,6 +192,7 @@ var position: Vector2:
 signal position_changed()
 ```
 - setter 先 guard 相同值早退,再赋值、发信号。派生属性(如 `Building.axis`、`Land.type`)做只读 getter 从数据源推算,不存两份。
+- `Bag.item_type` 也是可观察属性:同样走 getter/setter + 同值 guard + `signal item_type_changed()` 模式,frontend 依赖该信号刷新表现,不得轮询。
 - **`progress` 契约**:数据层恒输出 [0,1] 归一化进度(如蓄力/冷却完成度),禁止输出原始秒数等任意区间值;到动画时间轴/播放方向的换算**一律在 frontend model 的 `set_progress` 完成**,backend 不感知动画资源。`state` 取值由各对象(如 `Building` 子类)自行定义,并与对应 model `set_state` 的分支约定一致。
 
 ### 5.5 Actor 镜像 + 对象池
@@ -200,6 +201,8 @@ signal position_changed()
 - **回收复用优先于创建销毁**:不可见时 `hide()` + 按 `get_type_key()` 存池,需要时从池取、`bind()`、`show()`(参照 `room_actor.gd` / `map_actor.gd`),避免频繁 `instantiate/queue_free`。
 - 跨对象引用统一走 `get_type_key()`(backend 与 frontend 格式一致:`"Entity_%s"` / `"Building_%s"` / `"land_%s"`),用于池 key 与场景路径推导。
 - 前端只在大地图可见格区域生成 Actor:`map_actor.gd` / `room_actor.gd` 监听摄像机 `viewing_axis_changed` 决定放置/回收(新 Actor 一律沿用此可见性策略)。
+- **`ItemStack` 是 backend `Bag` 的规范前端镜像**:经 `ItemStack.bind(in_bag: Bag)` 绑定(先 disconnect 旧连接再 connect、绑定后全量刷新一次,并对 `in_bag` 与自身做 `is_instance_valid` 守卫),表现一律由 bag 信号回流,**禁止**外部逐帧命令式驱动。各消费方的表现差异只放导出参数 `count_mode`(Raw/Fill)与 `count_offset`,不写进模型逻辑。
+- 显示袋子的建筑覆写 `Building.get_display_bag()`(决定展示哪个 bag),`BuildingActor` 把它转发给模型的 `bind_bag(in_bag: Bag)`(见 §8)。
 
 ### 5.6 输入模式(Mode)
 - `Mode`(`enter/tick/leave`),子类挂在 battle.tscn 的 `%modes` 下,`owner.set_mode(&"id")` 切换,靠节点 `name` 匹配;切换时先 `leave()` 旧的再 `enter()` 新的(`level_actor.set_mode`)。
@@ -234,6 +237,8 @@ signal position_changed()
 1. `runtime/backend/buildings/foo.gd`:`extends Building`,加 `class_name`,实现 `tick`/特殊行为;
 2. `runtime/frontend/models/buildings/foo/foo.tscn` + `foo_model.gd`(`class_name FooModel`;含模型/动画,脚本 `set_state`/`set_progress` 等可选);
 3. 数据层字段 `BuildingData.type = "foo"`;`Building.create("foo")` 自动生效,无需改工厂。
+
+**新增显示袋子的建筑:** 建筑脚本须覆写 `get_display_bag() -> Bag`(决定展示哪个 bag),对应模型脚本须实现 `bind_bag(in_bag: Bag)`(`BuildingActor` 负责转发,内部走 `ItemStack` 镜像,见 §5.5);工人随身库存是挂在 `Labor` 上的 `Bag`(`Labor.carried_bag`),不是 `Creature` 的字段。
 
 **新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
 

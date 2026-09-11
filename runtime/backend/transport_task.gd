@@ -13,7 +13,6 @@ const HAUL_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/trans
 const BB_SOURCE_BAG: StringName = &"source_bag"
 const BB_DEST_BAG: StringName = &"dest_bag"
 const BB_CARRY_AMOUNT: StringName = &"carry_amount"
-const BB_CARRIED_COUNT: StringName = &"carried_count"
 # 树内两段移动各自独立的落位目标键(先到源装卸点取,再到目标装卸点放)
 const BB_TAKE_ACCESS: StringName = &"take_access"
 const BB_PUT_ACCESS: StringName = &"put_access"
@@ -36,7 +35,6 @@ func make_tree(in_labor: Labor) -> BehaviorTree:
 	in_labor.blackboard.set_var(BB_SOURCE_BAG, source_bag)
 	in_labor.blackboard.set_var(BB_DEST_BAG, dest_bag)
 	in_labor.blackboard.set_var(BB_CARRY_AMOUNT, amount)
-	in_labor.blackboard.set_var(BB_CARRIED_COUNT, 0)
 	in_labor.blackboard.set_var(BB_TAKE_ACCESS, source_bag.access_position)
 	in_labor.blackboard.set_var(BB_PUT_ACCESS, dest_bag.access_position)
 	return HAUL_TREE

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://clu83jjojamw2" path="res://runtime/frontend/actors/entity_actor.gd" id="1_uwtes"]
 [ext_resource type="Script" path="res://runtime/frontend/ui/entity_health_bar.gd" id="2_hpbar"]
+[ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
 
 [node name="entity_actor" type="Node3D" unique_id=1922527450]
 script = ExtResource("1_uwtes")
@@ -11,3 +12,10 @@ unique_name_in_owner = true
 offset_right = 46.0
 offset_bottom = 5.0
 script = ExtResource("2_hpbar")
+
+[node name="carried" type="Node3D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_stack")
+per_row = 1
+layer_count = 5
+layer_spacing = 1.3

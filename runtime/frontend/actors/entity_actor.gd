@@ -1,12 +1,8 @@
 extends Node3D
 class_name EntityActor
 
-# 携带物显示上限(超出部分只显示这么多层,避免头顶堆太高)
-const CARRY_VISIBLE_MAX: int = 5
 # 携带物相对模型头顶的抬升间隙(米)
 const CARRY_HEAD_GAP: float = 0.08
-# 相邻两层垂直间距系数(相对道具厚度),留微缝防 z-fight(与料堆 LAYER_SPACING 同义)
-const CARRY_LAYER_SPACING: float = 1.3
 # 实体模型统一缩放(美术源按米制,缩到格子视觉尺度)
 const MODEL_SCALE: float = 0.3
 
@@ -26,13 +22,11 @@ func bind(in_entity: Entity):
 		entity.position_changed.disconnect(_on_entity_position_changed)
 		entity.direction_changed.disconnect(_on_entity_direction_changed)
 		entity.state_changed.disconnect(_on_entity_state_changed)
-		if entity.has_signal(&"carried_changed"):
-			entity.carried_changed.disconnect(_sync_carried)
 	entity = in_entity
 	if not entity:
 		if health_bar:
 			health_bar.configure(null)
-		_sync_carried()
+		_bind_carried()
 		return
 	if entity.type != type:
 		_on_entity_type_changed()
@@ -43,11 +37,8 @@ func bind(in_entity: Entity):
 	entity.position_changed.connect(_on_entity_position_changed)
 	entity.direction_changed.connect(_on_entity_direction_changed)
 	entity.state_changed.connect(_on_entity_state_changed)
-	# 携带物信号(搬运表现):count/count 变化时刷新头顶 ItemStack
-	if entity.has_signal(&"carried_changed"):
-		entity.carried_changed.connect(_sync_carried)
 	health_bar.configure(entity as Creature)
-	_sync_carried()
+	_bind_carried()
 	name = "%d (%s)" % [entity.id, get_type_key()]
 
 func get_type_key() -> String:
@@ -116,47 +107,45 @@ func _on_entity_state_changed():
 	if model and model.has_method(&"set_state"):
 		model.set_state(state)
 
-# —— 头顶携带物(Creature.carried_*) ——
+# —— 头顶携带物(Labor.carried_bag) ——
 
-# 头顶携带物通用组件:复用 ItemStack 渲染(平放摞垛),业务层只需给出锚点与计数。
-var _carried_stack: ItemStack = null
+# 头顶携带物通用组件:场景节点 %carried(几何在 entity_actor.tscn 里配),业务层只需给锚点。
+@onready var _carried_stack: ItemStack = %carried
+# 绑定的随身仓(Labor.carried_bag);类型/数量变化由 ItemStack.bind 跟随。
+var _carried_bag: Bag = null
+
+# 绑定工人的随身仓(Labor.carried_bag)到头顶 ItemStack,并跟随其数量变化(先断旧仓连接,防重绑重复回调)。
+func _bind_carried():
+	if is_instance_valid(_carried_bag) and _carried_bag.count_changed.is_connected(_sync_carried):
+		_carried_bag.count_changed.disconnect(_sync_carried)
+	var labor := entity as Labor
+	_carried_bag = labor.carried_bag if labor and is_instance_valid(labor.carried_bag) else null
+	if _carried_stack:
+		_carried_stack.bind(_carried_bag)
+	if is_instance_valid(_carried_bag) and not _carried_bag.count_changed.is_connected(_sync_carried):
+		_carried_bag.count_changed.connect(_sync_carried)
+	_sync_carried()
 
 func _sync_carried():
-	if not entity or entity is not Creature or _carried_count_of_entity() <= 0:
+	if not entity or entity is not Labor or not is_instance_valid(_carried_bag):
 		_hide_carried()
 		return
-	var creature: Creature = entity as Creature
-	if creature.carried_item_type.is_empty():
+	if _carried_bag.count <= 0 or _carried_bag.item_type.is_empty():
 		_hide_carried()
 		return
-	if not _carried_stack:
-		_carried_stack = ItemStack.new()
-		_carried_stack.name = "carried"
-		# 头顶为单列纵向摞(CARRY_VISIBLE_MAX 层),不横排
-		_carried_stack.per_row = 1
-		_carried_stack.layer_count = CARRY_VISIBLE_MAX
-		_carried_stack.layer_spacing = CARRY_LAYER_SPACING
-		add_child(_carried_stack)
 	# 头顶锚点 = 模型本地合并 AABB 的顶面中心(actor 局部坐标,随 yaw 一起转);
 	# 携带物垛底面贴住该锚点 + 抬升间隙。
 	var top_center: Vector3 = _model_local_box.get_center()
 	_carried_stack.position = Vector3(top_center.x, _model_local_box.end.y + CARRY_HEAD_GAP, top_center.z)
-	# 目标长度随模型身高缩放(约身高 2/3,下限保证醒目),其余尺寸复用默认
-	_carried_stack.target_length = _carried_target_length()
-	_carried_stack.set_item_type(creature.carried_item_type)
-	_carried_stack.set_count(_carried_count_of_entity())
+	# 目标长度随模型身高缩放(约身高 2/3,下限保证醒目);按物品原始长轴换算成节点 scale。
+	var target_len: float = _carried_target_length()
+	_carried_stack.scale = Vector3.ONE * (target_len / maxf(_carried_stack.long_axis(), 0.0001))
 	if not _carried_stack.visible:
 		_carried_stack.show()
 
 func _hide_carried():
 	if _carried_stack:
 		_carried_stack.hide()
-
-func _carried_count_of_entity() -> int:
-	var creature := entity as Creature
-	if not creature:
-		return 0
-	return creature.carried_count
 
 # 携带物目标长度(横躺长轴),约模型身高 2/3,下限保证足够醒目
 func _carried_target_length() -> float:
