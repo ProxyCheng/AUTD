@@ -1,5 +1,5 @@
 class_name CraftingWorkshopModel
-extends Node3D
+extends WorkshopModel
 
 # 车间表现脚本(哑脚本,不接触 backend 逻辑):由 BuildingActor 转发
 # state 与展示仓(bag)。产出物(箭)经 ItemStack 子节点在建筑侧方显示一小垛,
@@ -8,6 +8,7 @@ extends Node3D
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
+	super._ready()
 	content_stack.per_row = 3
 	content_stack.layer_count = 3
 	# 箭:箭头很长但很窄;垛大小由 content_stack 节点的 Transform Scale 控制

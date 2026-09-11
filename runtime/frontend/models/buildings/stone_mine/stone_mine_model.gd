@@ -1,5 +1,5 @@
 class_name StoneMineModel
-extends Node3D
+extends WorkshopModel
 
 # 石矿表现脚本(哑脚本,不接触 backend 逻辑):由 BuildingActor 转发
 # state 与展示仓(bag)。产出物(石头)经 ItemStack 子节点在建筑侧方显示一小垛,
@@ -8,6 +8,7 @@ extends Node3D
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
+	super._ready()
 	content_stack.per_row = 2
 	content_stack.layer_count = 3
 	# 石块本身很宽:每排降到 2;垛大小由 content_stack 节点的 Transform Scale 控制

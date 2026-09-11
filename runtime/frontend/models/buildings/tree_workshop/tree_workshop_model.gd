@@ -1,5 +1,5 @@
 class_name TreeWorkshopModel
-extends Node3D
+extends WorkshopModel
 
 # 伐木场表现脚本(哑脚本,不接触 backend 逻辑):由 BuildingActor 转发
 # state 与展示仓(bag)。产出物(原木)经 ItemStack 子节点在建筑侧方显示一小垛,
@@ -9,6 +9,7 @@ extends Node3D
 @onready var content_stack: ItemStack = $content_stack
 
 func _ready():
+	super._ready()
 	# 堆垛几何:每排 3、共 3 层 → 满堆 9;微缝防 z-fight。
 	# 垛大小(原木长轴)改由 content_stack 节点的 Transform Scale 控制(见 tree_workshop.tscn),
 	# 原木堆需落在所属格子 [-0.5, 0.5] 内。
