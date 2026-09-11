@@ -14,6 +14,10 @@ const THUD_SQUASH: float = 0.16
 const THUD_WIDEN: float = 0.09
 
 @onready var content_stack: ItemStack = $content_stack
+# 采石碎屑粒子(场景节点 %debris):每记重击喷一次。
+@onready var _debris: GPUParticles3D = %debris
+# 已喷过的重击序号(相位/THUD_INTERVAL 的整数部分),用于每记只喷一次
+var _burst_index: int = -1
 
 func _ready():
 	super._ready()
@@ -24,12 +28,24 @@ func _ready():
 	content_stack.row_spacing = 1.05
 	content_stack.layer_spacing = 1.2
 
-# 采石冲击(覆写基类默认动作):距上次重击越近下沉/压扁越强,随后指数回弹。
+# 进入运转时复位重击序号,使开工第一记立即喷碎屑。
+func set_state(in_state: String):
+	super.set_state(in_state)
+	if in_state == "working":
+		_burst_index = -1
+
+# 采石冲击(覆写基类默认动作):距上次重击越近下沉/压扁越强,随后指数回弹;
+# 每记重击(相位跨过 THUD_INTERVAL 的整数倍)喷一次碎屑。
 func _animate_work(_in_delta: float):
 	var t: float = fmod(_phase, THUD_INTERVAL)
 	var decay: float = exp(-t * THUD_DECAY)
 	_shift(Vector3(0.0, -THUD_SINK * decay, 0.0))
 	_squash(decay, THUD_SQUASH, THUD_WIDEN)
+	var index: int = int(_phase / THUD_INTERVAL)
+	if index != _burst_index:
+		_burst_index = index
+		if _debris:
+			_debris.restart()
 
 # 绑定后端展示仓:物品类型与数量均由 Bag 驱动(见 ItemStack.bind)。
 func bind_bag(in_bag: Bag):

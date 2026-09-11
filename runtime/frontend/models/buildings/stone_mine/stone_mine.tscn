@@ -1,8 +1,30 @@
-[gd_scene load_steps=4 format=3 uid="uid://bh9g7mn7vrc4x"]
+[gd_scene load_steps=7 format=3 uid="uid://bh9g7mn7vrc4x"]
 
 [ext_resource type="Script" uid="uid://36oq8m4o2pg0" path="res://runtime/frontend/models/buildings/stone_mine/stone_mine_model.gd" id="1_model"]
 [ext_resource type="PackedScene" uid="uid://bapqep6xanp0s" path="res://runtime/frontend/models/buildings/stone_mine/stone_mine.blend" id="2_art"]
 [ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_debris"]
+emission_shape = 1
+emission_sphere_radius = 0.06
+direction = Vector3(0, 1, 0)
+spread = 55.0
+initial_velocity_min = 1.8
+initial_velocity_max = 3.2
+gravity = Vector3(0, -12, 0)
+angular_velocity_min = -540.0
+angular_velocity_max = 540.0
+scale_min = 0.7
+scale_max = 1.5
+color = Color(0.56, 0.53, 0.49, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_debris"]
+albedo_color = Color(0.56, 0.53, 0.49, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_debris"]
+material = SubResource("StandardMaterial3D_debris")
+size = Vector3(0.05, 0.05, 0.05)
 
 [node name="stone_mine" type="Node3D"]
 script = ExtResource("1_model")
@@ -13,3 +35,14 @@ transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 [node name="content_stack" type="Node3D" parent="."]
 transform = Transform3D(0.759, 0, 0, 0, 0.759, 0, 0, 0, 0.759, 0.16, 0, 0.28)
 script = ExtResource("3_stack")
+
+[node name="debris" type="GPUParticles3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
+emitting = false
+amount = 14
+lifetime = 0.8
+one_shot = true
+explosiveness = 1.0
+process_material = SubResource("ParticleProcessMaterial_debris")
+draw_pass_1 = SubResource("BoxMesh_debris")

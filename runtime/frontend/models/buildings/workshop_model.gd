@@ -24,11 +24,14 @@ func _ready():
 		_mesh_base_scale = _mesh.scale
 		_mesh_base_position = _mesh.position
 
-# 取美术网格:模型根下首个非 ItemStack 的 Node3D 子节点。
+# 取美术网格:模型根下首个非 ItemStack / 粒子发射器的 Node3D 子节点。
 func _find_mesh() -> Node3D:
 	for child in get_children():
-		if child is Node3D and not (child is ItemStack):
-			return child
+		if not (child is Node3D):
+			continue
+		if child is ItemStack or child is GPUParticles3D or child is CPUParticles3D:
+			continue
+		return child
 	return null
 
 # BuildingActor 转发 backend state:仅 "working" 时播放,其余状态平滑复位。
