@@ -27,12 +27,16 @@ func tick(in_delta: float):
 		if not map.can_place_building(axis, building_data):
 			building_model.hide()
 			return
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not _is_pointer_over_ui():
 			map.place_building(axis, building_data)
 			return
 		building_model.position = Vector3(axis.x, 0, axis.y)
 		building_model.show()
 	
+# 指针是否停在 UI(建筑选择面板等)上;是则不落库,避免"点面板的同时把建筑放到面板后的地面"。
+func _is_pointer_over_ui() -> bool:
+	return get_viewport().gui_get_hovered_control() != null
+
 func get_pointing_axis():
 	var viewport: Viewport = get_viewport()
 	var camera: Camera3D = viewport.get_camera_3d()
