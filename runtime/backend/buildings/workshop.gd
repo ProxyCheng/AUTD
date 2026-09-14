@@ -57,7 +57,10 @@ signal active_recipe_changed()
 # 输出仓/输入仓物理上限(满则停止生产、工人离岗等物流搬空/补足)
 @export var output_capacity: int = 30
 
-# 输出仓(纯供给方:有货即外供)。仅当前配方声明输出物时由基类建仓。
+# 输出仓(纯供给方:有货即外供),按产出物类型各一只:同一车间可声明多种产出(如箭/炮弹),
+# 每种产出建一只仓,产出时按配方 output 路由到对应仓(见 _output_bag_for)。
+var output_bags: Dictionary = {}  # { item_type: Bag }
+# 展示镜像仓:取第一只输出仓(单产出车间的唯一输出仓);无产出的瞬时效果机器(弩炮)为 null。
 var output_bag: Bag = null
 
 # 本机创建的全部仓(输出仓 + 输入仓),退出时统一注销
@@ -159,7 +162,8 @@ func _selected_recipe() -> RecipeData:
 
 # 单张配方的可执行性:输出仓未满(无输出则视为真)且输入齐备。
 func _is_recipe_executable(in_recipe: RecipeData) -> bool:
-	if in_recipe.output != "" and output_bag and output_bag.is_full():
+	var bag: Bag = _output_bag_for(in_recipe.output)
+	if bag and bag.is_full():
 		return false
 	return _has_inputs_for(in_recipe)
 
@@ -186,7 +190,8 @@ func _apply_workload(in_workload: float):
 # 置 "working",否则 "idle" —— 前端动画只在真正生产时播放。产出进度归零语义留给子类。
 func _tick_machine(_in_delta: float):
 	var recipe := _selected_recipe()
-	if recipe == null or (recipe.output != "" and output_bag and output_bag.is_full()) or not _is_manned():
+	var bag: Bag = _output_bag_for(recipe.output) if recipe else null
+	if recipe == null or (bag and bag.is_full()) or not _is_manned():
 		if state != "idle":
 			state = "idle"
 	else:
@@ -200,14 +205,16 @@ func _produces() -> String:
 	var recipe := _selected_recipe()
 	return recipe.output if recipe else ""
 
-# 声明输出物(不依赖输入齐备):取 recipes 里第一个非空 output 的配方;recipes 空则 ""。
-# 供 _setup_bags 决定建设哪只输出仓 —— 输出仓类型由配方"声明"决定,而非"当前是否可执行"
+# 收集全部配方声明的产出类型(去重,保持出现顺序;output 为空的瞬时效果配方跳过)。
+# 供 _setup_bags 决定建设哪些输出仓 —— 输出仓类型由配方"声明"决定,而非"当前是否可执行"
 # (否则输入仓未建齐时会因输入不足误判为空,连输出仓都建不出来)。
-func _declared_output() -> String:
+func _collect_output_types() -> Array[String]:
+	var types: Array[String] = []
 	for recipe: RecipeData in recipes:
-		if recipe.output != "":
-			return recipe.output
-	return ""
+		if recipe.output == "" or recipe.output in types:
+			continue
+		types.append(recipe.output)
+	return types
 
 # —— 输入校验/扣减(按配方 inputs 泛化)——
 
@@ -241,6 +248,13 @@ func _find_input_bag(in_item_type: String) -> Bag:
 			return bag
 	return null
 
+# 按产出物类型取本机输出仓;output 为 ""(瞬时效果配方)或无该类型仓时返回 null。
+func _output_bag_for(in_item_type: String) -> Bag:
+	if in_item_type == "":
+		return null
+	var bag: Bag = output_bags.get(in_item_type)
+	return bag
+
 # 公开只读:某物料在当前建筑全部仓中的存量(输入仓 + 输出仓按类型匹配)。
 # 供 frontend 配方行显示库存;无该物料仓时返回 0。只读,不改状态。
 func get_stock(in_item_type: String) -> int:
@@ -269,12 +283,14 @@ func _setup_bags():
 	# 输入仓:收集全部配方所需的输入类型(去重),每种建一只纯需求方
 	for item_type: String in _collect_input_types():
 		_make_bag("InputBag_%s" % item_type, item_type, output_capacity, true)
-	# 输出仓:以第一个声明输出为准(同类型去重;跨弓等无输出则跳过)
-	var produced: String = _declared_output()
-	if produced == "":
-		return
-	output_bag = _make_bag("OutputBag", produced, output_capacity, false)
-	_bind_mirror(output_bag)
+	# 输出仓:收集全部配方声明的产出类型(去重),每种建一只纯供给方
+	for item_type: String in _collect_output_types():
+		output_bags[item_type] = _make_bag("OutputBag_%s" % item_type, item_type, output_capacity, false)
+	# 展示镜像取第一只输出仓(单产出车间的唯一输出仓);弩炮等无产出机器保持 null
+	for bag: Bag in output_bags.values():
+		output_bag = bag
+		_bind_mirror(output_bag)
+		break
 
 # 收集全部配方所需的输入类型(去重,保持出现顺序)。
 func _collect_input_types() -> Array[String]:
@@ -302,13 +318,14 @@ func _produce_unit() -> bool:
 	var recipe := _selected_recipe()
 	if recipe == null:
 		return false
-	if recipe.output != "" and output_bag and output_bag.is_full():
+	var bag: Bag = _output_bag_for(recipe.output)
+	if bag and bag.is_full():
 		return false
 	if not _consume_inputs_for(recipe):
 		return false
-	if recipe.output != "":
+	if bag:
 		# 按配方 output_count 一次入仓多件(默认 1);"2x+3y->2z" 等比例方与实际产出一致
-		output_bag.add_count(recipe.output_count)
+		bag.add_count(recipe.output_count)
 	return true
 
 # 建一只参与物流的仓并注册。is_demand = true 为纯需求方(低于上限即求补到满,永不外供,
