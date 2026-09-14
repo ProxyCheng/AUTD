@@ -18,6 +18,28 @@ static func launch_pitch(in_horizontal_distance: float, in_launch_height: float,
 	var flight_time: float = in_horizontal_distance / in_move_speed
 	return atan2(arc_slope(0.0, in_launch_height, flight_time) / in_horizontal_distance, 1.0)
 
+# —— 发射器几何求解(转轴 P + 起点偏移 S,发射器局部系)——
+# 各发射器(弩炮/火炮)只持有自己的静态几何(见 Crossbow/Cannon 的 PIVOT_*/SPAWN_*),
+# 求解逻辑集中在此:避免每加一种发射器就复制一遍同样的向量旋转与不动点迭代。
+# S = P + R(θ)·S_off —— 起点随离弦仰角 θ 绕转轴旋转。
+static func spawn_offset_at(in_pitch: float, in_pivot: Vector2, in_spawn: Vector2) -> Vector2:
+	var c: float = cos(in_pitch)
+	var s: float = sin(in_pitch)
+	return Vector2(
+		in_pivot.x + in_spawn.x * c - in_spawn.y * s,
+		in_pivot.y + in_spawn.x * s + in_spawn.y * c
+	)
+
+# 求命中目标所需的离弦仰角:发射点随 θ 抬升,θ 与发射高度互相依赖,做几次不动点迭代收敛。
+static func aim_pitch_for(in_center: Vector2, in_aim_dir: Vector2, in_target_pos: Vector2,
+		in_pivot: Vector2, in_spawn: Vector2, in_speed: float) -> float:
+	var pitch: float = 0.0
+	for _i in range(4):
+		var off: Vector2 = spawn_offset_at(pitch, in_pivot, in_spawn)
+		var spawn_pos: Vector2 = in_center + in_aim_dir * off.x
+		pitch = launch_pitch(spawn_pos.distance_to(in_target_pos), off.y, in_speed)
+	return pitch
+
 var damage: Damage = Damage.physical(10)
 
 var target_entity_ref: WeakRef = null

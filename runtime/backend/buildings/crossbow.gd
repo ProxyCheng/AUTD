@@ -37,27 +37,55 @@ static var SPAWN_HEIGHT: float = 0.09
 # 飞行时长 T = 水平距离 / 本速度,故目标越远飞得越久、弧顶越高。弩身预览俯仰也用它。
 const ARROW_SPEED: float = 10
 
+# —— 可覆写调参钩子 ——
+# 弩炮的整条"值守/装填/蓄力/瞄准/发射"状态机对发射器本身是通用的:弹药与弹丸类型、
+# 弹丸速度、装填/蓄力/开火时长、发射几何都经下列钩子取得,默认取本类常量。
+# 子类(如 Cannon)只需覆写这些钩子即可复用整条状态机,无需复制 _tick_machine/_apply_workload。
+# 注意:这些必须是**实例方法** —— GDScript 的 static 方法不做多态派发,若写成 static,
+# 基类方法里的调用会静态绑到基类实现,子类覆写不生效。
+
+func ammo_type() -> String:
+	return "arrow"
+
+func ammo_capacity() -> int:
+	return AMMO_CAPACITY
+
+func projectile_type() -> String:
+	return "arrow"
+
+func projectile_speed() -> float:
+	return ARROW_SPEED
+
+func charge_time() -> float:
+	return CHARGE_TIME
+
+func fire_time() -> float:
+	return FIRE_TIME
+
+func load_time() -> float:
+	return LOAD_TIME
+
+# 发射几何(转轴 P + 起点偏移 S,发射器局部系);求解见 Arrow.spawn_offset_at/aim_pitch_for。
+func pivot() -> Vector2:
+	return Vector2(PIVOT_FORWARD, PIVOT_HEIGHT)
+
+func spawn() -> Vector2:
+	return Vector2(SPAWN_FORWARD, SPAWN_HEIGHT)
+
 # 攻击范围(半边长,格子单位):寻敌区域为以弩炮所在格为中心、边长 2×ATTACK_RANGE 的正方形。
 const ATTACK_RANGE: float = 3.0
 
 # 给定离弦仰角 θ,返回射箭起点相对弩中心地面点 O 的偏移:(水平前移, 高度)。
 # S = P + R(θ)·(SPAWN_FORWARD, SPAWN_HEIGHT);P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT。
+# 求解统一在 Arrow(弩/炮共用同一套),本静态版固定用弩炮自己的几何与弹速,
+# 供前端模型(crossbow_model.set_target_position)与弹道调试场景直接读。
 static func spawn_offset_at(in_pitch: float) -> Vector2:
-	var c: float = cos(in_pitch)
-	var s: float = sin(in_pitch)
-	return Vector2(
-		PIVOT_FORWARD + SPAWN_FORWARD * c - SPAWN_HEIGHT * s,
-		PIVOT_HEIGHT + SPAWN_FORWARD * s + SPAWN_HEIGHT * c
-	)
+	return Arrow.spawn_offset_at(in_pitch, Vector2(PIVOT_FORWARD, PIVOT_HEIGHT), Vector2(SPAWN_FORWARD, SPAWN_HEIGHT))
 
 # 求命中目标所需的离弦仰角:发射点随 θ 抬升,θ 与发射高度互相依赖,做几次不动点迭代收敛。
 static func aim_pitch(in_center: Vector2, in_aim_dir: Vector2, in_target_pos: Vector2) -> float:
-	var pitch: float = 0.0
-	for _i in range(4):
-		var off: Vector2 = spawn_offset_at(pitch)
-		var spawn_pos: Vector2 = in_center + in_aim_dir * off.x
-		pitch = Arrow.launch_pitch(spawn_pos.distance_to(in_target_pos), off.y, ARROW_SPEED)
-	return pitch
+	return Arrow.aim_pitch_for(in_center, in_aim_dir, in_target_pos,
+		Vector2(PIVOT_FORWARD, PIVOT_HEIGHT), Vector2(SPAWN_FORWARD, SPAWN_HEIGHT), ARROW_SPEED)
 
 # —— 配方声明:攻击 = 一次即时效果(无输出仓,消耗箭矢触发开火) ——
 # 蓄满一发的蓄力由 base._apply_workload 累积 progress;满弦后由 _tick_machine 负责瞄准/发射。
@@ -70,11 +98,11 @@ func _make_fire_recipe() -> RecipeData:
 	var recipe := RecipeData.new()
 	recipe.label = "Fire"
 	recipe.output = ""
-	recipe.workload_per_unit = CHARGE_TIME
-	var arrow_input := RecipeInputData.new()
-	arrow_input.item_type = "arrow"
-	arrow_input.count = 1
-	recipe.inputs = [arrow_input]
+	recipe.workload_per_unit = charge_time()
+	var ammo_input := RecipeInputData.new()
+	ammo_input.item_type = ammo_type()
+	ammo_input.count = 1
+	recipe.inputs = [ammo_input]
 	return recipe
 
 # —— 攻击倾向(可观察配置)——
@@ -132,7 +160,7 @@ var _shift_fired: bool = false  # 本班值岗是否已射出一发(完成一次
 # 无输出仓配方:只建弹药输入仓并指定其为展示镜像(不调用 super,基类默认会按
 # _produces() 建输出仓,而弩炮无配方产出)。
 func _setup_bags():
-	input_bag = _make_bag("AmmoBag", "arrow", AMMO_CAPACITY, true, 1)
+	input_bag = _make_bag("AmmoBag", ammo_type(), ammo_capacity(), true, 1)
 	_bind_mirror(input_bag)
 
 # 攻击建筑:驱动它的顶岗任务优先级=11(生产 10 再 +1),保证弩炮始终优先有人值守
@@ -152,7 +180,7 @@ func is_work_done() -> bool:
 func _needs_worker() -> bool:
 	var has_fire_recipe: bool = _selected_recipe() != null
 	# 装填/蓄力期间都需工人值守(装填时弦待发、需操作手,蓄力时注入工作量)。
-	return has_fire_recipe and (not _shift_fired or fire_timer < CHARGE_TIME)
+	return has_fire_recipe and (not _shift_fired or fire_timer < charge_time())
 
 func _has_ammo() -> bool:
 	return input_bag and input_bag.count > 0
@@ -162,7 +190,7 @@ func _has_ammo() -> bool:
 func _tick_machine(in_delta: float):
 	if state == "firing":
 		fire_anim_timer -= in_delta
-		progress = clampf(fire_anim_timer / FIRE_TIME, 0, 1)
+		progress = clampf(fire_anim_timer / fire_time(), 0, 1)
 		if fire_anim_timer <= 0:
 			fire_timer = 0
 			state = "idle"
@@ -176,21 +204,21 @@ func _tick_machine(in_delta: float):
 		if load_timer <= 0:
 			load_timer = 0
 			state = "charging"
-			progress = clampf(fire_timer / CHARGE_TIME, 0, 1)
+			progress = clampf(fire_timer / charge_time(), 0, 1)
 		return
 	target = find_target()
 	_rotate_aim(in_delta)
-	if fire_timer >= CHARGE_TIME:
+	if fire_timer >= charge_time():
 		if target and is_aimed() and fire():
 			state = "firing"
-			fire_anim_timer = FIRE_TIME
+			fire_anim_timer = fire_time()
 			progress = 1
 			return
 		state = "ready"
 		progress = 1
 		return
 	state = "charging"
-	progress = fire_timer / CHARGE_TIME
+	progress = fire_timer / charge_time()
 
 # worker 每帧注入劳动量(delta * efficiency),累积为蓄力进度。
 # 装填/松弦期间注入的工作量被忽略(操作手在端箭/松弦,不拉弦);其余状态才累计。
@@ -201,13 +229,13 @@ func _apply_workload(in_workload: float):
 	if state == "idle":
 		state = "charging"
 		progress = 0
-	fire_timer = minf(fire_timer + in_workload, CHARGE_TIME)
-	if fire_timer >= CHARGE_TIME:
+	fire_timer = minf(fire_timer + in_workload, charge_time())
+	if fire_timer >= charge_time():
 		state = "ready"
 		progress = 1
 		return
 	state = "charging"
-	progress = fire_timer / CHARGE_TIME
+	progress = fire_timer / charge_time()
 
 func _reset_shift():
 	_shift_fired = false
@@ -217,7 +245,7 @@ func _reset_shift():
 	# 已满弦(fire_timer>=CHARGE)则直接维持备战。
 	if _has_ammo() and fire_timer <= 0.0:
 		state = "loading"
-		load_timer = LOAD_TIME
+		load_timer = load_time()
 		progress = 0
 
 # 以 ROTATE_SPEED 限速把 aim_direction 转向目标方位;无目标时保持当前朝向。
@@ -248,15 +276,17 @@ func fire() -> bool:
 		return false
 	input_bag.remove_count(1)
 	var room: Room = Level.current.room
-	var arrow: Arrow = Entity.create("arrow")
-	# 射箭起点由俯仰几何决定:随离弦仰角 θ 绕转轴 P 旋转(高度不再固定)。
-	var pitch: float = aim_pitch(Vector2(axis), aim_direction, target.position)
-	var off: Vector2 = spawn_offset_at(pitch)
-	arrow.position = Vector2(axis) + aim_direction * off.x
-	arrow.launch_height = off.y
-	arrow.move_speed = ARROW_SPEED
-	arrow.set_target_entity(target)
-	room.add_entity(arrow)
+	# 弹丸类型/弹速/发射几何全走钩子,子类(如 Cannon)覆写后无需改本方法。
+	var projectile: Arrow = Entity.create(projectile_type())
+	var speed: float = projectile_speed()
+	# 射出起点由俯仰几何决定:随离弦仰角 θ 绕转轴 P 旋转(高度不再固定)。
+	var pitch: float = Arrow.aim_pitch_for(Vector2(axis), aim_direction, target.position, pivot(), spawn(), speed)
+	var off: Vector2 = Arrow.spawn_offset_at(pitch, pivot(), spawn())
+	projectile.position = Vector2(axis) + aim_direction * off.x
+	projectile.launch_height = off.y
+	projectile.move_speed = speed
+	projectile.set_target_entity(target)
+	room.add_entity(projectile)
 	_shift_fired = true
 	return true
 
