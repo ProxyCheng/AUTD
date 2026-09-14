@@ -8,3 +8,6 @@
 # Godot-git-plugin editor temp files
 addons/godot-git-plugin/**/~*.TMP
 addons/**/~*
+
+# Blender auto-backups (regenerated on every save)
+*.blend1
