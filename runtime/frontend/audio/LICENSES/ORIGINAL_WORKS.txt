@@ -1,0 +1,10 @@
+Original (project-authored) audio - not third-party licensed material.
+No attribution obligation; recorded here for provenance.
+
+1) bgm.mp3
+   Used as:  background music (AudioLibrary._MUSIC -> &"bgm")
+   Origin:   original work by the project author, generated with Suno (suno.com)
+   License:  owned by the project author; no third-party rights involved.
+   Length:   ~2:03
+   Notes:    Registered as the main BGM. Played looping via AudioManager._play_loop()
+             (the .import keeps loop=false; the loop flag is set at runtime).

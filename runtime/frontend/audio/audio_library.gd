@@ -10,7 +10,7 @@ extends RefCounted
 # 新增音效:把 .ogg 放进 runtime/frontend/audio/sfx/,在此登记即可,AudioManager
 # 无需改动(与 §5.5 "按 key 推导资源" 同思路)。
 #
-# 所有素材为 Kenney.nl 的 CC0 资源,授权原文见 runtime/frontend/audio/LICENSES/。
+# 音效素材为 Kenney.nl 的 CC0 资源;音乐/环境音来源见 runtime/frontend/audio/LICENSES/。
 
 const _SFX: Dictionary = {
 	# —— UI ——
@@ -71,9 +71,10 @@ const _VARIANT_COUNTS: Dictionary = {
 }
 
 # 循环音乐 / 环境音:由 AudioManager 以循环方式播放,单独登记以区分总线。
-# 素材均为 CC0(OpenGameArt),来源与作者见 LICENSES/CC0_SOURCES.txt。
+# 来源与授权见 LICENSES/:bgm.mp3 为项目原创(ORIGINAL_WORKS.txt),
+# 其余为 CC0(OpenGameArt,CC0_SOURCES.txt)。
 const _MUSIC: Dictionary = {
-	&"bgm": preload("res://runtime/frontend/audio/music/medieval_fair.ogg"),
+	&"bgm": preload("res://runtime/frontend/audio/music/bgm.mp3"),
 	&"bgm_tavern": preload("res://runtime/frontend/audio/music/old_tower_inn.ogg"),
 }
 
