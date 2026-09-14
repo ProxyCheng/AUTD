@@ -5,7 +5,7 @@ extends Node3D
 #   拖动"重力 G"滑块   → 直接改 Arrow.GRAVITY,实时看抛物线弧度变化;
 #   拖动"补偿 offset"滑块 → 直接改 CrossbowModel.BARREL_REST_ELEVATION,让弩口对齐弹道切线;
 #   拖动"俯仰转轴 P / 起点偏移"滑块 → 直接改 Crossbow 的射箭几何(转轴 + 起点偏移)。
-# 数据流走真实链路:BuildingActor 每帧读 crossbow.target.position → CrossbowModel.set_target_position
+# 数据流走真实链路:BuildingActor 每帧读 crossbow.target.position → TurretModel.set_target_position
 # → Crossbow.aim_pitch,所以 HUD 数字就是模型实际采用的值,不是另算一份。
 #
 # 俯仰几何(生产代码 Crossbow 里已落库,本场景只是可视化 + 试参):

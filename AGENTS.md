@@ -94,6 +94,7 @@ autd/
 | 类型标识字符串 | 全小写 snake | `"crossbow"` `"slime"` `"dirt"` `"path"` `&"roaming"` |
 | 场景节点名 | lower_snake_case(UI 根控件可用 PascalCase) | `map` `camera` `modes` `card_crossbow`;根 UI `BuildingCard` |
 | 前端模型控制脚本 | 类名 `<Type>Model`,文件 `<type>_model.gd`(与 backend 同名逻辑类区分) | `SlimeModel`/`slime_model.gd`、`CrossbowModel`/`crossbow_model.gd` |
+| 炮塔类模型基类 | 抽象类(`@abstract`);"可转向 + 俯仰"的建筑模型继承它(见 §6) | `TurretModel`/`turret_model.gd` |
 | 音频 id | 全小写 snake;多变体用 `<组名>_<序号>` | `&"ui_click"` `&"build_place"`;`hit_0`..`hit_2`(组 `&"hit"`) |
 | 音频类 | 播放器 `AudioManager` / 资源表 `AudioLibrary` | `audio_manager.gd` `audio_library.gd` |
 
@@ -235,7 +236,7 @@ signal position_changed()
 - **禁止**手写 `get_node("../../../…")` 长路径;跨场景注入的资源引用用 `@export`(如 `LevelActor.level_data`)。
 - 场景根节点挂同名脚本(如 battle.tscn 根 `level` ← `level_actor.gd`;`xxx_actor.tscn` 根 ← `xxx_actor.gd`)。
 - 可复用 UI 做成独立场景 + 信号(如 `building_card.gd` 只 `signal clicked`),由父级连接处理,不在子控件里写具体玩法。
-- 模型脚本是"哑"表现脚本:命名 `<type>_model.gd` + `class_name <Type>Model`(避免与 backend 同名逻辑类冲突,如 `SlimeModel` ≠ `Slime`),提供 `set_state` / `set_progress` / `set_target_position` 等可选方法,由 Actor 通过 `has_method` 探测调用(见 `building_actor._update_direction`),**不得反向持有 backend 逻辑**。
+- 模型脚本是"哑"表现脚本:命名 `<type>_model.gd` + `class_name <Type>Model`(避免与 backend 同名逻辑类冲突,如 `SlimeModel` ≠ `Slime`),提供 `set_state` / `set_progress` / `set_target_position` 等可选方法,由 Actor 通过 `has_method` 探测调用(见 `building_actor._update_direction`),**不得反向持有 backend 逻辑**。弩炮/火炮这类"可转向 + 俯仰 + 备弹垛"的建筑模型继承抽象基类 `TurretModel`(`models/buildings/turret_model.gd`),只实现弹道求解 `_aim_pitch()`、rest 仰角补偿 `_rest_elevation()` 与各状态动画钩子。
 
 ---
 

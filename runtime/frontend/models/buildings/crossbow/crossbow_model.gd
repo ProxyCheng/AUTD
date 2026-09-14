@@ -1,9 +1,19 @@
 class_name CrossbowModel
-extends Node3D
+extends TurretModel
+
+# 弩炮表现模型。水平转向 / 俯仰 / 备弹垛的驱动方式见基类 TurretModel;
+# 本模型负责弩特有的"弦上箭"表现与骨骼动画采样。
+#
+# 弩身姿态由 %AnimationPlayer 的关键帧给出,但播放器自带时钟不用:姿态完全由
+# backend progress 每帧 seek 采样(见 _on_progress)。
+#
+# 节点约定(见 crossbow.tscn,相关节点已在场景内标 unique_name_in_owner):
+#   base/cog_top/deck/bracket/body → wheel(上弦转轮) / muzzle(弩口)
+#   base/cog_top/deck/bracket/body/bone/Skeleton3D/skin → ArrowPointA/B + Arrow
 
 const ANIM_NAME: StringName = &"bone|boneAction_001"
 
-# 备箭垛(场景节点 %AmmoStack,挂在 base/cog_top 下随炮塔水平转向):显示弦下备箭。
+# 备箭垛(基类节点 %AmmoStack,挂在 base/cog_top 下随炮塔水平转向):显示弦下备箭。
 # 弦上那支由 %Arrow 负责(仅在非 idle 显示);本垛数量 = bag.count - 1。
 # 垛的姿态/几何(item_type、target_length、摆放锚点…)全部在 crossbow.tscn 里配,
 # 编辑器里可直观调;ItemStack 自带摆放范围 Gizmo 线框。
@@ -17,7 +27,7 @@ const WHEEL_TURNS: float = 2.0
 
 func _ready():
 	# 播放器自带时钟不用,姿态完全由 progress 每帧采样决定。
-	# 动画约定为单次"满弦→松弦",起点=满弦;换算见 set_progress。
+	# 动画约定为单次"满弦→松弦",起点=满弦;换算见 _on_progress。
 	var animation: Animation = %AnimationPlayer.get_animation(ANIM_NAME)
 	if animation:
 		animation.loop_mode = Animation.LOOP_NONE
@@ -100,8 +110,6 @@ func _ensure_direction():
 # 蓄力/待发/射击期间显示箭;仅 idle(空闲)隐藏。
 # 弦上箭必须在"真的有一发装填"时才显示:非 idle 且备箭存量 > 0。
 var _show_arrow: bool = false
-# 当前后端阶段(idle/loading/charging/ready/firing),由 set_state 记录
-var _state: String = "idle"
 # 逻辑装填在弦上的箭数(= bag.count);<=0 表示无箭可挂
 var _loaded_count: int = 0
 # 后端备箭展示仓(由 BuildingActor 经 bind_bag 转发);数量变化驱动箭垛与弦上箭显隐
@@ -116,23 +124,27 @@ var _arrow_rest_transform: Transform3D = Transform3D.IDENTITY
 var _nock_from: Transform3D = Transform3D.IDENTITY
 var _nock_from_ready: bool = false
 
+# 状态变化:基类记录阶段并派发动画钩子;弩的"弦上箭显隐"同时依赖 _state 与 bag.count,
+# 故这里不做早退,每次调用都补刷一次。
 func set_state(in_state: String):
-	_state = in_state
-	match in_state:
-		"loading":
-			# 进入装填:从备垛最后一支箭拾取→上到弛弦位。弦保持松弛(progress=0),只动箭。
-			# 起点 TRS 延后到首个 _process 帧再取(垛/骨架的 global 变换需先 refresh 一帧)。
-			_nock_t = 0.0
-			_release_t = -1.0
-			_nock_from_ready = false
-		"firing":
-			# 进入弹射:从满弦位沿弩身朝弩口飞出。弦姿态随 progress 松弦,箭走 _process。
-			_release_t = 0.0
-			_nock_t = -1.0
-		_:
-			_nock_t = -1.0
-			_release_t = -1.0
+	super(in_state)
 	_update_arrow_visibility()
+
+# 进入装填:从备垛最后一支箭拾取→上到弛弦位。弦保持松弛(progress=0),只动箭。
+# 起点 TRS 延后到首个 _process 帧再取(垛/骨架的 global 变换需先 refresh 一帧)。
+func _on_loading():
+	_nock_t = 0.0
+	_release_t = -1.0
+	_nock_from_ready = false
+
+# 进入弹射:从满弦位沿弩身朝弩口飞出。弦姿态随 progress 松弦,箭走 _process。
+func _on_firing():
+	_release_t = 0.0
+	_nock_t = -1.0
+
+func _on_resting():
+	_nock_t = -1.0
+	_release_t = -1.0
 
 func _update_arrow_visibility():
 	# 弦上箭 = 弦上有货(非 idle)且弹药仓还有一支真正的主力;
@@ -148,8 +160,8 @@ func _apply_pose(in_time: float):
 	%AnimationPlayer.seek(in_time, true)
 	%AnimationPlayer.pause()
 
-func set_progress(in_progress: float):
-	# 归一化 progress → 动画时间:0=松弛(末尾)、1=满弦(起点)。
+# 归一化 progress → 动画时间:0=松弛(末尾)、1=满弦(起点);并同步箭位与转轮。
+func _on_progress(in_progress: float):
 	var length: float = %AnimationPlayer.current_animation_length
 	_apply_pose((1 - in_progress) * length)
 	_update_arrow_position(in_progress)
@@ -223,52 +235,28 @@ func _compute_nock_from() -> Transform3D:
 		return _arrow_rest_transform
 	return _skin.global_transform.affine_inverse() * (src as Transform3D)
 
-# 当前累计水平朝向角(弧度,不 wrap),跨 ±π 边界时靠 wrapf 平滑推进,避免 cog 部件瞬间反转。
-var _current_yaw: float = 0.0
-# 世界 XZ 单位朝向向量(与 backend aim_direction 同);用于推算与 fire() 一致的出膛点。
-var _aim_dir: Vector3 = Vector3.FORWARD
+# 出膛俯仰:与 backend fire() 共用 Crossbow.aim_pitch,起点几何(转轴 P + 起点偏移 S)
+# 也由 Crossbow 统一给出,保证弩口朝向与箭的实际弹道一致。
+func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
+	return Crossbow.aim_pitch(in_center, in_aim, in_target)
 
-# 炮口水平朝向:由 backend 传入的 aim_direction(单位向量,y 为世界 z)决定。
-# backend 已做限速,方向向量是逐帧连续变化的;这里把它累计成连续角度(不跳变)。
-func set_aim_direction(in_direction: Vector3):
-	_aim_dir = in_direction
-	# 模型 rest 朝 +Z(= Vector3.BACK),故取 atan2(x, z) 为朝向角
-	var target_angle: float = atan2(in_direction.x, in_direction.z)
-	var delta: float = wrapf(target_angle - _current_yaw, -PI, PI)
-	_current_yaw += delta
-	%cog_top.rotation.z = _current_yaw
-	%cog_left.rotation.x = _current_yaw * 8 / 5
-	%cog_right.rotation.x = -_current_yaw * 8 / 5
-
-# 炮身仰角与 body.rotation.x 成 1:1 线性,但符号相反:要炮口对齐弹道切线 pitch,
-# 取 body.rotation.x = -pitch + BARREL_REST_ELEVATION。补偿值由弹道调试场景
-# arrow_traj_test.tscn 实测定为 15°(≈0.2618 rad,最贴合)。用 static var 便于该场景实时试参。
+# 炮口 rest 仰角补偿(弧度):弩身导轨在 rest 位就是上翘的,故需要这一常量把
+# "弹道切线 pitch"换算成 body.rotation.x(见基类 _rest_elevation)。
+# 补偿值由弹道调试场景 arrow_traj_test.tscn 实测定为 15°(≈0.2618 rad,最贴合);
+# static var 便于该场景实时试参。
 static var BARREL_REST_ELEVATION: float = 0.261799  # 弧度(= 15°)
 
-# 俯仰对齐箭离弦瞬间的抛物线切线(与 backend fire() 共用 Crossbow.aim_pitch),使箭"顺膛而出"。
-# 起点几何(转轴 P + 起点偏移 S)也由 Crossbow 统一给出,保证与箭实际弹道一致。
-func set_target_position(in_position: Vector3):
-	var center := Vector2(global_position.x, global_position.z)
-	var aim := Vector2(_aim_dir.x, _aim_dir.z)
-	if aim == Vector2.ZERO:
-		return
-	var pitch: float = Crossbow.aim_pitch(center, aim, Vector2(in_position.x, in_position.z))
-	%body.rotation.x = -pitch + BARREL_REST_ELEVATION
+func _rest_elevation() -> float:
+	return BARREL_REST_ELEVATION
 
-# —— 备箭垛(场景节点 %AmmoStack,挂 base/cog_top 下随炮塔转向) ——
-
-# 垛节点在 crossbow.tscn 里;姿态/几何也在那里配
-@onready var _ammo_stack: ItemStack = %AmmoStack
-
-# 绑定后端展示仓(由 BuildingActor 转发):箭垛跟随 Bag;弦上箭显隐另按 bag.count 判断。
+# 绑定后端展示仓:基类把仓转给箭垛;弩另需按 bag.count 判断"弦上是否有箭"(%Arrow 显隐)。
 func bind_bag(in_bag: Bag):
+	super(in_bag)
 	if is_instance_valid(_bag) and _bag.count_changed.is_connected(_on_bag_count_changed):
 		_bag.count_changed.disconnect(_on_bag_count_changed)
 	_bag = in_bag
 	if is_instance_valid(_bag) and not _bag.count_changed.is_connected(_on_bag_count_changed):
 		_bag.count_changed.connect(_on_bag_count_changed)
-	if _ammo_stack:
-		_ammo_stack.bind(_bag)
 	_on_bag_count_changed()
 
 # bag.count 变化 → 同步"弦上是否有箭"语义(供 %Arrow 显隐)。
