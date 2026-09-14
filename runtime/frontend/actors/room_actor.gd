@@ -1,6 +1,12 @@
 extends Node
 class_name RoomActor
 
+# 实体消失特效(按类型):炮弹命中即爆炸,在落点补一次区域爆裂表现。
+# 由已有的 entities_changed 移除事件驱动,不为此在 backend 增信号。
+const REMOVAL_FX_BY_TYPE: Dictionary = {
+	&"cannonball": preload("res://runtime/frontend/models/entities/cannonball/cannonball_burst.tscn"),
+}
+
 var room: Room = null
 var entity_actors: Dictionary = {}
 var entity_actors_pool: Dictionary = {}
@@ -12,6 +18,8 @@ func bind(in_room: Room):
 func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Array):
 	var camera: CameraController = get_viewport().get_camera_3d()
 	for entity_id in in_removed_entity_ids:
+		# 先于回收:此时 actor 仍持有落点位置
+		_spawn_removal_fx(entity_id)
 		_recycle_entity_actor(entity_id)
 	for entity_id in in_added_entity_ids:
 		var entity: Entity = room.get_entity(entity_id)
@@ -20,6 +28,19 @@ func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Arr
 		entity.position_changed.connect(_on_entity_position_changed.bind(entity.id))
 		if camera.is_position_visible(entity.position):
 			_place_entity_actor(entity_id)
+
+# 实体被移除时,在 actor 最后的世界位置播一次消失特效。
+# 仅当该类型登记了特效、且 actor 仍在场时(炮弹在屏幕外被回收则无需表现)。
+func _spawn_removal_fx(in_entity_id: int):
+	var entity_actor: EntityActor = entity_actors.get(in_entity_id)
+	if not entity_actor:
+		return
+	var fx_scene: PackedScene = REMOVAL_FX_BY_TYPE.get(StringName(entity_actor.type), null)
+	if not fx_scene:
+		return
+	var fx: Node3D = fx_scene.instantiate()
+	add_child(fx)
+	fx.global_position = entity_actor.global_position
 
 func _place_entity_actor(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)

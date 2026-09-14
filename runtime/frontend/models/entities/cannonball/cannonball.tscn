@@ -3,7 +3,37 @@
 [ext_resource type="PackedScene" uid="uid://bfvr1jf8oglpr" path="res://runtime/frontend/models/entities/cannonball/cannonball.fbx" id="1_cyk2q"]
 [ext_resource type="Script" uid="uid://q80mmnegu7e5" path="res://runtime/frontend/models/entities/cannonball/cannonball_model.gd" id="1_nlyb2"]
 
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_nlyb2"]
+emission_shape = 1
+emission_sphere_radius = 0.03
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_max = 0.25
+gravity = Vector3(0, 0, 0)
+scale_min = 0.7
+scale_max = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_65ffn"]
+transparency = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(0.14, 0.14, 0.16, 0.3)
+billboard_mode = 1
+
+[sub_resource type="QuadMesh" id="QuadMesh_xx343"]
+material = SubResource("StandardMaterial3D_65ffn")
+size = Vector2(0.18, 0.18)
+
 [node name="Cannonball" type="Node3D" unique_id=1787693387]
 script = ExtResource("1_nlyb2")
 
 [node name="cannonball" parent="." unique_id=1352572603 instance=ExtResource("1_cyk2q")]
+
+[node name="trail" type="GPUParticles3D" parent="." unique_id=1602464747]
+unique_name_in_owner = true
+emitting = false
+amount = 24
+lifetime = 0.5
+process_material = SubResource("ParticleProcessMaterial_nlyb2")
+draw_pass_1 = SubResource("QuadMesh_xx343")
