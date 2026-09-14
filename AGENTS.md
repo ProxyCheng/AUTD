@@ -23,8 +23,8 @@ editor/           ← 关卡数据编辑工具(@tool,只在编辑器内运行)
 
 | 层 | 职责 | 可以 | 禁止 |
 |---|---|---|---|
-| **backend** | 世界状态本体 + 每帧 `tick()` 模拟 | 读写自身状态、发信号、被 frontend 调用 | ❌ `load()`/引用任何 `res://runtime/frontend/*`、`res://editor/*`;❌ 使用 `get_viewport()`、`Input`、`Camera3D` 等表现 API;❌ 持有视觉节点 |
-| **frontend** | 读取 backend 状态、连接 backend 信号做表现;接收输入后**调用 backend 公开方法**改状态 | 引用 backend 的类与节点 | ❌ 复制玩法规则/状态(如血量、寻路)到自己内部;❌ 不通过 backend 方法直接改后端状态 |
+| **backend** | 世界状态本体 + 每帧 `tick()` 模拟 | 读写自身状态、发信号、被 frontend 调用 | ❌ `load()`/引用任何 `res://runtime/frontend/*`、`res://editor/*`;❌ 使用 `get_viewport()`、`Input`、`Camera3D` 等表现 API;❌ 持有视觉节点;❌ 引用音频(音频资源、`AudioManager`)——音频一律属 frontend(§5.7) |
+| **frontend** | 读取 backend 状态、连接 backend 信号做表现;接收输入后**调用 backend 公开方法**改状态 | 引用 backend 的类与节点;播放音频(§5.7) | ❌ 复制玩法规则/状态(如血量、寻路)到自己内部;❌ 不通过 backend 方法直接改后端状态 |
 | **editor** | 编辑 `*.tres` 数据资源 | 引用 backend 的 `*Data` 类与 frontend 的模型场景 | ❌ 被 runtime 反向引用 |
 
 **状态流约定:**
@@ -40,6 +40,7 @@ editor/           ← 关卡数据编辑工具(@tool,只在编辑器内运行)
 ```
 autd/
 ├─ project.godot          # 引擎配置(主场景、输入映射)。少手改
+├─ default_bus_layout.tres # 音频总线布局:Master/SFX/Music/Ambience(§5.7)
 ├─ icon.svg
 ├─ runtime/
 │  ├─ backend/            # 纯逻辑。extends Node / Resource
@@ -54,8 +55,9 @@ autd/
 │     ├─ scenes/          # 顶层组合场景 + 其根脚本(battle.tscn、level_actor.gd)
 │     ├─ actors/          # backend 对象的可视化镜像:<object>_actor.gd + .tscn
 │     ├─ modes/           # 输入模式 Mode 子类,每个 mode 一个文件 + 一个场景节点
-│     ├─ controllers/     # camera_controller.gd light_controller.gd(摄像机/灯光)
+│     ├─ controllers/     # camera_controller.gd light_controller.gd audio_manager.gd(摄像机/灯光/音频)
 │     ├─ ui/              # Control 组合(building_card.gd/.tscn)
+│     ├─ audio/           # 音频:audio_library.gd(id→流表)+ sfx/ music/ ambience/ + LICENSES/
 │     ├─ models/          # 美术资源,按类型分子目录
 │     │  ├─ buildings/<type>/<type>.tscn + <type>_model.gd
 │     │  └─ entities/<type>/<type>.tscn + <type>_model.gd
@@ -72,6 +74,7 @@ autd/
 5. 新增建筑/实体类型时,backend 脚本与 frontend 模型场景**必须成对出现**并保持同名同路径,否则 `load()` 会失败(参考 §8 清单)。
 6. `.tscn` 与同根脚本分离:可实例化的 Actor/UI 场景是一个文件夹内 `xxx.gd + xxx.tscn + xxx.gd.uid`;模型文件夹内含导入源(`.fbx/.blend`)与 `.import`、`.gd.uid`,全部提交,不提交 `.godot/`。
 7. `runtime/frontend/modes/` 下是 `Mode` 子类;每个 mode 在 battle.tscn 的 `%modes` 下有一个**同名单节点**(`roaming`/`building`),靠节点 `name` 与 `set_mode(&"id")` 匹配,故 mode 场景节点名与 `&"id"` 必须一致。
+8. 音频资源与音频代码**一律放 frontend**(资源表 `runtime/frontend/audio/` + 播放器 `runtime/frontend/controllers/audio_manager.gd`);backend 不得引用音频,发声只能由 frontend 监听 backend 信号后触发(§5.7)。
 
 ---
 
@@ -91,6 +94,8 @@ autd/
 | 类型标识字符串 | 全小写 snake | `"crossbow"` `"slime"` `"dirt"` `"path"` `&"roaming"` |
 | 场景节点名 | lower_snake_case(UI 根控件可用 PascalCase) | `map` `camera` `modes` `card_crossbow`;根 UI `BuildingCard` |
 | 前端模型控制脚本 | 类名 `<Type>Model`,文件 `<type>_model.gd`(与 backend 同名逻辑类区分) | `SlimeModel`/`slime_model.gd`、`CrossbowModel`/`crossbow_model.gd` |
+| 音频 id | 全小写 snake;多变体用 `<组名>_<序号>` | `&"ui_click"` `&"build_place"`;`hit_0`..`hit_2`(组 `&"hit"`) |
+| 音频类 | 播放器 `AudioManager` / 资源表 `AudioLibrary` | `audio_manager.gd` `audio_library.gd` |
 
 **信号参数不带 `in_` 前缀**(它们是"被广播的数据"而非函数入参),但必须标注类型:
 ```gdscript
@@ -208,6 +213,20 @@ signal position_changed()
 - `Mode`(`enter/tick/leave`),子类挂在 battle.tscn 的 `%modes` 下,`owner.set_mode(&"id")` 切换,靠节点 `name` 匹配;切换时先 `leave()` 旧的再 `enter()` 新的(`level_actor.set_mode`)。
 - 表现层"预览放置"类逻辑归 Mode;放置落库调 backend 方法;UI 操作经 `%` 唯一名与信号连接,不直接遍历写节点属性。
 
+### 5.7 音效(纯前端)
+
+音频**全部属表现层**:backend 不 `load()` 音频、不持有播放器、不引用 `AudioManager`;所有发声由 frontend 监听既有 backend 信号后触发,**不为此在 backend 增状态/信号**(需要新触发点时优先复用 §5.4 已有的可观察信号)。
+
+- **单例**:`AudioManager`(`runtime/frontend/controllers/audio_manager.gd`)用 `static var current`,由组合根 `level_actor.gd._ready()` 赋值为 battle.tscn 的 `%audio` 节点(不做 autoload,见 §5.1)。调用一律走静态入口 `AudioManager.sfx(...)` / `sfx_at(...)` / `music(...)` / `ambience(...)`;入口内对 `current` 做 `is_instance_valid` 守卫,未就绪时静默跳过,故调用方无需判空。
+- **两类发声**(按"声音发生在屏幕空间还是世界空间"选):
+  - `sfx(id)` —— 非定位音(UI/全局反馈),平铺池,音量恒定;
+  - `sfx_at(id, position)` —— 世界空间音(建造/工作/开火/受击/死亡/脚步),用 `AudioStreamPlayer3D` 在 `position` 处发声,**按到监听者(当前 `Camera3D`)的距离自动衰减**(近大远小)。位置用世界坐标:`Vector3(axis.x, 0, axis.y)` 或 actor 的 `global_position`。
+- **资源表**:`AudioLibrary`(`runtime/frontend/audio/audio_library.gd`)是 `id → preload AudioStream` 的 `const Dictionary`。**新增音效只登记 id,不改 AudioManager**。多变体音效以"组 id + 变体数"登记在 `_VARIANT_COUNTS`(`play_sfx(&"hit")` 随机取 `hit_0..hit_N`,避免重复听感);单发音效直接登记 `_SFX`。
+- **总线**:Master/SFX/Music/Ambience 定义在根目录 `default_bus_layout.tres`(Godot 默认路径自动加载);`sfx*` 走 SFX、`music` 走 Music、`ambience` 走 Ambience。
+- **并发与优先级**:SFX 池固定大小、优先复用空闲播放器。池满时:`in_can_drop=true` 的低优先级音(脚步等高频音)**直接丢弃**不抢占;`in_can_drop=false`(默认)的关键音(开火/受击/UI)才顶掉最老的。**高频音必须传 `in_can_drop=true`**。
+- **防补播**:Actor 复用池重绑(`bind()`)时,把"上次已发声状态"缓存**对齐当前状态**再刷新(如 `building_actor._last_state = building.state`),避免滚回视野/复用池时补播一次状态音;**逐帧量(`progress_changed`)不得作为发声触发点**。
+- **素材与授权**:只收 **CC0 / 公共领域** 素材,按用途放 `runtime/frontend/audio/sfx|music|ambience/`;来源授权原文放 `runtime/frontend/audio/LICENSES/`,并在 `LICENSES/CC0_SOURCES.txt` 记录来源 URL/作者/授权。**新增素材必须一并提交授权文件**。
+
 ---
 
 ## 6. 场景与节点规范
@@ -249,5 +268,7 @@ signal position_changed()
 **新增地表类型 `baz`:** 确保 `land.gd` 的 `type` 取值 `"baz"`,并放 `runtime/frontend/textures/land_baz.png`(贴图路径由 `"land_%s" % type` 推导)。
 
 **新增输入模式:** `runtime/frontend/modes/<mode_name>_mode.gd`(`extends Mode`)+ 在 battle.tscn 的 `%modes` 下加同名子节点,节点名 = `set_mode` 的 `&"<mode_name>"`。
+
+**新增音效:** 把 `.ogg`(或 `.mp3`)放 `runtime/frontend/audio/sfx/`,在 `audio_library.gd` 登记 id(多变体则加进 `_VARIANT_COUNTS` 并登记 `<id>_0..<id>_N`);在 frontend 触发点调 `AudioManager.sfx_at(id, 世界坐标)`(世界内)或 `AudioManager.sfx(id)`(UI);授权文件放 `LICENSES/`。**backend 不加任何代码**(见 §5.7)。
 
 **修改 backend 状态字段(如实体属性):** 若要被表现层跟随,必须走 §5.4 可观察属性模式并补信号,禁止前端轮询。
