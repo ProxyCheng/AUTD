@@ -43,6 +43,9 @@ const _SFX: Dictionary = {
 	&"cannon_fire_0": preload("res://runtime/frontend/audio/sfx/cannon_fire_0.ogg"),
 	&"cannon_fire_1": preload("res://runtime/frontend/audio/sfx/cannon_fire_1.ogg"),
 	&"cannon_fire_2": preload("res://runtime/frontend/audio/sfx/cannon_fire_2.ogg"),
+	&"cannonball_explode_0": preload("res://runtime/frontend/audio/sfx/cannonball_explode_0.ogg"),
+	&"cannonball_explode_1": preload("res://runtime/frontend/audio/sfx/cannonball_explode_1.ogg"),
+	&"cannonball_explode_2": preload("res://runtime/frontend/audio/sfx/cannonball_explode_2.ogg"),
 	&"hit_0": preload("res://runtime/frontend/audio/sfx/hit_0.ogg"),
 	&"hit_1": preload("res://runtime/frontend/audio/sfx/hit_1.ogg"),
 	&"hit_2": preload("res://runtime/frontend/audio/sfx/hit_2.ogg"),
@@ -74,6 +77,7 @@ const _VARIANT_COUNTS: Dictionary = {
 	&"die": 3,
 	&"cannon_load": 3,
 	&"cannon_fire": 3,
+	&"cannonball_explode": 3,
 	&"voice_labor": 3,
 	&"voice_enemy": 3,
 }

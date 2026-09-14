@@ -10,15 +10,21 @@ Pack: Impact Sounds (1.0, 2019-12-19)
   Source:  https://kenney.nl/assets/impact-sounds
   Audio dir inside the pack: Audio/
 
-  Project file       <- Pack file
-  cannon_fire_0.ogg  <- impactMetal_heavy_000.ogg
-  cannon_fire_1.ogg  <- impactMetal_heavy_002.ogg
-  cannon_fire_2.ogg  <- impactMetal_heavy_004.ogg
-  cannon_load_0.ogg  <- impactMetal_medium_000.ogg
-  cannon_load_1.ogg  <- impactMetal_medium_003.ogg
-  cannon_load_2.ogg  <- impactMetal_medium_001.ogg
+  Project file            <- Pack file
+  cannon_fire_0.ogg       <- impactMetal_heavy_000.ogg
+  cannon_fire_1.ogg       <- impactMetal_heavy_002.ogg
+  cannon_fire_2.ogg       <- impactMetal_heavy_004.ogg
+  cannon_load_0.ogg       <- impactMetal_medium_000.ogg
+  cannon_load_1.ogg       <- impactMetal_medium_003.ogg
+  cannon_load_2.ogg       <- impactMetal_medium_001.ogg
+  cannonball_explode_0.ogg <- impactPunch_heavy_000.ogg
+  cannonball_explode_1.ogg <- impactPunch_heavy_002.ogg
+  cannonball_explode_2.ogg <- impactPunch_heavy_004.ogg
 
   Notes: raw 1:1 copies. cannon_fire_* (heavy metal impact) is the shot,
-         cannon_load_* (medium metal clunk) is loading a round. The "heavy gun"
-         pitch is applied at runtime (see BuildingActor.STATE_SFX_PITCH_BY_TYPE),
-         so the .ogg files stay unmodified from the pack.
+         cannon_load_* (medium metal clunk) is loading a round, and
+         cannonball_explode_* (heavy impact punch) is the shell detonating -
+         the deepest, least metallic impact in the pack, so the blast reads as a
+         low boom rather than another gunshot. The "heavy gun" pitch is applied
+         at runtime (see BuildingActor.STATE_SFX_PITCH_BY_TYPE), so the .ogg
+         files stay unmodified from the pack.
