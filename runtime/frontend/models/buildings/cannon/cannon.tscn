@@ -46,6 +46,7 @@ unique_name_in_owner = true
 material_override = SubResource("StandardMaterial3D_wtrx2")
 
 [node name="fuse" parent="base/cog_top/deck/bracket/body" index="0" unique_id=1114393833]
+unique_name_in_owner = true
 surface_material_override/0 = ExtResource("3_emysx")
 surface_material_override/1 = ExtResource("3_emysx")
 
