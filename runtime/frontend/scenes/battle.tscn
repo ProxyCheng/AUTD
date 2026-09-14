@@ -16,9 +16,11 @@
 [ext_resource type="Script" uid="uid://r5rair2gpiym" path="res://runtime/frontend/modes/inspect_mode.gd" id="12_inspec"]
 [ext_resource type="PackedScene" uid="uid://dhv8xb4bit5rt" path="res://runtime/frontend/ui/crossbow_inspector_panel.tscn" id="13_inspec"]
 [ext_resource type="PackedScene" uid="uid://cft6u81tmutgv" path="res://runtime/frontend/ui/workshop_inspector_panel.tscn" id="14_inspec"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/card_cannon.tscn" id="14_vrdxo"]
 [ext_resource type="Script" uid="uid://biwufuh3iict1" path="res://runtime/frontend/ui/building_inspector_host.gd" id="15_host"]
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/stockpile_inspector_panel.tscn" id="16_sip"]
 [ext_resource type="Script" uid="uid://cce3bi4pk8v8x" path="res://runtime/frontend/controllers/audio_manager.gd" id="19_twb3a"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/cannon_inspector_panel.tscn" id="20_os756"]
 
 [node name="level" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
@@ -89,6 +91,9 @@ layout_mode = 2
 [node name="card_crafting_workshop" parent="modes/building/ui/cards" unique_id=517539230 instance=ExtResource("11_ccraft")]
 layout_mode = 2
 
+[node name="card_cannon" parent="modes/building/ui/cards" unique_id=2008288346 instance=ExtResource("14_vrdxo")]
+layout_mode = 2
+
 [node name="inspect" type="Node" parent="modes" unique_id=1113869200]
 script = ExtResource("12_inspec")
 
@@ -112,6 +117,9 @@ anchors_preset = 0
 anchors_preset = 0
 
 [node name="StockpilePanel" parent="inspector/Panel" unique_id=1113869205 instance=ExtResource("16_sip")]
+anchors_preset = 0
+
+[node name="CannonPanel" parent="inspector/Panel" unique_id=1163361501 instance=ExtResource("20_os756")]
 anchors_preset = 0
 
 [node name="audio" type="Node3D" parent="." unique_id=2062688518]

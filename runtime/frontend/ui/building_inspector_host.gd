@@ -7,8 +7,8 @@ extends Control
 # LevelActor.inspect_building 调本容器 configure(in_building),返回是否成功开启(有对应面板);
 # close_inspector 调 close();子面板关闭(×)经本容器级联 owner.close_inspector 回 roaming。
 #
-# 路由要点:先判 is Crossbow 再判 is Workshop(crossbow 继承 workshop,顺序不能反),
-# 无对应面板的建筑(main_base/enemy_spawner/stockpile)返回 false 保持 roaming。
+# 路由要点:先判子类再判父类(Cannon → Crossbow → Workshop,继承链顺序不能反),
+# 无对应面板的建筑(main_base/enemy_spawner)返回 false 保持 roaming。
 
 var _closing: bool = false   # 防重入 guard,避免 close_inspector 级联递归
 
@@ -25,8 +25,11 @@ func configure(in_building: Building) -> bool:
 		chosen.call(&"configure", in_building)
 	return true
 
-# 按建筑类型选子面板(Crossbow 先于 Workshop;Stockpile 是独立 Building 子类,非 Workshop)。
+# 按建筑类型选子面板(子类必须先于父类:Cannon 先于 Crossbow,Crossbow 先于 Workshop;
+# Stockpile 是独立 Building 子类,非 Workshop)。
 func _select_panel(in_building: Building) -> Control:
+	if in_building is Cannon:
+		return get_node_or_null("CannonPanel")
 	if in_building is Crossbow:
 		return get_node_or_null("CrossbowPanel")
 	if in_building is Stockpile:

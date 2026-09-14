@@ -13,6 +13,7 @@ func _ready():
 	$ui/cards/card_tree_workshop.clicked.connect(func(): _on_card_clicked("tree_workshop"))
 	$ui/cards/card_stone_mine.clicked.connect(func(): _on_card_clicked("stone_mine"))
 	$ui/cards/card_crafting_workshop.clicked.connect(func(): _on_card_clicked("crafting_workshop"))
+	$ui/cards/card_cannon.clicked.connect(func(): _on_card_clicked("cannon"))
 
 func enter():
 	$"ui".show()

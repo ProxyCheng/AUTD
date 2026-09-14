@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://cp46m5cmqhiy2"]
+
+[ext_resource type="PackedScene" uid="uid://bi8wnpe8nsaov" path="res://runtime/frontend/models/buildings/cannon/cannon.fbx" id="1_72ky0"]
+[ext_resource type="Texture2D" uid="uid://b2y0poufws2xu" path="res://runtime/frontend/models/buildings/crossbow/TowerDefenceLikePallet.png" id="2_odvvv"]
+[ext_resource type="Script" uid="uid://cpgxo8f4w23m0" path="res://runtime/frontend/models/buildings/cannon/cannon_model.gd" id="2_ud6gl"]
+[ext_resource type="Material" uid="uid://blx0njrffhnns" path="res://runtime/frontend/models/buildings/crossbow/crossbow.tres" id="3_emysx"]
+[ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="4_0eg85"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wjapt"]
+albedo_texture = ExtResource("2_odvvv")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_763vu"]
+albedo_texture = ExtResource("2_odvvv")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wtrx2"]
+albedo_texture = ExtResource("2_odvvv")
+
+[node name="cannon" unique_id=1931128311 instance=ExtResource("1_72ky0")]
+script = ExtResource("2_ud6gl")
+
+[node name="base" parent="." index="0" unique_id=367655680]
+transform = Transform3D(40, 0, 0, 0, -1.7484556e-06, 40, 0, -40, -1.7484556e-06, 0, 0, 0)
+material_override = SubResource("StandardMaterial3D_wjapt")
+surface_material_override/0 = ExtResource("3_emysx")
+
+[node name="cog_left" parent="base" index="0" unique_id=455402544]
+unique_name_in_owner = true
+surface_material_override/0 = ExtResource("3_emysx")
+
+[node name="cog_right" parent="base" index="1" unique_id=1146982154]
+unique_name_in_owner = true
+surface_material_override/0 = ExtResource("3_emysx")
+
+[node name="cog_top" parent="base" index="2" unique_id=120794154]
+unique_name_in_owner = true
+surface_material_override/0 = ExtResource("3_emysx")
+
+[node name="deck" parent="base/cog_top" index="0" unique_id=2039989941]
+material_override = SubResource("StandardMaterial3D_763vu")
+
+[node name="bracket" parent="base/cog_top/deck" index="0" unique_id=596416142]
+material_override = ExtResource("3_emysx")
+
+[node name="body" parent="base/cog_top/deck/bracket" index="0" unique_id=1214821307]
+unique_name_in_owner = true
+material_override = SubResource("StandardMaterial3D_wtrx2")
+
+[node name="fuse" parent="base/cog_top/deck/bracket/body" index="0" unique_id=1114393833]
+surface_material_override/0 = ExtResource("3_emysx")
+surface_material_override/1 = ExtResource("3_emysx")
+
+[node name="AmmoStack" type="Node3D" parent="base/cog_top" index="1" unique_id=905007233]
+unique_name_in_owner = true
+transform = Transform3D(-0.0048, -4.1962936e-10, -1.8342581e-17, 0, -2.0981468e-10, 0.0048, -4.1962936e-10, 0.0048, 2.0981468e-10, 0.005492572, 0.0057604364, 0.001833518)
+script = ExtResource("4_0eg85")
+item_type = "cannonball"

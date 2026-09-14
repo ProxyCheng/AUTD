@@ -1,0 +1,176 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://runtime/frontend/ui/cannon_inspector_panel.gd" id="1_cip"]
+[ext_resource type="Script" uid="uid://8cfpojok72d5" path="res://runtime/frontend/ui/workshop_recipe_list.gd" id="2_wip"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.07, 0.08, 0.11, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.55, 0.72, 0.22)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(1, 1, 1, 0.08)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+bg_color = Color(1, 1, 1, 0.18)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
+bg_color = Color(1, 1, 1, 0.12)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_focus"]
+bg_color = Color(1, 1, 1, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_del"]
+bg_color = Color(0.6, 0.15, 0.18, 0.85)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_del_hover"]
+bg_color = Color(0.75, 0.2, 0.24, 0.95)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_del_pressed"]
+bg_color = Color(0.45, 0.1, 0.13, 0.9)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="CannonInspectorPanel" type="Control"]
+visible = false
+custom_minimum_size = Vector2(260, 0)
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -268.0
+offset_top = -240.0
+offset_right = -8.0
+offset_bottom = 240.0
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("1_cip")
+
+[node name="Background" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 8.0
+offset_right = -48.0
+offset_bottom = 36.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.98, 1)
+theme_override_font_sizes/font_size = 16
+text = "Cannon"
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 6.0
+offset_right = -10.0
+offset_bottom = 34.0
+grow_horizontal = 0
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
+text = "×"
+
+[node name="PreferenceLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 44.0
+offset_right = -16.0
+offset_bottom = 62.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Target Preference"
+
+[node name="PreferenceOption" type="OptionButton" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 64.0
+offset_right = -16.0
+offset_bottom = 92.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 14
+
+[node name="RecipeList" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 100.0
+offset_right = -12.0
+offset_bottom = -64.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 4
+script = ExtResource("2_wip")
+
+[node name="DeleteButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -52.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.85, 0.85, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_del")
+theme_override_styles/hover = SubResource("StyleBoxFlat_del_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_del_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
+text = "Delete"

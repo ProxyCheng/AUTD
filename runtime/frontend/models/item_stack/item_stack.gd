@@ -22,6 +22,7 @@ extends Node3D
 # 未在表中的类型视为无模型,不显示内容。
 const ITEM_MODEL_SCENES: Dictionary = {
 	"arrow": "res://runtime/frontend/models/entities/arrow/arrow.tscn",
+	"cannonball": "res://runtime/frontend/models/entities/cannonball/cannonball.tscn",
 	"log": "res://runtime/frontend/models/entities/log/log.tscn",
 	"stone": "res://runtime/frontend/models/entities/stone/stone.tscn",
 }

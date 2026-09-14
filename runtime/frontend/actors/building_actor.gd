@@ -264,17 +264,31 @@ func _on_building_state_changed():
 		return
 	building_model.set_state(building.state)
 
-# 状态变化音效:仅在状态真正改变时播一次(防重绑补播);目前只有十字弩有状态音。
+# 状态变化音效:仅在状态真正改变时播一次(防重绑补播)。
+# 按建筑类型查表:类型无条目 / 该状态无音效则不发声。
+# 注意:cannon 的两条暂借弩炮采样作占位 —— 仓库尚无火炮/爆炸的 CC0 素材。
+# 补素材后:把 .ogg 放进 runtime/frontend/audio/sfx/,在 audio_library.gd 登记
+# cannon_load/cannon_fire,再把下表 cannon 的值换成新 id 即可(无需改本方法)。
+const STATE_SFX_BY_TYPE: Dictionary = {
+	&"crossbow": {
+		"loading": &"crossbow_load",
+		"firing": &"crossbow_fire",
+	},
+	&"cannon": {
+		"loading": &"crossbow_load",
+		"firing": &"crossbow_fire",
+	},
+}
+
 func _play_state_sfx(in_state: String):
 	if in_state == _last_state:
 		return
 	_last_state = in_state
-	if building.type != "crossbow":
+	var by_state: Dictionary = STATE_SFX_BY_TYPE.get(StringName(building.type), {})
+	var sfx_id: StringName = by_state.get(in_state, &"")
+	if sfx_id == &"":
 		return
-	if in_state == "loading":
-		AudioManager.sfx_at(&"crossbow_load", global_position, randf_range(0.97, 1.03))
-	elif in_state == "firing":
-		AudioManager.sfx_at(&"crossbow_fire", global_position, randf_range(0.95, 1.05))
+	AudioManager.sfx_at(sfx_id, global_position, randf_range(0.95, 1.05))
 
 func _on_building_progress_changed():
 	if not building:
