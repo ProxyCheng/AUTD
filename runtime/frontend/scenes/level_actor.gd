@@ -42,6 +42,9 @@ func inspect_building(in_building: Building):
 		AudioManager.sfx(&"ui_open")
 		set_mode(&"inspect")
 	else:
+		# 该建筑没有对应面板(如 main_base / enemy_spawner):选中随即被撤销。
+		# 给一声"点到了但不可检视"的反馈,避免点击完全没响应。
+		AudioManager.sfx(&"ui_select")
 		clear_selection()
 
 # 记录当前选中建筑并广播(高亮 actor 由 map_actor 监听 selected_changed 驱动)。
