@@ -38,6 +38,11 @@ func bind(in_entity: Entity):
 		return
 	if entity.type != type:
 		_on_entity_type_changed()
+	# 池复用重绑:模型实例沿用上一发的,但已换绑到新实体 —— 通知模型清掉上一发残留的
+	# 一次性表现(如炮弹尾迹粒子),否则残留粒子会随模型被瞬移到新发射点、拖成一条直线。
+	# 与 §5.7 音频"重绑时对齐状态、防补播"同一思路。
+	if model and model.has_method(&"on_rebind"):
+		model.on_rebind()
 	_on_entity_position_changed()
 	_on_entity_direction_changed()
 	if entity.state != state:

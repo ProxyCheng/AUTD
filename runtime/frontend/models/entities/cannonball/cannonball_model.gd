@@ -23,3 +23,12 @@ func set_flight(in_progress: float, in_direction: Vector2, in_launch_height: flo
 	super.set_flight(in_progress, in_direction, in_launch_height, in_flight_time, in_move_speed)
 	if _trail:
 		_trail.emitting = in_progress < 1.0
+
+# 池复用重绑(EntityActor 换绑实体时调用,见 entity_actor.gd):清空上一发残留的尾迹粒子。
+# 模型实例会被复用,若不清理,复用瞬间模型从上一发落点瞬移到新发射点,残留粒子会跟着
+# 被拖过去(或隐藏后重新显示)连成一条直线。restart() 清粒子并重启发射,随后 set_flight
+# 再按新一发的进度决定是否继续喷。
+func on_rebind():
+	if _trail:
+		_trail.restart()
+		_trail.emitting = false
