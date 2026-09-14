@@ -273,3 +273,57 @@ signal position_changed()
 **新增音效:** 把 `.ogg`(或 `.mp3`)放 `runtime/frontend/audio/sfx/`,在 `audio_library.gd` 登记 id(多变体则加进 `_VARIANT_COUNTS` 并登记 `<id>_0..<id>_N`);在 frontend 触发点调 `AudioManager.sfx_at(id, 世界坐标)`(世界内)或 `AudioManager.sfx(id)`(UI);授权文件放 `LICENSES/`。**backend 不加任何代码**(见 §5.7)。
 
 **修改 backend 状态字段(如实体属性):** 若要被表现层跟随,必须走 §5.4 可观察属性模式并补信号,禁止前端轮询。
+
+---
+
+## 9. 模型资产:从 Blender 导出 FBX
+
+模型本体改 `*.blend`,**FBX 是导出物**。重导出会换掉 FBX 内部的节点 ID,而 `*.tscn` 里对"实例内节点"的覆写(如 `crossbow.tscn` 的 `body` / `wheel` / `Skeleton3D` / `ArrowPointA` / `ArrowPointB` / `Arrow` / `muzzle`)依赖这些 ID —— 设置错了或随手保存场景,就会出现"节点跑到根节点""弓上的箭消失"这类事故。
+
+### 9.1 必须勾的导出设置
+
+**`Object Types` 里 `Empty` 与 `Armature` 必须勾上。** 模型的层级里 `body` 是 Empty、`bone` 是 Armature;漏掉它们,挂在下头的 `wheel` / 骨架 / `skin` 会被重挂到场景根,节点名变成 `base_cog_top_deck_bracket_body#wheel` 这种(整条路径塞进名字),`SKIN_PATH` 与 `*.tscn` 的覆写全部失效。
+
+| 设置 | 值 | 为什么 |
+|---|---|---|
+| `Include → Selected Objects` | 关(或导出前全选) | 开着且漏选 `body`/`bone`,会得到同样残缺的结果 |
+| `add_leaf_bones` | **开** | 场景覆写了 `bones/0..6` = **7** 根骨(5 实骨 + 2 leaf);不开只有 5 根,蒙皮关节索引会越界 |
+| `bake_anim_use_all_actions` | **开** | take 名取 action 名,Godot 才得到"骨架名 + action 名"的动画名;用"只导当前 action"会把 take 命名成场景名 `Scene`,动画名对不上 |
+| `axis_forward` / `axis_up` | `-Z` / `Y`(默认) | 根节点才会带那个 −90° X(见 §6:FBX 内 `base` rotX≈−90°) |
+| `apply_unit_scale` | 开 | 保持比例;`base` 的 scale 由场景覆写,不靠 FBX |
+
+### 9.2 可复制的导出脚本
+
+```python
+import bpy
+bpy.ops.export_scene.fbx(
+    filepath=r"E:\Projects\Godot\autd\runtime\frontend\models\buildings\<type>\<type>.fbx",
+    use_selection=False, use_visible=False, use_active_collection=False,
+    object_types={'EMPTY', 'ARMATURE', 'MESH'},
+    apply_unit_scale=True, apply_scale_options='FBX_SCALE_NONE',
+    axis_forward='-Z', axis_up='Y',
+    use_mesh_modifiers=True, mesh_smooth_type='FACE', use_tspace=False,
+    add_leaf_bones=True,
+    primary_bone_axis='Y', secondary_bone_axis='X',
+    bake_anim=True, bake_anim_use_all_bones=True,
+    bake_anim_use_nla_strips=False, bake_anim_use_all_actions=True,
+    bake_anim_force_startend_keying=True,
+    bake_anim_step=1.0, bake_anim_simplify_factor=1.0,
+    path_mode='AUTO', embed_textures=False, use_metadata=True,
+)
+```
+
+### 9.3 导出后必查
+
+1. **材质名别改**:Godot 的 `<type>.fbx.import` 按材质名(`Default` / `Default.002` …)映射到外部 `<type>.tres`。
+2. **节点齐**:`*.tscn` 覆写的每个节点都能解析(`%wheel` / `%body` / `SKIN_PATH` / `ArrowPointA` / `ArrowPointB` / `muzzle` 均非 null)。
+3. **动画名对**:`%AnimationPlayer.get_animation(&"bone|boneAction_001")` 非空。
+4. **跑一次主场景无脚本错误**(自查见 §7)。
+
+### 9.4 别在编辑器里"顺手保存"模型场景
+
+重导出换 ID 后,`*.tscn` 里 `parent_id_path=PackedInt32Array(...)` 这类按 ID 的引用就过期了;此时在编辑器里打开并保存场景,Godot 会把解析不到的节点甩到场景根(现象:`%wheel` 为 null、弓上的箭消失且缩放到 1%)。**改完模型先在编辑器里确认节点还在原位再保存**;若已被甩出,`git checkout` 该 `.tscn` 即可还原(节点路径本身仍有效)。`crossbow.tscn` 已去掉这些过期 ID,只按 `parent="路径"` 解析。
+
+### 9.5 模型侧的姿态不变式
+
+炮塔类模型(弩炮/火炮)的炮管**必须在 rest 位就是水平的**:导出后 `body.rotation.x = 0` 时炮管沿 `body` 局部 −Y 且水平(见 §6 的 `TurretModel`)。炮管在 Blender 里不水平,整个俯仰会偏掉一个固定角,且**不能在代码里补**。注意运行时 `TurretModel.set_target_position` 会把 `body.rotation.x` 整个覆写成 `-pitch`,而导出器会把 `body` 的旋转烘进子节点 —— 所以调平既可以转 `body`、也可以转它的子节点,但判断依据是**导出后的模型实测**,不是 Blender 里看着平不平。
