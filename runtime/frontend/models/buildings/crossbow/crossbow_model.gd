@@ -11,6 +11,9 @@ const ANIM_NAME: StringName = &"bone|boneAction_001"
 const NOCK_TIME: float = 0.55
 # 弹射动作时长(秒):与 backend Crossbow.FIRE_TIME 一致——松弦沿弩身飞出。
 const RELEASE_TIME: float = 0.1
+# 上弦转轮(%wheel)满弦时的总转角(圈数)。转角 ∝ progress:随拉弦同步正转。
+# 取整圈:松弦后转轮归零与停在原位在视觉上完全一致,故不会有跳变。
+const WHEEL_TURNS: float = 2.0
 
 func _ready():
 	# 播放器自带时钟不用,姿态完全由 progress 每帧采样决定。
@@ -150,6 +153,7 @@ func set_progress(in_progress: float):
 	var length: float = %AnimationPlayer.current_animation_length
 	_apply_pose((1 - in_progress) * length)
 	_update_arrow_position(in_progress)
+	_update_wheel(in_progress)
 
 # 箭位置 = 弦位点插值,参数即 progress:满弦(progress=1,弦拉紧)贴 PointB,
 # 松弦(progress=0,弦放开)贴 PointA。蓄力 A→B 拉弦,ready 停在 B。
@@ -161,6 +165,20 @@ func _update_arrow_position(in_progress: float):
 	var t: float = in_progress if _show_arrow else 0.0
 	# 姿态恒为静止 TRS(rotation/scale 不变),只把位置沿弦位点插值
 	%Arrow.transform = Transform3D(_arrow_rest_transform.basis, _string_rest_local.lerp(_string_draw_local, t))
+
+# 上弦转轮(%wheel,body 下与骨架平级的刚体件):绕自身 X 轴(= 轮轴)旋转。
+# 转角 ∝ progress("弦被拉下的比例"),随拉弦同步正转,满弦停在最大角。
+# 纯由 progress 采样、不累积状态,故重绑/回放自洽(无需防补播缓存)。
+# 松弦(firing)阶段只放弦、转轮不动:此时 progress 会从 1 回退到 0,
+# 若照常跟随会让转轮倒转一圈;因 WHEEL_TURNS 取整圈,随后归零与停在原位视觉一致。
+@onready var _wheel: Node3D = %wheel
+
+func _update_wheel(in_progress: float):
+	if not _wheel:
+		return
+	if _state == "firing":
+		return
+	_wheel.rotation.x = in_progress * WHEEL_TURNS * TAU
 
 func _process(in_delta: float):
 	# 装填上弦:整支箭从"备垛最后一支"的 TRS 插值到"弛弦位静止"的 TRS
