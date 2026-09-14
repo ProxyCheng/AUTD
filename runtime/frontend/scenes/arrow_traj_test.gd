@@ -3,7 +3,6 @@ extends Node3D
 # 弩矢弹道调试场景(开发工具,不参与正式流程):
 #   拖动"目标距离"滑块 → 移动靶子,实时观察弩身俯仰 / 箭离弦仰角;
 #   拖动"重力 G"滑块   → 直接改 Arrow.GRAVITY,实时看抛物线弧度变化;
-#   拖动"补偿 offset"滑块 → 直接改 CrossbowModel.BARREL_REST_ELEVATION,让弩口对齐弹道切线;
 #   拖动"俯仰转轴 P / 起点偏移"滑块 → 直接改 Crossbow 的射箭几何(转轴 + 起点偏移)。
 # 数据流走真实链路:BuildingActor 每帧读 crossbow.target.position → TurretModel.set_target_position
 # → Crossbow.aim_pitch,所以 HUD 数字就是模型实际采用的值,不是另算一份。
@@ -28,12 +27,6 @@ const GRAVITY_MIN: float = 2.0
 const GRAVITY_MAX: float = 40.0
 const GRAVITY_STEP: float = 0.5
 const GRAVITY_DEFAULT: float = 9.8
-
-# 炮口俯仰补偿角(度):对应 CrossbowModel.BARREL_REST_ELEVATION,调它使弩口对齐弹道切线。
-const OFFSET_MIN_DEG: float = -30.0
-const OFFSET_MAX_DEG: float = 45.0
-const OFFSET_STEP_DEG: float = 0.25
-const OFFSET_DEFAULT_DEG: float = 15.0
 
 # 俯仰转轴 P 与起点偏移的默认值(= 生产代码 Crossbow 的落库值;启动时回写一遍便于试参)。
 const PIVOT_FORWARD_MIN: float = -0.5
@@ -82,7 +75,6 @@ var _cam_base_offset: Vector3 = Vector3.ZERO
 var _hud: Label = null
 var _dist_value_label: Label = null
 var _grav_value_label: Label = null
-var _offset_value_label: Label = null
 
 # 俯仰几何可视化标记/标签(几何数值本体在 Crossbow 的静态字段)
 var _pivot_value_label: Label = null
@@ -95,7 +87,6 @@ var _geom_im: ImmediateMesh = null
 func _ready():
 	# 复位可调试常量,避免上一次运行残留(static var 在同一进程内会保留)。
 	Arrow.GRAVITY = GRAVITY_DEFAULT
-	CrossbowModel.BARREL_REST_ELEVATION = deg_to_rad(OFFSET_DEFAULT_DEG)
 	Crossbow.PIVOT_FORWARD = PIVOT_FORWARD_DEFAULT
 	Crossbow.PIVOT_HEIGHT = PIVOT_HEIGHT_DEFAULT
 	Crossbow.SPAWN_FORWARD = SPAWN_FORWARD_DEFAULT
@@ -380,19 +371,6 @@ func _build_ui():
 	grav_slider.value_changed.connect(_on_gravity_changed)
 	vbox.add_child(grav_slider)
 
-	# 炮口俯仰补偿 offset
-	_offset_value_label = Label.new()
-	_offset_value_label.add_theme_font_size_override("font_size", 14)
-	vbox.add_child(_offset_value_label)
-	var offset_slider := HSlider.new()
-	offset_slider.min_value = OFFSET_MIN_DEG
-	offset_slider.max_value = OFFSET_MAX_DEG
-	offset_slider.step = OFFSET_STEP_DEG
-	offset_slider.value = OFFSET_DEFAULT_DEG
-	offset_slider.custom_minimum_size = Vector2(380, 0)
-	offset_slider.value_changed.connect(_on_offset_changed)
-	vbox.add_child(offset_slider)
-
 	# 俯仰转轴 P:forward
 	_pivot_value_label = Label.new()
 	_pivot_value_label.add_theme_font_size_override("font_size", 14)
@@ -442,7 +420,6 @@ func _build_ui():
 
 	_update_dist_label()
 	_update_grav_label()
-	_update_offset_label()
 	_update_pivot_label()
 	_update_spawn_label()
 
@@ -455,12 +432,6 @@ func _on_distance_changed(in_value: float):
 func _on_gravity_changed(in_value: float):
 	Arrow.GRAVITY = in_value
 	_update_grav_label()
-
-func _on_offset_changed(in_value: float):
-	CrossbowModel.BARREL_REST_ELEVATION = deg_to_rad(in_value)
-	_update_offset_label()
-	if _actor:
-		_actor._update_direction()
 
 func _on_pivot_forward_changed(in_value: float):
 	Crossbow.PIVOT_FORWARD = in_value
@@ -477,10 +448,6 @@ func _on_spawn_forward_changed(in_value: float):
 func _on_spawn_height_changed(in_value: float):
 	Crossbow.SPAWN_HEIGHT = in_value
 	_update_spawn_label()
-
-func _update_offset_label():
-	if _offset_value_label:
-		_offset_value_label.text = "炮口俯仰补偿 offset: %.2f°" % rad_to_deg(CrossbowModel.BARREL_REST_ELEVATION)
 
 func _update_pivot_label():
 	if _pivot_value_label:

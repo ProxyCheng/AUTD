@@ -236,7 +236,7 @@ signal position_changed()
 - **禁止**手写 `get_node("../../../…")` 长路径;跨场景注入的资源引用用 `@export`(如 `LevelActor.level_data`)。
 - 场景根节点挂同名脚本(如 battle.tscn 根 `level` ← `level_actor.gd`;`xxx_actor.tscn` 根 ← `xxx_actor.gd`)。
 - 可复用 UI 做成独立场景 + 信号(如 `building_card.gd` 只 `signal clicked`),由父级连接处理,不在子控件里写具体玩法。
-- 模型脚本是"哑"表现脚本:命名 `<type>_model.gd` + `class_name <Type>Model`(避免与 backend 同名逻辑类冲突,如 `SlimeModel` ≠ `Slime`),提供 `set_state` / `set_progress` / `set_target_position` 等可选方法,由 Actor 通过 `has_method` 探测调用(见 `building_actor._update_direction`),**不得反向持有 backend 逻辑**。弩炮/火炮这类"可转向 + 俯仰 + 备弹垛"的建筑模型继承抽象基类 `TurretModel`(`models/buildings/turret_model.gd`),只实现弹道求解 `_aim_pitch()`、rest 仰角补偿 `_rest_elevation()` 与各状态动画钩子。
+- 模型脚本是"哑"表现脚本:命名 `<type>_model.gd` + `class_name <Type>Model`(避免与 backend 同名逻辑类冲突,如 `SlimeModel` ≠ `Slime`),提供 `set_state` / `set_progress` / `set_target_position` 等可选方法,由 Actor 通过 `has_method` 探测调用(见 `building_actor._update_direction`),**不得反向持有 backend 逻辑**。弩炮/火炮这类"可转向 + 俯仰 + 备弹垛"的建筑模型继承抽象基类 `TurretModel`(`models/buildings/turret_model.gd`),只实现弹道求解 `_aim_pitch()` 与各状态动画钩子;炮管的 rest 姿态由**模型自己负责摆平**(`body.rotation.x = 0` 时炮管须沿 `body` 局部 -Y 且水平),炮管在 Blender 里不水平会让俯仰整体偏掉,该偏置属模型、不在代码里补。
 
 ---
 

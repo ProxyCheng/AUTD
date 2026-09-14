@@ -30,15 +30,6 @@ func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> floa
 		Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
 		Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Cannon.PROJECTILE_SPEED)
 
-# 炮口 rest 仰角补偿(弧度)。炮管沿 body 局部 -Y(引信/炮尾在 +Y 侧),而 body 局部 +Y
-# 在 body.rotation.x = 0 时实测恰好水平 —— 即几何上本模型的补偿应为 0。
-# 当前值沿用弩炮(15°),尚未在 arrow_traj_test.tscn 里目视校准,故炮口会低于弹道切线约 15°。
-# static var 便于该场景实时试参。
-static var BARREL_REST_ELEVATION: float = 0.261799  # 弧度(= 15°)
-
-func _rest_elevation() -> float:
-	return BARREL_REST_ELEVATION
-
 # 同状态重复调用直接早退:重绑进开火态时不重播形变(引信/炮管保持当前姿态)。
 func set_state(in_state: String):
 	if in_state == _state:

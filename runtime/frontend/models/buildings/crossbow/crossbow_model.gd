@@ -240,15 +240,6 @@ func _compute_nock_from() -> Transform3D:
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
 	return Crossbow.aim_pitch(in_center, in_aim, in_target)
 
-# 炮口 rest 仰角补偿(弧度):弩身导轨在 rest 位就是上翘的,故需要这一常量把
-# "弹道切线 pitch"换算成 body.rotation.x(见基类 _rest_elevation)。
-# 补偿值由弹道调试场景 arrow_traj_test.tscn 实测定为 15°(≈0.2618 rad,最贴合);
-# static var 便于该场景实时试参。
-static var BARREL_REST_ELEVATION: float = 0.261799  # 弧度(= 15°)
-
-func _rest_elevation() -> float:
-	return BARREL_REST_ELEVATION
-
 # 绑定后端展示仓:基类把仓转给箭垛;弩另需按 bag.count 判断"弦上是否有箭"(%Arrow 显隐)。
 func bind_bag(in_bag: Bag):
 	super(in_bag)

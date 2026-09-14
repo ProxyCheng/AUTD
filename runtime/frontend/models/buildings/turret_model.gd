@@ -45,26 +45,22 @@ func set_aim_direction(in_direction: Vector3):
 # 俯仰对齐弹丸离弦瞬间的抛物线切线,使弹丸"顺膛而出"。
 # 求解所需的起点几何与弹速由子类给出(backend 是单一事实来源),本类只把结果
 # 落到 body.rotation.x,保证各模型的俯仰驱动方式一致。
+#
+# 不变式:body.rotation.x 与炮口仰角 1:1 线性且符号相反,故模型必须把炮管摆成
+# body.rotation.x = 0 时正好水平(炮管沿 body 局部 -Y)。炮管在模型里若不水平,
+# 整个俯仰就会偏掉一个固定角 —— 该偏置属于模型,请在 Blender 里改,不要在代码里补。
 func set_target_position(in_position: Vector3):
 	var center := Vector2(global_position.x, global_position.z)
 	var aim := Vector2(_aim_dir.x, _aim_dir.z)
 	if aim == Vector2.ZERO:
 		return
 	var pitch: float = _aim_pitch(center, aim, Vector2(in_position.x, in_position.z))
-	%body.rotation.x = -pitch + _rest_elevation()
+	%body.rotation.x = -pitch
 
 # 求解出膛俯仰(弧度)。入参均为世界 XZ 平面坐标:in_center=炮塔中心,in_aim=单位朝向,
 # in_target=目标位置。起点几何(转轴/起点偏移)与弹速由各模型的弹道决定。
 @abstract
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float
-
-# 炮口 rest 仰角补偿(弧度)。body.rotation.x 与炮口仰角成 1:1 线性但符号相反,故要
-# 炮口对齐弹道切线 pitch,须取 body.rotation.x = _rest_elevation() - pitch。
-# 各模型 FBX 的 rest 姿态并不相同(弩炮导轨在 rest 位就上翘,火炮炮管则水平),
-# 故补偿值由各子类自己给出,不共用;子类实现通常返回自己的 static var,
-# 便于 arrow_traj_test.tscn 里实时试参。
-@abstract
-func _rest_elevation() -> float
 
 # —— 状态机(backend state/progress → 子类动画钩子)——
 
