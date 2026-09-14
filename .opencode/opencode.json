@@ -22,7 +22,7 @@
         },
         "godot-ai": {
             "type": "local",
-            "command": ["C:\\Users\\32242\\.local\\bin\\uvx", "--link-mode", "copy", "--from", "godot-ai==4.0.4", "godot-ai", "attach", "--port", "8000", "--ws-port", "9500"],
+            "command": ["C:\\Users\\32242\\.local\\bin\\uvx", "--link-mode", "copy", "--from", "godot-ai==4.1.0", "godot-ai", "attach", "--port", "8000", "--ws-port", "9500"],
             "enabled": true
         }
     }
