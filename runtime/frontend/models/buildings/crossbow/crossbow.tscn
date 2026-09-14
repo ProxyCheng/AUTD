@@ -26,14 +26,14 @@ transform = Transform3D(-0.0048, -4.1962936e-10, -1.8342581e-17, 0, -2.0981468e-
 script = ExtResource("4_stack")
 item_type = "arrow"
 
-[node name="body" parent="base/cog_top/deck/bracket" parent_id_path=PackedInt32Array(98314146) index="0" unique_id=1700663247]
+[node name="body" parent="base/cog_top/deck/bracket" index="0" unique_id=1700663247]
 unique_name_in_owner = true
 
 [node name="wheel" parent="base/cog_top/deck/bracket/body" index="0" unique_id=285372651]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.35736e-05, 0.0100404285, 0.00076212885)
 
-[node name="Skeleton3D" parent="base/cog_top/deck/bracket/body/bone" parent_id_path=PackedInt32Array(529059659) index="0" unique_id=473370140]
+[node name="Skeleton3D" parent="base/cog_top/deck/bracket/body/bone" index="0" unique_id=473370140]
 bones/0/skin_scale = Vector3(1, 1, 1)
 bones/1/position = Vector3(5.9819623e-12, 0.006123154, -1.948961e-10)
 bones/1/rotation = Quaternion(-0.5663837, 0.25640953, 0.60077345, 0.5025285)
@@ -54,15 +54,15 @@ bones/5/scale = Vector3(0.9999998, 0.9999999, 0.9999998)
 bones/5/skin_scale = Vector3(1, 1, 1)
 bones/6/skin_scale = Vector3(1, 1, 1)
 
-[node name="ArrowPointA" type="Node3D" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" parent_id_path=PackedInt32Array(1650874537) index="0" unique_id=1437945185]
+[node name="ArrowPointA" type="Node3D" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" index="0" unique_id=1437945185]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 0.9659258, 0.25881904, 0, -0.25881904, 0.9659258, 0, -0.017048232, 0.0076144133)
 
-[node name="ArrowPointB" type="Node3D" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" parent_id_path=PackedInt32Array(1650874537) index="1" unique_id=1485621634]
+[node name="ArrowPointB" type="Node3D" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" index="1" unique_id=1485621634]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 0.9659258, 0.25881904, 0, -0.25881904, 0.9659258, 0, -0.0099302605, 0.0058771707)
 
-[node name="Arrow" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" parent_id_path=PackedInt32Array(1650874537) index="2" unique_id=673666988 instance=ExtResource("3_jhk12")]
+[node name="Arrow" parent="base/cog_top/deck/bracket/body/bone/Skeleton3D/skin" index="2" unique_id=673666988 instance=ExtResource("3_jhk12")]
 unique_name_in_owner = true
 transform = Transform3D(0.010000001, -7.1085834e-26, -6.4623485e-27, 2.5849394e-26, 0.0025881908, -0.00965926, 1.5773022e-25, 0.00965926, 0.0025881908, 0, -0.017048232, 0.007614415)
 
