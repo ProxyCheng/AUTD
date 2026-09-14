@@ -39,6 +39,7 @@ func inspect_building(in_building: Building):
 	# configure 返回 true 才说明有对应面板被打开;
 	# 无面板建筑(main_base/enemy_spawner 等)撤销选中(去掉高亮),保持 roaming。
 	if panel.call(&"configure", in_building):
+		AudioManager.sfx(&"ui_open")
 		set_mode(&"inspect")
 	else:
 		clear_selection()
@@ -70,9 +71,12 @@ func delete_building(in_building: Building):
 		return
 	close_inspector()
 	if level and level.map:
-		level.map.remove_building(in_building.axis)
+		var axis: Vector2i = in_building.axis
+		level.map.remove_building(axis)
+		AudioManager.sfx_at(&"build_remove", Vector3(axis.x, 0, axis.y))
 
 func set_mode(in_mode_id: StringName):
+	var had_mode: bool = mode != null
 	if mode:
 		mode.leave()
 		mode = null
@@ -82,14 +86,26 @@ func set_mode(in_mode_id: StringName):
 			break
 	if mode:
 		mode.enter()
+	# 仅"已有模式 → 切换"时发声:启动首个 set_mode 静默,inspect 另用开面板音。
+	if had_mode and in_mode_id != &"inspect":
+		AudioManager.sfx(&"ui_toggle")
 
 func _ready():
 	assert(level_data)
+	# 子节点 %audio 的 _ready 先于本节点执行,故此处赋值时播放器已就绪(§5.1)。
+	AudioManager.current = %audio
 	bind(Level.new())
 	Level.current = level
 	level.load_data(level_data)
+	_start_audio()
 	
 	set_mode(&"roaming")
+
+# 启动背景音乐与环境音;素材与授权见 runtime/frontend/audio/LICENSES/。
+# 资源未登记时 AudioManager 静默跳过,故可先行调用。
+func _start_audio():
+	AudioManager.music(&"bgm")
+	AudioManager.ambience(&"ambience")
 
 func _process(in_delta: float):
 	level.tick(in_delta * speed)

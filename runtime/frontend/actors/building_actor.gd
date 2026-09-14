@@ -18,6 +18,25 @@ var _selection_ring: Node3D = null
 # 与 _selection_ring 同属表现层,由 set_selected 显隐;backend 不感知本节点。
 var _range_indicator: Node3D = null
 
+# —— 工作/开火音效 ——
+# 建筑处于 "working" 时按固定间隔播放对应工种音(砍木/挖矿/打造),与模型工作循环同拍;
+# 十字弩在 loading/firing 状态变化时各播一次。均由 state 驱动,不逐帧触发。
+const WORK_SFX_INTERVAL: float = 0.55
+const WORK_SFX_BY_TYPE: Dictionary = {
+	&"tree_workshop": &"work_chop",
+	&"stone_mine": &"work_mine",
+	&"crafting_workshop": &"work_craft",
+}
+# 各工种音量偏移(dB):打造用的金属锅采样本身偏响,压一档避免盖过其它音。
+const WORK_SFX_VOLUME_DB: Dictionary = {
+	&"work_chop": -4.0,
+	&"work_mine": -4.0,
+	&"work_craft": -24.0,
+}
+var _work_sfx_cooldown: float = 0.0
+# 上一次已发声的 building 状态:防滚动回可视区/复用池重绑时补播状态音。
+var _last_state: String = ""
+
 @onready var work_progress: HeadBarGroup = %work_progress
 
 # 显隐选中高亮(点击选中建筑时由 LevelActor 驱动)。
@@ -158,6 +177,8 @@ func bind(in_building: Building):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
 	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
 	work_progress.bind_source(building)
+	# 重绑时先把缓存对齐当前状态,避免滚动回可视区/复用池时补播一次状态音。
+	_last_state = building.state
 	_on_building_state_changed()
 	_on_building_progress_changed()
 	_on_building_aim_direction_changed()
@@ -191,8 +212,24 @@ func _on_axis_changed():
 func _on_direction_changed():
 	look_at(global_position + Vector3(direction.x, 0, direction.y))
 
-func _process(_delta: float):
+func _process(in_delta: float):
 	_update_direction()
+	_tick_work_sfx(in_delta)
+
+# 工作音效:仅在 "working" 状态按固定间隔播放;非工作状态清零冷却,避免下次进入时立刻出声。
+func _tick_work_sfx(in_delta: float):
+	if not building or building.state != "working":
+		_work_sfx_cooldown = 0.0
+		return
+	var sfx_id: StringName = WORK_SFX_BY_TYPE.get(StringName(building.type), &"")
+	if sfx_id == &"":
+		return
+	_work_sfx_cooldown -= in_delta
+	if _work_sfx_cooldown > 0.0:
+		return
+	_work_sfx_cooldown = WORK_SFX_INTERVAL
+	AudioManager.sfx_at(sfx_id, global_position, randf_range(0.95, 1.05), WORK_SFX_VOLUME_DB.get(sfx_id, -4.0))
+
 # 水平朝向:跟随 backend 的 aim_direction(信号驱动)
 func _on_building_aim_direction_changed():
 	if not building_model:
@@ -220,11 +257,24 @@ func _update_direction():
 func _on_building_state_changed():
 	if not building:
 		return
+	_play_state_sfx(building.state)
 	if not building_model:
 		return
 	if not building_model.has_method(&"set_state"):
 		return
 	building_model.set_state(building.state)
+
+# 状态变化音效:仅在状态真正改变时播一次(防重绑补播);目前只有十字弩有状态音。
+func _play_state_sfx(in_state: String):
+	if in_state == _last_state:
+		return
+	_last_state = in_state
+	if building.type != "crossbow":
+		return
+	if in_state == "loading":
+		AudioManager.sfx_at(&"crossbow_load", global_position, randf_range(0.97, 1.03))
+	elif in_state == "firing":
+		AudioManager.sfx_at(&"crossbow_fire", global_position, randf_range(0.95, 1.05))
 
 func _on_building_progress_changed():
 	if not building:

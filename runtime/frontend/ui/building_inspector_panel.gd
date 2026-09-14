@@ -66,6 +66,7 @@ func close():
 	_disconnect_signals()
 	building = null
 	hide()
+	AudioManager.sfx(&"ui_close")
 	closed.emit()
 
 # —— 通用装配(子类 _ready 里先调 super) ——
@@ -94,4 +95,5 @@ func _on_close_pressed():
 func _on_delete_pressed():
 	if not building:
 		return
+	AudioManager.sfx(&"ui_click")
 	delete_requested.emit(building)

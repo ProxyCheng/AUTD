@@ -15,6 +15,14 @@ var model_height: float = 0.0
 # 模型本地空间合并 AABB(相对 actor 原点,随 scale/本地朝向不变),供头顶携带物定位
 var _model_local_box: AABB = AABB()
 
+# —— 音效 ——
+# 脚步:行走状态按间隔播放(带轻微音高抖动);受击/死亡由 state 变化驱动
+# (dizzy=受击,die=死亡),不逐帧触发,避免噪声。
+const FOOTSTEP_INTERVAL: float = 0.42
+const FOOTSTEP_VOLUME_DB: float = -10.0
+
+var _footstep_timer: float = 0.0
+
 @onready var health_bar: EntityHealthBar = %health_bar
 
 func bind(in_entity: Entity):
@@ -106,6 +114,29 @@ func _on_entity_state_changed():
 	state = entity.state
 	if model and model.has_method(&"set_state"):
 		model.set_state(state)
+	match state:
+		"dizzy":
+			AudioManager.sfx_at(&"hit", global_position, randf_range(0.95, 1.05))
+		"die":
+			if type == "enemy":
+				AudioManager.sfx_at(&"voice_enemy", global_position, randf_range(0.9, 1.05))
+			else:
+				AudioManager.sfx_at(&"die", global_position, randf_range(0.9, 1.05))
+
+func _process(in_delta: float):
+	_tick_footstep(in_delta)
+
+# 脚步音:仅地面行走单位且 actor 可见时出声(离屏/飞行物不播);非行走状态清零计时。
+func _tick_footstep(in_delta: float):
+	if state != "walk" or entity is Arrow or not is_visible_in_tree():
+		_footstep_timer = 0.0
+		return
+	_footstep_timer -= in_delta
+	if _footstep_timer > 0.0:
+		return
+	_footstep_timer = FOOTSTEP_INTERVAL
+	# 脚步高频且低优先级:池满时丢弃,不抢占弩机/受击等关键音。
+	AudioManager.sfx_at(&"footstep", global_position, randf_range(0.92, 1.08), FOOTSTEP_VOLUME_DB, true)
 
 # —— 头顶携带物(Labor.carried_bag) ——
 

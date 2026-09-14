@@ -1,0 +1,35 @@
+CC0 / Public Domain audio sources - all downloaded 2026-09-14 from OpenGameArt.org
+All files are CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) - no attribution required.
+Attribution given below voluntarily for provenance.
+
+1) medieval_fair_loop.ogg
+   Source page:  https://opengameart.org/content/medieval-fair-loop
+   Direct URL:   https://opengameart.org/sites/default/files/Medieval%20fair%20loop.ogg
+   License:      CC0 1.0 (public domain)
+   Author:       Woli34
+   Notes:        "A medieval fair loop (8 bars, 130bpm)." Seamless loop.
+
+2) loop_the_old_tower_inn.wav
+   Source page:  https://opengameart.org/content/medieval-the-old-tower-inn
+   Direct URL:   https://opengameart.org/sites/default/files/Loop_The_Old_Tower_Inn.wav
+   License:      CC0 1.0 (public domain)
+   Author:       RandomMind
+   Notes:        Explicit loop version of "The Old Tower Inn". Castle/tavern/calm mood.
+
+3) forest_ambience.mp3
+   Source page:  https://opengameart.org/content/forest-ambience
+   Direct URL:   https://opengameart.org/sites/default/files/Forest_Ambience.mp3
+   License:      CC0 1.0 (public domain)
+   Author:       TinyWorlds
+   Notes:        "It loops seamlessly." Forest ambience bed.
+
+4) crickets_loop.mp3
+   Source page:  https://opengameart.org/content/crickets-ambient-noise-loopable
+   Direct URL:   https://opengameart.org/sites/default/files/crickets_1.mp3
+   License:      CC0 1.0 (public domain)
+   Author:       Wolfgang_ (optional credit: Ted Kerr)
+   Notes:        11 seconds, loopable. Night crickets ambience bed.
+
+Rejected candidates (license not CC0):
+- "Wind Loop" https://opengameart.org/content/wind-loop -> CC-BY 3.0, skipped.
+- FreePD.com -> closed, not used.

@@ -3,6 +3,8 @@ extends Mode
 
 var building_data: BuildingData = null
 var building_model: Node3D = null
+# 上一帧左键是否按下:用于取"按下沿",让落库/错误音只在点击瞬间发一次。
+var _left_was_down: bool = false
 
 func _ready():
 	$"ui".hide()
@@ -24,11 +26,19 @@ func tick(in_delta: float):
 		return
 	var map: Map = Level.current.map
 	if building_model:
+		# 左键按下沿(而非持续按住)才算一次点击,避免按住时错误音/落库音逐帧重复。
+		var holding_click: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not _is_pointer_over_ui()
+		var just_clicked: bool = holding_click and not _left_was_down
+		_left_was_down = holding_click
 		if not map.can_place_building(axis, building_data):
 			building_model.hide()
+			if just_clicked:
+				AudioManager.sfx(&"ui_error")
 			return
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not _is_pointer_over_ui():
+		if holding_click:
 			map.place_building(axis, building_data)
+			if just_clicked:
+				AudioManager.sfx_at(&"build_place", Vector3(axis.x, 0, axis.y))
 			return
 		building_model.position = Vector3(axis.x, 0, axis.y)
 		building_model.show()
