@@ -266,18 +266,22 @@ func _on_building_state_changed():
 
 # 状态变化音效:仅在状态真正改变时播一次(防重绑补播)。
 # 按建筑类型查表:类型无条目 / 该状态无音效则不发声。
-# 注意:cannon 的两条暂借弩炮采样作占位 —— 仓库尚无火炮/爆炸的 CC0 素材。
-# 补素材后:把 .ogg 放进 runtime/frontend/audio/sfx/,在 audio_library.gd 登记
-# cannon_load/cannon_fire,再把下表 cannon 的值换成新 id 即可(无需改本方法)。
+# 值可为单发 id 或变体组 id(见 AudioLibrary):cannon_* 登记为多变体组,避免连发同音。
 const STATE_SFX_BY_TYPE: Dictionary = {
 	&"crossbow": {
 		"loading": &"crossbow_load",
 		"firing": &"crossbow_fire",
 	},
 	&"cannon": {
-		"loading": &"crossbow_load",
-		"firing": &"crossbow_fire",
+		"loading": &"cannon_load",
+		"firing": &"cannon_fire",
 	},
+}
+
+# 状态音的音高微调(按建筑类型):火炮是重炮,把金属撞击采样整体压低音高,读作闷重的炮声;
+# 未登记的类型取 1.0。仍叠加在 _play_state_sfx 的 ±5% 随机抖动上,避免连发完全同音。
+const STATE_SFX_PITCH_BY_TYPE: Dictionary = {
+	&"cannon": 0.85,
 }
 
 func _play_state_sfx(in_state: String):
@@ -288,7 +292,8 @@ func _play_state_sfx(in_state: String):
 	var sfx_id: StringName = by_state.get(in_state, &"")
 	if sfx_id == &"":
 		return
-	AudioManager.sfx_at(sfx_id, global_position, randf_range(0.95, 1.05))
+	var pitch: float = STATE_SFX_PITCH_BY_TYPE.get(StringName(building.type), 1.0) * randf_range(0.95, 1.05)
+	AudioManager.sfx_at(sfx_id, global_position, pitch)
 
 func _on_building_progress_changed():
 	if not building:

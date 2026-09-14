@@ -37,6 +37,12 @@ const _SFX: Dictionary = {
 	# —— 战斗 ——
 	&"crossbow_load": preload("res://runtime/frontend/audio/sfx/crossbow_load.ogg"),
 	&"crossbow_fire": preload("res://runtime/frontend/audio/sfx/crossbow_fire.ogg"),
+	&"cannon_load_0": preload("res://runtime/frontend/audio/sfx/cannon_load_0.ogg"),
+	&"cannon_load_1": preload("res://runtime/frontend/audio/sfx/cannon_load_1.ogg"),
+	&"cannon_load_2": preload("res://runtime/frontend/audio/sfx/cannon_load_2.ogg"),
+	&"cannon_fire_0": preload("res://runtime/frontend/audio/sfx/cannon_fire_0.ogg"),
+	&"cannon_fire_1": preload("res://runtime/frontend/audio/sfx/cannon_fire_1.ogg"),
+	&"cannon_fire_2": preload("res://runtime/frontend/audio/sfx/cannon_fire_2.ogg"),
 	&"hit_0": preload("res://runtime/frontend/audio/sfx/hit_0.ogg"),
 	&"hit_1": preload("res://runtime/frontend/audio/sfx/hit_1.ogg"),
 	&"hit_2": preload("res://runtime/frontend/audio/sfx/hit_2.ogg"),
@@ -66,6 +72,8 @@ const _VARIANT_COUNTS: Dictionary = {
 	&"work_craft": 3,
 	&"hit": 3,
 	&"die": 3,
+	&"cannon_load": 3,
+	&"cannon_fire": 3,
 	&"voice_labor": 3,
 	&"voice_enemy": 3,
 }

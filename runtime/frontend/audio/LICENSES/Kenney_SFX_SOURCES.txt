@@ -1,0 +1,24 @@
+Kenney (www.kenney.nl) CC0 sound effects - provenance for the files under
+runtime/frontend/audio/sfx/ that come from Kenney packs.
+Each pack's license text lives alongside this file as Kenney_<Pack>_License.txt.
+
+All Kenney packs are CC0 1.0 (public domain) - no attribution required.
+Attribution given here voluntarily for provenance.
+
+Pack: Impact Sounds (1.0, 2019-12-19)
+  License: Kenney_Impact-Sounds_License.txt
+  Source:  https://kenney.nl/assets/impact-sounds
+  Audio dir inside the pack: Audio/
+
+  Project file       <- Pack file
+  cannon_fire_0.ogg  <- impactMetal_heavy_000.ogg
+  cannon_fire_1.ogg  <- impactMetal_heavy_002.ogg
+  cannon_fire_2.ogg  <- impactMetal_heavy_004.ogg
+  cannon_load_0.ogg  <- impactMetal_medium_000.ogg
+  cannon_load_1.ogg  <- impactMetal_medium_003.ogg
+  cannon_load_2.ogg  <- impactMetal_medium_001.ogg
+
+  Notes: raw 1:1 copies. cannon_fire_* (heavy metal impact) is the shot,
+         cannon_load_* (medium metal clunk) is loading a round. The "heavy gun"
+         pitch is applied at runtime (see BuildingActor.STATE_SFX_PITCH_BY_TYPE),
+         so the .ogg files stay unmodified from the pack.
