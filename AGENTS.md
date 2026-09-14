@@ -225,7 +225,7 @@ signal position_changed()
 - **总线**:Master/SFX/Music/Ambience 定义在根目录 `default_bus_layout.tres`(Godot 默认路径自动加载);`sfx*` 走 SFX、`music` 走 Music、`ambience` 走 Ambience。
 - **并发与优先级**:SFX 池固定大小、优先复用空闲播放器。池满时:`in_can_drop=true` 的低优先级音(脚步等高频音)**直接丢弃**不抢占;`in_can_drop=false`(默认)的关键音(开火/受击/UI)才顶掉最老的。**高频音必须传 `in_can_drop=true`**。
 - **防补播**:Actor 复用池重绑(`bind()`)时,把"上次已发声状态"缓存**对齐当前状态**再刷新(如 `building_actor._last_state = building.state`),避免滚回视野/复用池时补播一次状态音;**逐帧量(`progress_changed`)不得作为发声触发点**。
-- **素材与授权**:只收 **CC0 / 公共领域** 素材,按用途放 `runtime/frontend/audio/sfx|music|ambience/`;来源授权原文放 `runtime/frontend/audio/LICENSES/`,并在 `LICENSES/CC0_SOURCES.txt` 记录来源 URL/作者/授权。**新增素材必须一并提交授权文件**。
+- **素材与授权**:只收 **CC0 / 公共领域** 素材,或项目自有的原创素材;按用途放 `runtime/frontend/audio/sfx|music|ambience/`。第三方 CC0 素材的来源 URL/作者/授权登记在 `LICENSES/CC0_SOURCES.txt`;项目原创素材登记在 `LICENSES/ORIGINAL_WORKS.txt`。**新增素材必须一并提交授权/来源记录**。
 
 ---
 
