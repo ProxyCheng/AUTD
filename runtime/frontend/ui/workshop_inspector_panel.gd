@@ -11,6 +11,7 @@ extends BuildingInspectorPanel
 #
 # 布局约定(与 .tscn 节点对应;纯逻辑无 .tscn 时按名兜底,可能退化为空列表):
 #   Title       Label          标题
+#   Hint        Label          拖拽提示(整面板只此一条,不逐行重复)
 #   CloseButton Button         关闭钮
 #   RecipeList  VBoxContainer  配方列表(每行一个 WorkshopRecipeRow)
 

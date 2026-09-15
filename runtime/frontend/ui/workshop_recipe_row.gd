@@ -2,13 +2,16 @@ class_name WorkshopRecipeRow
 extends PanelContainer
 
 # 配方行:单张配方的展示与拖拽源。布局(参考 Satisfactory 高炉配方卡):
-#   Name    — 配方名(RecipeData.label)
+#   Header  — 名称行:Handle(自绘六点抓手,拖拽提示)+ Name(配方名 RecipeData.label)
 #   Items   — 原料/产物控件横排:每个物料一"竖条(库存占比)+数量",之间用 + / -> / 耗时⏱ 分隔
 #   Progress— 当前执行进度横条(仅 active 配方实时,其余空)
 # 拖拽源协议:_get_drag_data 返回带 drag_recipe_index 的字典,由 WorkshopRecipeList._drop_data
 # 接收并换算目标行。setup(recipe, index, building, is_active) 由列表容器填充。
 #
 # 行是哑组件:只展示 + 提供拖拽数据,不直接调 backend 改状态(move_recipe 由面板经 list)。
+# 触屏无悬停、内置拖放对触摸不可靠,故 Header 另提供 ▲/▼ 按钮,经 move_requested 上报。
+
+signal move_requested(from_index: int, to_index: int)
 
 var _recipe: RecipeData = null
 var recipe_index: int = -1
@@ -31,11 +34,55 @@ func setup(in_recipe: RecipeData, in_index: int, in_building: Workshop,
 
 func make_draggable():
 	set_meta(&"drag_recipe_index", recipe_index)
+	# 行必须 PASS:PanelContainer 默认 mouse_filter = STOP,而 Viewport::_gui_drop 向上找
+	# 可接收拖放的控件时,遇到"can_drop_data 为假且 mouse_filter = STOP"的控件就 break。
+	# 本行不实现 _can_drop_data(拖放目标在 RecipeList 上),于是拖放永远到不了列表 ——
+	# 表现为拖拽预览跟着光标走、松手却什么都不发生。改 PASS 后事件照常冒泡,
+	# 落点得以继续上溯到 RecipeList 的 _can_drop_data。
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 # 节点每次现查(不 reliance _ready 顺序):setup 可能在 _ready 前被调用,
 # 缓存引用会拿到 null 导致 Items 区空白。
 func _items() -> HBoxContainer:
 	return get_node_or_null("Layout/Items") as HBoxContainer
+
+# 抓手是纯装饰:必须 IGNORE,否则 Viewport::_gui_drop 上溯到它时 break(见 make_draggable)
+func _handle() -> Control:
+	return get_node_or_null("Layout/Header/Handle") as Control
+
+# 抓手圆点由代码绘制而非字形:默认主题字体(Open Sans)不含 ⠿ 等盲文/点阵字形,
+# 直接写字形会渲染成缺字方块;自绘圆点才能保证任何字体环境下都清晰可读。
+func _ready():
+	var handle := _handle()
+	if handle and not handle.draw.is_connected(_draw_handle):
+		handle.draw.connect(_draw_handle)
+		# 绘制指令存于局部坐标,尺寸变化不会自动重算圆点位置,需主动重画
+		if not handle.resized.is_connected(handle.queue_redraw):
+			handle.resized.connect(handle.queue_redraw)
+	var move_up := get_node_or_null("Layout/Header/MoveUp") as Button
+	if move_up and not move_up.pressed.is_connected(_on_move_up_pressed):
+		move_up.pressed.connect(_on_move_up_pressed)
+	var move_down := get_node_or_null("Layout/Header/MoveDown") as Button
+	if move_down and not move_down.pressed.is_connected(_on_move_down_pressed):
+		move_down.pressed.connect(_on_move_down_pressed)
+
+func _on_move_up_pressed():
+	move_requested.emit(recipe_index, recipe_index - 1)
+
+func _on_move_down_pressed():
+	move_requested.emit(recipe_index, recipe_index + 1)
+
+# 2 列 × 3 行六点抓手(标准拖拽把手样式);用次要用色,不与配方名抢眼
+func _draw_handle():
+	var handle := _handle()
+	if not handle:
+		return
+	var spacing: Vector2 = Vector2(5.0, 5.0)
+	var origin: Vector2 = handle.size * 0.5 - Vector2(spacing.x * 0.5, spacing.y)
+	for row: int in 3:
+		for col: int in 2:
+			var center: Vector2 = origin + Vector2(float(col) * spacing.x, float(row) * spacing.y)
+			handle.draw_circle(center, 1.5, Color(0.6, 0.68, 0.8, 0.9), true, -1.0, true)
 
 func _progress() -> ProgressBar:
 	return get_node_or_null("Layout/ProgressRow/Progress") as ProgressBar
@@ -53,7 +100,7 @@ func _process(_in_delta: float):
 # —— 配方名/背景 ——
 
 func _refresh_visual():
-	var name_node: Label = get_node_or_null("Layout/Name") as Label
+	var name_node: Label = get_node_or_null("Layout/Header/Name") as Label
 	if name_node:
 		name_node.text = _recipe.label if _recipe and _recipe.label != "" else "(empty)"
 	var panel_style := StyleBoxFlat.new()
@@ -108,6 +155,9 @@ func _add_item(in_item_type: String, in_num: int):
 	bar_col.alignment = BoxContainer.ALIGNMENT_CENTER
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
+	# 显示用竖条必须 IGNORE:Control 默认 mouse_filter = STOP,而 Viewport::_gui_drop 向上找
+	# 拖放目标时遇到 STOP 就 break(详见 make_draggable 注释)。否则拖到这根竖条上放不下来。
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.custom_minimum_size = Vector2(8, 44)
 	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	bar.fill_mode = ProgressBar.FILL_BOTTOM_TO_TOP

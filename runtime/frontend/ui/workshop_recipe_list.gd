@@ -48,6 +48,9 @@ func _append_row(in_recipe: RecipeData, in_index: int):
 		row.call(&"make_draggable")
 	add_child(row)
 	row.custom_minimum_size = Vector2(0, 64)
+	# 行内 ▲/▼ 按钮(触屏可用)与拖放共用同一条落库路径。
+	if row.has_signal(&"move_requested"):
+		row.connect(&"move_requested", _on_row_move_requested)
 
 func _make_fallback_row(in_recipe: RecipeData) -> Control:
 	var row := Label.new()
@@ -73,6 +76,12 @@ func _drop_data(at_position: Vector2, in_data: Variant):
 	if to_index < 0 or to_index == from_index:
 		return
 	recipe_dropped.emit(from_index, to_index)
+
+# 行内 ▲/▼ 按钮上报相邻移动:换算为 drop 语义并广播(与拖放共用落库路径)。
+func _on_row_move_requested(in_from_index: int, in_to_index: int):
+	if in_to_index < 0 or in_to_index >= get_child_count():
+		return
+	recipe_dropped.emit(in_from_index, in_to_index)
 
 # 由 drop 屏幕位置(相对本容器)推断插入目标行索引(VBox 按子项 Y 中心分桶)。
 func _index_at_position(in_local_position: Vector2) -> int:
