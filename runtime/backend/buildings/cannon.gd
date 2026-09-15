@@ -17,7 +17,7 @@ const CANNON_AMMO_CAPACITY: int = 6
 const CANNON_ATTACK_RANGE: float = 4.0
 # 炮弹水平飞行速度(世界单位/秒)。static:前端模型 CannonModel 读它算炮身俯仰,
 # 与后端 fire() 共用同一值(与 Crossbow 的 PIVOT_*/SPAWN_* 同属"前后端共用弹道参数"约定)。
-# 取得比弩箭(10)慢得多,是为了让炮弹走抛物线而非直射:离弦仰角由弹速反解(见 Arrow.aim_pitch_for),
+# 取得比弩箭(10)慢得多,是为了让炮弹走抛物线而非直射:离弦仰角由弹速反解(见 Ballistic.aim_pitch_for),
 # 飞行时长 T = 距离/v、拱高 A = ½·G·T² —— 速度越低仰角越大、弹道越弯;调高则趋平
 # (9.0 时 4 格仰角仅 −0.2°,肉眼几乎平射)。
 static var PROJECTILE_SPEED: float = 3.0

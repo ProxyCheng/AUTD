@@ -9,7 +9,7 @@ const COLOR_FRIENDLY: Color = Color(0.3, 0.85, 0.35)
 
 var creature: Creature = null
 
-# 接受任意 Entity;非 Creature(无 health,如 Arrow)置空血条自动隐藏。
+# 接受任意 Entity;非 Creature(无 health,如 Ballistic)置空血条自动隐藏。
 func configure(in_entity: Entity):
 	creature = in_entity as Creature
 	if creature:

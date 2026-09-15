@@ -2,7 +2,7 @@ extends Node3D
 
 # 弩矢弹道调试场景(开发工具,不参与正式流程):
 #   拖动"目标距离"滑块 → 移动靶子,实时观察弩身俯仰 / 箭离弦仰角;
-#   拖动"重力 G"滑块   → 直接改 Arrow.GRAVITY,实时看抛物线弧度变化;
+#   拖动"重力 G"滑块   → 直接改 Ballistic.GRAVITY,实时看抛物线弧度变化;
 #   拖动"俯仰转轴 P / 起点偏移"滑块 → 直接改 Crossbow 的射箭几何(转轴 + 起点偏移)。
 # 数据流走真实链路:BuildingActor 每帧读 crossbow.target.position → TurretModel.set_target_position
 # → Crossbow.aim_pitch,所以 HUD 数字就是模型实际采用的值,不是另算一份。
@@ -86,7 +86,7 @@ var _geom_im: ImmediateMesh = null
 
 func _ready():
 	# 复位可调试常量,避免上一次运行残留(static var 在同一进程内会保留)。
-	Arrow.GRAVITY = GRAVITY_DEFAULT
+	Ballistic.GRAVITY = GRAVITY_DEFAULT
 	Crossbow.PIVOT_FORWARD = PIVOT_FORWARD_DEFAULT
 	Crossbow.PIVOT_HEIGHT = PIVOT_HEIGHT_DEFAULT
 	Crossbow.SPAWN_FORWARD = SPAWN_FORWARD_DEFAULT
@@ -366,7 +366,7 @@ func _build_ui():
 	grav_slider.min_value = GRAVITY_MIN
 	grav_slider.max_value = GRAVITY_MAX
 	grav_slider.step = GRAVITY_STEP
-	grav_slider.value = Arrow.GRAVITY
+	grav_slider.value = Ballistic.GRAVITY
 	grav_slider.custom_minimum_size = Vector2(380, 0)
 	grav_slider.value_changed.connect(_on_gravity_changed)
 	vbox.add_child(grav_slider)
@@ -430,7 +430,7 @@ func _on_distance_changed(in_value: float):
 	_set_distance(in_value)
 
 func _on_gravity_changed(in_value: float):
-	Arrow.GRAVITY = in_value
+	Ballistic.GRAVITY = in_value
 	_update_grav_label()
 
 func _on_pivot_forward_changed(in_value: float):
@@ -470,7 +470,7 @@ func _update_dist_label():
 
 func _update_grav_label():
 	if _grav_value_label:
-		_grav_value_label.text = "重力 G(世界单位/s²): %.1f" % Arrow.GRAVITY
+		_grav_value_label.text = "重力 G(世界单位/s²): %.1f" % Ballistic.GRAVITY
 
 # ---------------------------------------------------------------- #
 # 俯仰几何:转轴 P、起点 S(随俯仰旋转)
@@ -542,7 +542,7 @@ func _force_show_arrow():
 	if a:
 		a.visible = true
 
-# 预测弹道:起点=几何起点 S(高度随俯仰变化),与 Arrow 同公式 y(t)=h·(1-t)+A·t·(1-t)。
+# 预测弹道:起点=几何起点 S(高度随俯仰变化),与 Ballistic 同公式 y(t)=h·(1-t)+A·t·(1-t)。
 func _update_trajectory():
 	if not _traj_im or not _target:
 		return
@@ -552,7 +552,7 @@ func _update_trajectory():
 	var end: Vector3 = Vector3(_target.position.x, 0, _target.position.y)
 	var d: float = Vector2(start.x, start.z).distance_to(Vector2(end.x, end.z))
 	var t: float = d / v if v > 0.0 else 0.0
-	var arc: float = 0.5 * Arrow.GRAVITY * t * t
+	var arc: float = 0.5 * Ballistic.GRAVITY * t * t
 
 	_traj_im.clear_surfaces()
 	_traj_im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
@@ -598,7 +598,7 @@ func _update_hud():
 	if not _crossbow:
 		return
 	var v: float = Crossbow.ARROW_SPEED
-	var g: float = Arrow.GRAVITY
+	var g: float = Ballistic.GRAVITY
 	var spawn: Vector3 = _spawn_world()
 	var h: float = spawn.y
 	var d: float = Vector2(spawn.x, spawn.z).distance_to(_target.position)

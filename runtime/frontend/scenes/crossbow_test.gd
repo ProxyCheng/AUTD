@@ -28,7 +28,7 @@ func _ready():
 func _on_entities_changed(in_added: Array, _in_removed: Array):
 	for eid in in_added:
 		var e = _level.room.get_entity(eid)
-		if e is Arrow:
+		if e is Ballistic:
 			if _flight_actor:
 				_flight_actor.queue_free()
 			var ea_tscn: PackedScene = preload("res://runtime/frontend/actors/entity_actor.tscn")
@@ -138,7 +138,7 @@ func _process(delta: float):
 	# 若开启"冻结在飞行"且已有飞行箭,则停住,便于稳定截图观察抛物线
 	var has_flight := false
 	for e in _level.room.entities.values():
-		if e is Arrow:
+		if e is Ballistic:
 			has_flight = true
 			break
 	if _freeze_on_flight and has_flight:
@@ -162,7 +162,7 @@ func _update_hud():
 	# 飞行箭(抛物线验证):扫描 room 里的 arrow 实体,读其 flight_progress/位置/俯仰
 	var flight_info := "flight=none"
 	for e in _level.room.entities.values():
-		if e is Arrow:
+		if e is Ballistic:
 			var pitch := 0.0
 			if _flight_actor and _flight_actor.model:
 				pitch = rad_to_deg(_flight_actor.model.global_rotation.x)

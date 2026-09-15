@@ -2,7 +2,7 @@ class_name CannonballBurst
 extends Node3D
 
 # 炮弹命中爆裂表现:一次性碎屑喷发 + 贴地冲击波环,把 backend 的区域伤害范围读出来。
-# 由 RoomActor 在炮弹实体被移除时实例化到落点(Cannonball 命中即 _explode 后 remove_entity,
+# 由 RoomActor 在炮弹实体被移除时实例化到落点(Cannonball 命中即 _on_hit 后 remove_entity,
 # 移除是炮弹唯一的消失路径),因此这里不新增任何 backend 信号/状态。
 # 生命周期自管:碎屑寿命 + 余量后 queue_free,不常驻场景树、也不依赖 Timer 节点。
 
