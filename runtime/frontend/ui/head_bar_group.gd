@@ -21,6 +21,8 @@ func setup(in_host: Node3D, in_model: Node3D):
 	_refresh_model_height()
 
 func _ready():
+	# 条组是纯展示:不得吞掉世界触摸/点击(触屏上会挡住放置/选中)。
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# 本组统一做 billboard 定位,子条自身不再定位(VBoxContainer 竖排会接管位置);
 	# 容器按排版压缩子条,须给最小高度,否则会被压到几乎不可见。
 	for child in get_children():

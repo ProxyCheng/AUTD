@@ -3,11 +3,10 @@ extends Mode
 
 var building_data: BuildingData = null
 var building_model: Node3D = null
-# 上一帧左键是否按下:用于取"按下沿",让落库/错误音只在点击瞬间发一次。
-var _left_was_down: bool = false
 
 func _ready():
-	$"ui".hide()
+	$ui.hide()
+	$ui/back_button.pressed.connect(_on_back_pressed)
 	$ui/cards/card_crossbow.clicked.connect(func(): _on_card_clicked("crossbow"))
 	$ui/cards/card_stockpile.clicked.connect(func(): _on_card_clicked("stockpile"))
 	$ui/cards/card_tree_workshop.clicked.connect(func(): _on_card_clicked("tree_workshop"))
@@ -16,56 +15,43 @@ func _ready():
 	$ui/cards/card_cannon.clicked.connect(func(): _on_card_clicked("cannon"))
 
 func enter():
-	$"ui".show()
+	$ui.show()
 
-func tick(in_delta: float):
+func tick(_in_delta: float):
 	if Input.is_key_pressed(KEY_ESCAPE):
 		owner.set_mode(&"roaming")
 		return
-	var axis = get_pointing_axis()
+	_update_preview()
+
+# 点击世界放置建筑(触屏 tap / 鼠标左键)。放在这里而非 tick 轮询,以区分
+# "拖动相机"与"点击落库"。
+func on_tap(in_screen_position: Vector2):
+	if not building_model or not building_data:
+		return
+	var axis: Variant = get_pointing_axis(in_screen_position)
 	if axis == null:
 		return
 	var map: Map = Level.current.map
-	if building_model:
-		# 左键按下沿(而非持续按住)才算一次点击,避免按住时错误音/落库音逐帧重复。
-		var holding_click: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not _is_pointer_over_ui()
-		var just_clicked: bool = holding_click and not _left_was_down
-		_left_was_down = holding_click
-		if not map.can_place_building(axis, building_data):
-			building_model.hide()
-			if just_clicked:
-				AudioManager.sfx(&"ui_error")
-			return
-		if holding_click:
-			map.place_building(axis, building_data)
-			if just_clicked:
-				AudioManager.sfx_at(&"build_place", Vector3(axis.x, 0, axis.y))
-			return
-		building_model.position = Vector3(axis.x, 0, axis.y)
-		building_model.show()
-	
-# 指针是否停在 UI(建筑选择面板等)上;是则不落库,避免"点面板的同时把建筑放到面板后的地面"。
-func _is_pointer_over_ui() -> bool:
-	return get_viewport().gui_get_hovered_control() != null
+	if not map.can_place_building(axis, building_data):
+		AudioManager.sfx(&"ui_error")
+		return
+	map.place_building(axis, building_data)
+	AudioManager.sfx_at(&"build_place", Vector3(axis.x, 0, axis.y))
 
-func get_pointing_axis():
-	var viewport: Viewport = get_viewport()
-	var camera: Camera3D = viewport.get_camera_3d()
-	var mouse_position: Vector2 = viewport.get_mouse_position()
-	var origin: Vector3 = camera.project_ray_origin(mouse_position)
-	var direction: Vector3 = camera.project_ray_normal(mouse_position)
-	var hit_position = ray_intersects_y0(origin, direction)
-	if not hit_position:
-		return null
-	return Vector2i(round(hit_position.x), round(hit_position.z))
-
-func ray_intersects_y0(in_origin: Vector3, in_direction: Vector3):
-	if is_zero_approx(in_direction.y):
-		return null
-	var t: float = -in_origin.y / in_direction.y
-	if t < 0:
-		return null
-	return in_origin + in_direction * t
+# 桌面鼠标悬停预览(触屏无 hover,预览停在最后一次点击格);不可放置时隐藏。
+func _update_preview():
+	if not building_model or not building_data:
+		return
+	var axis: Variant = get_pointing_axis(get_viewport().get_mouse_position())
+	if axis == null:
+		building_model.hide()
+		return
+	var map: Map = Level.current.map
+	if not map.can_place_building(axis, building_data):
+		building_model.hide()
+		return
+	building_model.position = Vector3(axis.x, 0, axis.y)
+	building_model.show()
 
 func leave():
 	if building_model:
@@ -73,7 +59,10 @@ func leave():
 		remove_child(building_model)
 		building_model.queue_free()
 		building_model = null
-	$"ui".hide()
+	$ui.hide()
+
+func _on_back_pressed():
+	owner.set_mode(&"roaming")
 
 func _on_card_clicked(in_building_type: String):
 	if in_building_type == (building_data.type if building_data else ""):

@@ -42,6 +42,8 @@ func _update_visual(_in_value: float):
 
 func _ready():
 	show_percentage = false
+	# 头顶条是纯展示:不得吞掉世界触摸/点击(触屏上会挡住放置/选中)。
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ensure_styles()
 
 func _process(_in_delta: float):

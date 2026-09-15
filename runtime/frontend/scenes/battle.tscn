@@ -52,6 +52,31 @@ unique_name_in_owner = true
 [node name="roaming" type="Node" parent="modes" unique_id=1915361581]
 script = ExtResource("9_trbff")
 
+[node name="ui" type="Control" parent="modes/roaming"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="build_button" type="Button" parent="modes/roaming/ui"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -196.0
+offset_top = -96.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 22
+text = "Build"
+
 [node name="building" type="Node" parent="modes" unique_id=348069599]
 script = ExtResource("9_sfvfk")
 
@@ -64,6 +89,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="back_button" type="Button" parent="modes/building/ui"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 156.0
+offset_bottom = 76.0
+theme_override_font_sizes/font_size = 22
+text = "Back"
+
 [node name="cards" type="HBoxContainer" parent="modes/building/ui" unique_id=62124675]
 layout_mode = 1
 anchors_preset = 3
@@ -75,6 +110,7 @@ offset_left = -100.0
 offset_top = -120.0
 grow_horizontal = 0
 grow_vertical = 0
+mouse_filter = 0
 
 [node name="card_crossbow" parent="modes/building/ui/cards" unique_id=173864770 instance=ExtResource("7_ktigr")]
 layout_mode = 2

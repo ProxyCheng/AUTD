@@ -25,8 +25,13 @@ func bind(in_level: Level):
 	%map.bind(level.map)
 	%room.bind(level.room)
 
-func get_camera():
+func get_camera() -> CameraController:
 	return %camera
+
+# 相机的"点击世界"事件转发给当前模式(触屏与鼠标统一入口)。
+func _on_camera_tapped(in_screen_position: Vector2):
+	if mode:
+		mode.on_tap(in_screen_position)
 
 # —— 建筑检视(GUI 侧栏)——
 # 打开选中建筑的检视面板:记录选中 → 高亮 → 分发到对应面板 → 切到 inspect mode。
@@ -101,7 +106,8 @@ func _ready():
 	Level.current = level
 	level.load_data(level_data)
 	_start_audio()
-	
+	get_camera().tapped.connect(_on_camera_tapped)
+
 	set_mode(&"roaming")
 
 # 启动背景音乐与环境音;素材与授权见 runtime/frontend/audio/LICENSES/。
