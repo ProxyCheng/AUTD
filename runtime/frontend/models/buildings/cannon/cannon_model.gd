@@ -168,9 +168,14 @@ func _muzzle_world() -> Vector3:
 	var box: AABB = mesh.get_aabb()
 	return mesh.to_global(Vector3(0.0, box.position.y, 0.0))
 
-# 备弹垛顶那支炮弹的世界坐标(ItemStack 约定:末位可见道具为最上层)。
+# 装填炮弹的起飞点(世界坐标):垛在进入装填时已按"武器内一发"少显示一支,
+# 故优先取 ItemStack 记录的"刚被取走那支"的当前世界 TRS(实时换算,垛转向后仍正确);
+# 无记录(如模型刚绑定)时退回垛顶可见的那支。
 func _ammo_top_world() -> Vector3:
 	if _ammo_stack:
+		var taken: Variant = _ammo_stack.last_removed_transform()
+		if taken is Transform3D:
+			return (taken as Transform3D).origin
 		var count: int = _ammo_stack.visible_count()
 		if count > 0:
 			var tr: Variant = _ammo_stack.get_prop_transform(count - 1)

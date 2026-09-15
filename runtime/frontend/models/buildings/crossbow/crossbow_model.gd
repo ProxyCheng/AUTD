@@ -14,7 +14,8 @@ extends TurretModel
 const ANIM_NAME: StringName = &"bone|boneAction_001"
 
 # 备箭垛(基类节点 %AmmoStack,挂在 base/cog_top 下随炮塔水平转向):显示弦下备箭。
-# 弦上那支由 %Arrow 负责(仅在非 idle 显示);本垛数量 = bag.count - 1。
+# 弦上那支由 %Arrow 负责(仅在非 idle 显示);装填后到发射前,垛由基类少显示一支
+# (见 TurretModel.HELD_STATES),故"垛 + 弦上那支"始终等于仓存量。
 # 垛的姿态/几何(item_type、target_length、摆放锚点…)全部在 crossbow.tscn 里配,
 # 编辑器里可直观调;ItemStack 自带摆放范围 Gizmo 线框。
 # 上弦动作时长(秒):与 backend Crossbow.LOAD_TIME 语义一致——装填期间弦保持松弛。
@@ -40,8 +41,8 @@ func _ready():
 	# 弦上箭的静止姿态(position/rotation/scale 全量),作为上弦动画的终点 TRS
 	_arrow_rest_transform = %Arrow.transform
 	_ensure_anchors()
-	# 备垛显示数 = 仓存量 - 1:弦上那支由 %Arrow 单独显示(见 count_offset 语义)。
-	_ammo_stack.count_offset = 1
+	# 备垛显示数由基类按阶段驱动:装填后到发射前少显示一支(弦上那支由 %Arrow 单独显示),
+	# 其余阶段按仓存量全显示。见 TurretModel.HELD_STATES / _apply_ammo_delta。
 
 # ---------------------------------------------------------------- #
 # 动画关键锚点(skin 局部坐标,即 %Arrow 的父空间)
@@ -136,6 +137,10 @@ func _on_loading():
 	_nock_t = 0.0
 	_release_t = -1.0
 	_nock_from_ready = false
+	# 起点在这里就取好并立刻落到箭上,与"垛按 count_delta 少显示一支"同一帧生效。
+	# 否则垛那支已隐藏、箭却还停在静止位,要等 _process 下一帧才搬过去 → 视觉上闪一下。
+	if _try_begin_nock():
+		%Arrow.transform = _nock_from
 
 # 进入弹射:从满弦位沿弩身朝弩口飞出。弦姿态随 progress 松弦,箭走 _process。
 func _on_firing():
@@ -197,8 +202,10 @@ func _process(in_delta: float):
 	# (位置 + 旋转 + 缩放一起过渡,避免只动位置时朝向/大小的突跳)。
 	if _state == "loading" and _nock_t >= 0.0:
 		if not _nock_from_ready:
-			_nock_from = _compute_nock_from()
-			_nock_from_ready = true
+			# 兜底:_on_loading 时节点未就绪没取到起点,这里再试一次;仍取不到就退化为原地不动。
+			if not _try_begin_nock():
+				_nock_from = _arrow_rest_transform
+				_nock_from_ready = true
 		_nock_t += in_delta / NOCK_TIME
 		var t := clampf(_ease_nock(_nock_t), 0.0, 1.0)
 		%Arrow.transform = _nock_from.interpolate_with(_arrow_rest_transform, t)
@@ -224,16 +231,38 @@ func _ease_nock(in_t: float) -> float:
 func _ease_release(in_t: float) -> float:
 	return in_t * in_t
 
-# 上弦起点 TRS(skin 局部):取备垛"最后一支箭"的世界空间 TRS(ItemStack 约定),
-# 经"世界 → skin"变换搬到弦上箭的父空间,供与静止 TRS 做整段插值。
-# 垛里没有箭(或场景缺节点)时退回静止 TRS,动画退化为原地不动。
-func _compute_nock_from() -> Transform3D:
+# 取上弦起点(skin 局部)并记入 _nock_from:待上弦那支箭的世界空间 TRS(见
+# _nock_source_transform),经"世界 → skin"变换搬到弦上箭的父空间,供与静止 TRS 整段插值。
+# 取不到(节点未就绪 / 垛里无可取)返回 false,由调用方决定重试或退化。
+func _try_begin_nock() -> bool:
+	_ensure_anchors()
 	if not _ammo_stack or not _skin:
-		return _arrow_rest_transform
-	var src: Variant = _ammo_stack.get_prop_transform(_ammo_stack.visible_count() - 1)
+		return false
+	var src: Variant = _nock_source_transform()
 	if not (src is Transform3D):
-		return _arrow_rest_transform
-	return _skin.global_transform.affine_inverse() * (src as Transform3D)
+		return false
+	_nock_from = _skin.global_transform.affine_inverse() * (src as Transform3D)
+	_nock_from_ready = true
+	return true
+
+# 上弦起点需要补的模型翻转:垛里的箭来自 arrow.tscn——它用一层子节点把 FBX 绕 Y 转 180°
+# (arrow_model.gd 注释:"箭尖已摆成 -Z"),而 %Arrow 在 crossbow.tscn 里直接实例化 arrow.fbx、
+# 没有那层包装。get_prop_transform 给的是 arrow.tscn 根节点的变换(不含子节点的翻转),
+# 直接套到裸 FBX 上会让飞行中的箭尖反向 → 起点与终点箭尖实测差约 154°,看着就是"转一大圈"。
+# 故起点先绕本地 Y 补回这 180°,与终点同基准后,interpolate_with 只剩箭尖那点真实转向。
+const NOCK_SOURCE_FLIP: float = PI
+
+# 待上弦那支箭的世界 TRS。优先"刚被垛取走的那支"(ItemStack.last_removed_transform):
+# 装填时垛已按"武器内一发"少显示一支,仓里只剩一支时垛里更是没有可见道具,
+# 此时若只看"可见顶层"会取不到起点、上弦动画就不播了。无记录时退回垛顶可见的那支。
+func _nock_source_transform() -> Variant:
+	var removed: Variant = _ammo_stack.last_removed_transform()
+	if removed is Transform3D:
+		return (removed as Transform3D).rotated_local(Vector3.UP, NOCK_SOURCE_FLIP)
+	var count: int = _ammo_stack.visible_count()
+	if count <= 0:
+		return null
+	return _ammo_stack.get_prop_transform(count - 1)
 
 # 出膛俯仰:用发射器几何(转轴 P + 起点偏移 S,取自 Crossbow)经 Trajectory 求解,
 # 保证弩口朝向与箭的抛物线切线一致。

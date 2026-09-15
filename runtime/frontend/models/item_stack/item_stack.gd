@@ -32,10 +32,17 @@ const ITEM_MODEL_SCENES: Dictionary = {
 
 enum CountMode { Raw, Fill }
 
-# 显示数量映射:Raw=按 bag.count(可扣 count_offset);Fill=按 bag.count/bag.max_count 比例铺满几何容量。
+# 显示数量映射:Raw=按 bag.count + count_delta;Fill=按 bag.count/bag.max_count 比例铺满几何容量。
 @export var count_mode: CountMode = CountMode.Raw
-# Raw 模式下从 bag.count 扣掉的件数(如弩炮"在弦上的一支"由别处显示)。
-@export var count_offset: int = 0
+# Raw 模式下的显示差异量(带符号):-1 = 少显示一个,+1 = 多显示一个。
+# 业务层可在运行时改(如炮塔"已装填的一发"由武器自身表现承担,垛里就不该再算它),
+# 改后立即重算显示。
+@export var count_delta: int = 0:
+	set(in_delta):
+		if in_delta == count_delta:
+			return
+		count_delta = in_delta
+		_apply_display_count()
 
 # 绑定的 backend 展示仓;bind() 后本垛跟随其 item_type/count 变化。
 var bag: Bag = null
@@ -72,6 +79,9 @@ var _content: Node3D = null
 var _item_type: String = ""
 # 按绑定 Bag 折算出的可见道具数(0..capacity)
 var _shown_count: int = 0
+# 最近一次被隐藏(从垛里取出)道具的索引;-1 = 无记录。供业务层做"从垛里取出 → 目标姿态"
+# 动画的起点(如炮塔装填:那一发已不在垛里显示,但动画仍要知道它原来在哪)。
+var _last_removed_index: int = -1
 # 道具原始长轴(未缩放);业务层可用 long_axis() 把期望长度换算成挂载节点 scale
 var _long_axis: float = 1.0
 # 编辑器"选中即预览铺满"状态与其半透材质
@@ -183,6 +193,17 @@ func get_prop_transform(in_index: int) -> Variant:
 		return null
 	return vis[in_index].global_transform
 
+# 最近一次被取出(隐藏)道具的**当前**世界空间 TRS;无记录时返回 null。
+# 与 get_prop_transform 的区别:后者只认可见道具,本方法认得刚被取走的那支,且实时换算
+# (垛随后转向也仍然正确)。用于"从垛里取出 → 目标姿态"的动画起点。
+func last_removed_transform() -> Variant:
+	if _last_removed_index < 0 or _last_removed_index >= _props.size():
+		return null
+	var prop: Node3D = _props[_last_removed_index]
+	if not is_instance_valid(prop):
+		return null
+	return prop.global_transform
+
 # 绑定 backend Bag:断开旧仓 → 连接新仓的 count/item_type 信号 → 全量刷新一次。
 # 传 null 解除绑定(只清空可见数量,保留场景预设 item_type 供编辑器预览)。
 func bind(in_bag: Bag):
@@ -218,7 +239,7 @@ func _on_bag_item_type_changed():
 	if is_instance_valid(bag):
 		_set_item_type(bag.item_type)
 
-# 按 count_mode/count_offset 把 bag.count 折算为可见道具数并应用显隐。
+# 按 count_mode/count_delta 把 bag.count 折算为可见道具数并应用显隐。
 func _apply_display_count():
 	_shown_count = _display_count()
 	if _props.is_empty():
@@ -233,13 +254,21 @@ func _display_count() -> int:
 		if n <= 0 or bag.max_count <= 0:
 			return 0
 		return clampi(maxi(1, roundi(float(n) / float(bag.max_count) * float(capacity()))), 0, capacity())
-	return clampi(n - count_offset, 0, capacity())
+	return clampi(n + count_delta, 0, capacity())
 
 # 可见道具数 = 业务层要求(_shown_count);编辑器选中预览时强制铺满。
+# 顺带记录"从可见变隐藏"的最上层那支,供取出动画取起点(见 last_removed_transform)。
 func _apply_visibility():
 	var visible_count: int = capacity() if _preview_full else _shown_count
+	var removed_index: int = -1
 	for i in range(_props.size()):
-		_props[i].visible = i < visible_count
+		var prop: Node3D = _props[i]
+		var should_show: bool = i < visible_count
+		if prop.visible and not should_show:
+			removed_index = i
+		prop.visible = should_show
+	if removed_index >= 0:
+		_last_removed_index = removed_index
 
 # 废弃/离树时清理,复用池不残留
 func _clear_props():
@@ -247,6 +276,7 @@ func _clear_props():
 		if is_instance_valid(prop):
 			prop.queue_free()
 	_props.clear()
+	_last_removed_index = -1
 
 # 在挂载点原点把道具按"每排并排、逐层上摞"排成整齐垛,全部同一朝向。
 # 假定道具场景长轴沿本地 +Z;测量得本地 AABB 后统一缩放至 TARGET_LENGTH,
@@ -273,6 +303,8 @@ func _build_props(in_scene_path: String):
 		var row: int = i % per_row
 		var layer: int = i / per_row
 		var prop: Node3D = prop_scene.instantiate()
+		# 先置隐藏:首次 _apply_visibility 才按数量显示,避免"可见→隐藏"被误记为一次取出。
+		prop.visible = false
 		prop.rotation = Vector3.ZERO
 		prop.scale = Vector3.ONE
 		var x: float = (float(row) - float(per_row - 1) * 0.5) * row_x

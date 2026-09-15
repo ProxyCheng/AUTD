@@ -64,10 +64,16 @@ func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> floa
 
 # —— 状态机(backend state/progress → 子类动画钩子)——
 
+# 武器内已装填一发(在弦/在膛)的阶段:那一发由武器自身的表现节点承担
+# (弩的 %Arrow / 炮的装填炮弹),故这几个阶段备弹垛少显示一支,避免"垛 + 武器内一发"
+# 比实际多出一支;发射(firing)起那一发已离膛,不再计入。
+const HELD_STATES: Array[String] = ["loading", "charging", "ready"]
+
 # 状态变化:记录阶段并派发到对应钩子。
-# 子类若需额外语义(如同状态早退、或无论状态是否变化都要刷新表现),覆写并调用 super。
+# 子类若需额外语义(如同状态早退、或无论状态变化都要刷新表现),覆写并调用 super。
 func set_state(in_state: String):
 	_state = in_state
+	_apply_ammo_delta()
 	match in_state:
 		"loading":
 			_on_loading()
@@ -75,6 +81,12 @@ func set_state(in_state: String):
 			_on_firing()
 		_:
 			_on_resting()
+
+# 依据当前阶段更新备弹垛的显示差异量(见 HELD_STATES)。
+func _apply_ammo_delta():
+	if not _ammo_stack:
+		return
+	_ammo_stack.count_delta = -1 if _state in HELD_STATES else 0
 
 # 蓄力进度变化:backend 保证 [0,1] 归一化(见 AGENTS.md §5.4 progress 契约)。
 func set_progress(in_progress: float):
