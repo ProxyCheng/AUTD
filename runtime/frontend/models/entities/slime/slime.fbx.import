@@ -44,7 +44,7 @@ _subresources={
 "materials": {
 "lambert1": {
 "use_external/enabled": true,
-"use_external/fallback_path": "res://runtime/frontend/models/entities/slime/slime.tres",
+"use_external/fallback_path": "res://runtime/frontend/models/entities/slime/slime_default.tres",
 "use_external/path": "uid://dcm83fok2cymk"
 }
 }

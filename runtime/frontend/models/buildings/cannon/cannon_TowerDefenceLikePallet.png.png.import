@@ -3,9 +3,9 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dpr17tb2p1cs8"
-path.s3tc="res://.godot/imported/cannon_TowerDefenceLikePallet.png.png-207146af6af6a55472be3355d3f3dcd8.s3tc.ctex"
+path.etc2="res://.godot/imported/cannon_TowerDefenceLikePallet.png.png-207146af6af6a55472be3355d3f3dcd8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://runtime/frontend/models/buildings/cannon/cannon_TowerDefenceLikePallet.png.png"
-dest_files=["res://.godot/imported/cannon_TowerDefenceLikePallet.png.png-207146af6af6a55472be3355d3f3dcd8.s3tc.ctex"]
+dest_files=["res://.godot/imported/cannon_TowerDefenceLikePallet.png.png-207146af6af6a55472be3355d3f3dcd8.etc2.ctex"]
 
 [params]
 

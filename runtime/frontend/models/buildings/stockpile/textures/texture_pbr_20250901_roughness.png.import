@@ -3,9 +3,9 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://yy1er5fgewgt"
-path.s3tc="res://.godot/imported/texture_pbr_20250901_roughness.png-4ad821b7ac4d94e2d628fcb2eca807a1.s3tc.ctex"
+path.etc2="res://.godot/imported/texture_pbr_20250901_roughness.png-4ad821b7ac4d94e2d628fcb2eca807a1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={}
@@ -13,7 +13,7 @@ generator_parameters={}
 [deps]
 
 source_file="res://runtime/frontend/models/buildings/stockpile/textures/texture_pbr_20250901_roughness.png"
-dest_files=["res://.godot/imported/texture_pbr_20250901_roughness.png-4ad821b7ac4d94e2d628fcb2eca807a1.s3tc.ctex"]
+dest_files=["res://.godot/imported/texture_pbr_20250901_roughness.png-4ad821b7ac4d94e2d628fcb2eca807a1.etc2.ctex"]
 
 [params]
 

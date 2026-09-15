@@ -3,16 +3,16 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dni42ybssffh7"
-path.s3tc="res://.godot/imported/low-poly_igloo_3d_model_basecolor.JPEG-36dc8b95a1efb77b950e56687f1a0d0e.s3tc.ctex"
+path.etc2="res://.godot/imported/low-poly_igloo_3d_model_basecolor.JPEG-36dc8b95a1efb77b950e56687f1a0d0e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://runtime/frontend/models/buildings/enemy_spawner/textures/low-poly_igloo_3d_model_basecolor.JPEG"
-dest_files=["res://.godot/imported/low-poly_igloo_3d_model_basecolor.JPEG-36dc8b95a1efb77b950e56687f1a0d0e.s3tc.ctex"]
+dest_files=["res://.godot/imported/low-poly_igloo_3d_model_basecolor.JPEG-36dc8b95a1efb77b950e56687f1a0d0e.etc2.ctex"]
 
 [params]
 
@@ -27,6 +27,8 @@ compress/normal_map=0
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
+mipmaps/preserve_alpha_test_coverage=false
+mipmaps/alpha_test_threshold=0.5
 roughness/mode=0
 roughness/src_normal=""
 process/channel_remap/red=0

@@ -3,16 +3,16 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cckeaeaiswsu1"
-path.s3tc="res://.godot/imported/TowerDefenceLikePallet.png-9cb68f46bfb2aa6e4ece3b3bec7e3399.s3tc.ctex"
+path.etc2="res://.godot/imported/TowerDefenceLikePallet.png-9cb68f46bfb2aa6e4ece3b3bec7e3399.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://runtime/frontend/models/buildings/stone_mine/textures/TowerDefenceLikePallet.png"
-dest_files=["res://.godot/imported/TowerDefenceLikePallet.png-9cb68f46bfb2aa6e4ece3b3bec7e3399.s3tc.ctex"]
+dest_files=["res://.godot/imported/TowerDefenceLikePallet.png-9cb68f46bfb2aa6e4ece3b3bec7e3399.etc2.ctex"]
 
 [params]
 

@@ -3,16 +3,16 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ekb6x83pd3c0"
-path.s3tc="res://.godot/imported/TowerDefenceLikePallet.png-0514727482060b6acd15efeaed907aec.s3tc.ctex"
+path.etc2="res://.godot/imported/TowerDefenceLikePallet.png-0514727482060b6acd15efeaed907aec.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://runtime/frontend/models/buildings/tree_workshop/textures/TowerDefenceLikePallet.png"
-dest_files=["res://.godot/imported/TowerDefenceLikePallet.png-0514727482060b6acd15efeaed907aec.s3tc.ctex"]
+dest_files=["res://.godot/imported/TowerDefenceLikePallet.png-0514727482060b6acd15efeaed907aec.etc2.ctex"]
 
 [params]
 
