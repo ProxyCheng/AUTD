@@ -20,7 +20,7 @@ const CONSUME_STONE: int = 1
 # 产出一支箭所需的累计工作量(秒)。车间是深加工,效率低于开采;实际节拍受供需制约。
 const ARROW_WORKLOAD: float = 3.0
 # 炮弹配方:2 石头 → 1 发炮弹;比制箭更耗时(更重的深加工)。
-const CANNONBALL_STONE: int = 2
+const CANNONBALL_STONE: int = 5
 const CANNONBALL_WORKLOAD: float = 4.0
 
 func _ready():
