@@ -17,6 +17,8 @@ const DEFAULT_ITEM_TYPE: String = "arrow"
 # 放置即满仓(原型期用于直接观察堆叠/作为初始弹药补给)。
 # 待"生产/搬运"物流链路接入后置 false,由调度系统按需填仓。
 const AUTO_FILL_ON_PLACE: bool = true
+# 放置时填充的数量。调试期取 1:便于观察"一支箭被搬走 → 上弦 → 射出"的完整链路。
+const AUTO_FILL_COUNT: int = 1
 
 var bag: Bag = null
 
@@ -56,7 +58,7 @@ func _ready():
 	bag.item_type_changed.connect(_on_bag_item_type_changed)
 	_register_bag()
 	if AUTO_FILL_ON_PLACE:
-		bag.add_count(CAPACITY)
+		bag.add_count(AUTO_FILL_COUNT)
 	_sync_stored_count()
 
 func _exit_tree():
