@@ -1,0 +1,12 @@
+
+# --- auto-start the Godot agent watchdog ---
+# The watchdog keeps opencode web alive while the Godot editor is running, so
+# simply opening Godot brings the agent up. It is detached from this shell on
+# purpose: closing the terminal must not take the agent down with it.
+if [ -n "$PS1" ] && [ -z "$GODOT_AGENT_WATCHDOG" ]; then
+  export GODOT_AGENT_WATCHDOG=1
+  if ! kill -0 "$(cat $HOME/.godot-agent-watchdog.pid 2>/dev/null)" 2>/dev/null; then
+    nohup $HOME/godot-agent-watchdog.sh </dev/null >/dev/null 2>&1 &
+    echo $! > $HOME/.godot-agent-watchdog.pid
+  fi
+fi
