@@ -72,7 +72,7 @@ func _on_entity_direction_changed():
 	if not _sync_flight():
 		look_at(global_position + Vector3(entity.direction.x, 0, entity.direction.y))
 
-# 飞行物(Ballistic)表现:把 backend 的弹道数据转发给模型,由模型负责抛物线 Y 与俯仰朝向。
+# 飞行物(Ballistic)表现:把 backend 的平面轨迹数据转发给模型,由模型负责抛物线 Y 与俯仰朝向。
 # 以"模型是否实现 set_flight"为能力判据——非飞行模型直接跳过(保持贴地、水平朝向)。
 func _sync_flight() -> bool:
 	if not model or not model.has_method(&"set_flight"):
@@ -80,7 +80,7 @@ func _sync_flight() -> bool:
 	var ballistic: Ballistic = entity as Ballistic
 	if not ballistic:
 		return false
-	model.set_flight(ballistic.flight_progress(), ballistic.direction, ballistic.launch_height, ballistic.flight_time, ballistic.move_speed)
+	model.set_flight(ballistic.flight_progress(), ballistic.direction, ballistic.move_speed, ballistic.flight_distance)
 	return true
 
 func _on_entity_type_changed():

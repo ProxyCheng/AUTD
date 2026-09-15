@@ -3,7 +3,7 @@ extends ArrowModel
 
 # 炮弹表现模型:与弩箭共用同一套弹道表现(抛物线抬升 + 沿切线俯仰),故直接继承 ArrowModel
 # —— 其 set_flight/set_state 由 EntityActor 按 has_method 探测调用,无需重写。
-# 弹道公式本体仍在 backend(Ballistic.arc_slope / Ballistic.launch_pitch / Ballistic.GRAVITY),前后端同源。
+# 弹道公式本体在 frontend(Trajectory.arc_slope / Trajectory.launch_pitch / Trajectory.GRAVITY)。
 # 若日后炮弹需要独立表现(自转、拖尾、命中特效),在此覆写对应方法即可。
 
 @onready var _trail: GPUParticles3D = %trail
@@ -19,8 +19,8 @@ func _ready():
 # 不能靠场景默认 emitting=true —— 同一个 cannonball.tscn 也被 ItemStack 当"物品道具"实例化
 # (火炮备弹垛 / 打造车间产出垛),静止的道具会一直冒烟;编辑器视口同理。
 # 这里由 set_flight 驱动(飞行中每帧经 EntityActor 转发),静止实例永远收不到该调用,故不喷。
-func set_flight(in_progress: float, in_direction: Vector2, in_launch_height: float, in_flight_time: float, in_move_speed: float):
-	super.set_flight(in_progress, in_direction, in_launch_height, in_flight_time, in_move_speed)
+func set_flight(in_progress: float, in_direction: Vector2, in_move_speed: float, in_flight_distance: float):
+	super.set_flight(in_progress, in_direction, in_move_speed, in_flight_distance)
 	if _trail:
 		_trail.emitting = in_progress < 1.0
 

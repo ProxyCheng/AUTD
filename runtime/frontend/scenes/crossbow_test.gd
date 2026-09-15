@@ -167,7 +167,10 @@ func _update_hud():
 			if _flight_actor and _flight_actor.model:
 				pitch = rad_to_deg(_flight_actor.model.global_rotation.x)
 			flight_info = "flight prog=%.2f pos=(%.2f,%.2f) h=%.2f pitch=%.1fdeg" % [
-				e.flight_progress(), e.position.x, e.position.y, e.launch_height, pitch]
+				e.flight_progress(), e.position.x, e.position.y,
+				Trajectory.launch_height_for(e.flight_distance, e.move_speed,
+					Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
+					Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT)), pitch]
 			break
 	_hud.text = "state=%s progress=%.2f ammo=%d | %s | %s" % [
 		_crossbow.state, _crossbow.progress, ammo,

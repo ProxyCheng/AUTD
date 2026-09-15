@@ -33,7 +33,7 @@ static var PIVOT_HEIGHT: float = 0.62
 # 射箭起点 S 相对转轴 P 的偏移(弩身局部系):forward 沿弩身、height 垂直弩身,随俯仰角 θ 旋转。
 static var SPAWN_FORWARD: float = 0.44
 static var SPAWN_HEIGHT: float = 0.09
-# 弩矢水平飞行速度(世界单位/秒)。与前端弹道(Ballistic 的重力抛物线)共用同一值:
+# 弩矢水平飞行速度(世界单位/秒)。与前端弹道(Trajectory 的重力抛物线)共用同一值:
 # 飞行时长 T = 水平距离 / 本速度,故目标越远飞得越久、弧顶越高。弩身预览俯仰也用它。
 const ARROW_SPEED: float = 10
 
@@ -65,7 +65,7 @@ func fire_time() -> float:
 func load_time() -> float:
 	return LOAD_TIME
 
-# 发射几何(转轴 P + 起点偏移 S,发射器局部系);求解见 Ballistic.spawn_offset_at/aim_pitch_for。
+# 发射几何(转轴 P + 起点偏移 S,发射器局部系);供 frontend 的 Trajectory 求解俯仰/起点。
 func pivot() -> Vector2:
 	return Vector2(PIVOT_FORWARD, PIVOT_HEIGHT)
 
@@ -74,18 +74,6 @@ func spawn() -> Vector2:
 
 # 攻击范围(半边长,格子单位):寻敌区域为以弩炮所在格为中心、边长 2×ATTACK_RANGE 的正方形。
 const ATTACK_RANGE: float = 3.0
-
-# 给定离弦仰角 θ,返回射箭起点相对弩中心地面点 O 的偏移:(水平前移, 高度)。
-# S = P + R(θ)·(SPAWN_FORWARD, SPAWN_HEIGHT);P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT。
-# 求解统一在 Ballistic(弩/炮共用同一套),本静态版固定用弩炮自己的几何与弹速,
-# 供前端模型(crossbow_model.set_target_position)与弹道调试场景直接读。
-static func spawn_offset_at(in_pitch: float) -> Vector2:
-	return Ballistic.spawn_offset_at(in_pitch, Vector2(PIVOT_FORWARD, PIVOT_HEIGHT), Vector2(SPAWN_FORWARD, SPAWN_HEIGHT))
-
-# 求命中目标所需的离弦仰角:发射点随 θ 抬升,θ 与发射高度互相依赖,做几次不动点迭代收敛。
-static func aim_pitch(in_center: Vector2, in_aim_dir: Vector2, in_target_pos: Vector2) -> float:
-	return Ballistic.aim_pitch_for(in_center, in_aim_dir, in_target_pos,
-		Vector2(PIVOT_FORWARD, PIVOT_HEIGHT), Vector2(SPAWN_FORWARD, SPAWN_HEIGHT), ARROW_SPEED)
 
 # —— 配方声明:攻击 = 一次即时效果(无输出仓,消耗箭矢触发开火) ——
 # 蓄满一发的蓄力由 base._apply_workload 累积 progress;满弦后由 _tick_machine 负责瞄准/发射。
@@ -279,11 +267,8 @@ func fire() -> bool:
 	# 弹丸类型/弹速/发射几何全走钩子,子类(如 Cannon)覆写后无需改本方法。
 	var projectile: Ballistic = Entity.create(projectile_type())
 	var speed: float = projectile_speed()
-	# 射出起点由俯仰几何决定:随离弦仰角 θ 绕转轴 P 旋转(高度不再固定)。
-	var pitch: float = Ballistic.aim_pitch_for(Vector2(axis), aim_direction, target.position, pivot(), spawn(), speed)
-	var off: Vector2 = Ballistic.spawn_offset_at(pitch, pivot(), spawn())
-	projectile.position = Vector2(axis) + aim_direction * off.x
-	projectile.launch_height = off.y
+	# 投射物只做平面运动:起点沿瞄准方向前移到炮口(俯仰/抛物线由 frontend 的 Trajectory 模拟)。
+	projectile.position = Vector2(axis) + aim_direction * (pivot().x + spawn().x)
 	projectile.move_speed = speed
 	projectile.set_target_entity(target)
 	room.add_entity(projectile)

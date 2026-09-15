@@ -24,9 +24,9 @@ const RECOIL_TIME: float = 0.2
 var _recoil_t: float = -1.0
 
 # 出膛俯仰:起点几何沿用 Crossbow 的静态值,弹速取 Cannon.PROJECTILE_SPEED
-# (backend 单一事实来源,前端不另存一份),与 backend Cannon.fire() 共用 Ballistic.aim_pitch_for。
+# (backend 单一事实来源,前端不另存一份),经 Trajectory 求解。
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
-	return Ballistic.aim_pitch_for(in_center, in_aim, in_target,
+	return Trajectory.aim_pitch_for(in_center, in_aim, in_target,
 		Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
 		Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Cannon.PROJECTILE_SPEED)
 

@@ -235,10 +235,12 @@ func _compute_nock_from() -> Transform3D:
 		return _arrow_rest_transform
 	return _skin.global_transform.affine_inverse() * (src as Transform3D)
 
-# 出膛俯仰:与 backend fire() 共用 Crossbow.aim_pitch,起点几何(转轴 P + 起点偏移 S)
-# 也由 Crossbow 统一给出,保证弩口朝向与箭的实际弹道一致。
+# 出膛俯仰:用发射器几何(转轴 P + 起点偏移 S,取自 Crossbow)经 Trajectory 求解,
+# 保证弩口朝向与箭的抛物线切线一致。
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
-	return Crossbow.aim_pitch(in_center, in_aim, in_target)
+	return Trajectory.aim_pitch_for(in_center, in_aim, in_target,
+		Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
+		Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Crossbow.ARROW_SPEED)
 
 # 绑定后端展示仓:基类把仓转给箭垛;弩另需按 bag.count 判断"弦上是否有箭"(%Arrow 显隐)。
 func bind_bag(in_bag: Bag):
