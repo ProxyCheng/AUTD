@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://runtime/frontend/ui/recipe_list_component.gd" id="1_rlc"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/workshop_recipe_list.gd" id="2_wrl"]
+
+[node name="RecipeListComponent" type="VBoxContainer"]
+mouse_filter = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+script = ExtResource("1_rlc")
+
+[node name="Hint" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
+theme_override_font_sizes/font_size = 11
+text = "Drag or use ▲▼ to reorder priority"
+vertical_alignment = 1
+
+[node name="RecipeList" type="Control" parent="."]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_wrl")

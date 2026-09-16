@@ -5,13 +5,17 @@ extends PanelContainer
 #   Header  — 名称行:Handle(自绘六点抓手,拖拽提示)+ Name(配方名 RecipeData.label)
 #   Items   — 原料/产物控件横排:每个物料一"竖条(库存占比)+数量",之间用 + / -> / 耗时⏱ 分隔
 #   Progress— 当前执行进度横条(仅 active 配方实时,其余空)
-# 拖拽源协议:_get_drag_data 返回带 drag_recipe_index 的字典,由 WorkshopRecipeList._drop_data
-# 接收并换算目标行。setup(recipe, index, building, is_active) 由列表容器填充。
+# 拖拽源协议:_get_drag_data 返回带 drag_recipe_index/grab_offset_y 的字典并发 drag_started,
+# 由 WorkshopRecipeList 接管视觉(行跟随指针、其余行让位、松手滑入空档)。不设 drag preview ——
+# 跟随指针的就是行本身;行在列表内的位置由列表按槽位显式摆放(列表不是容器)。
+# setup(recipe, index, building, is_active) 由列表填充。
 #
 # 行是哑组件:只展示 + 提供拖拽数据,不直接调 backend 改状态(move_recipe 由面板经 list)。
 # 触屏无悬停、内置拖放对触摸不可靠,故 Header 另提供 ▲/▼ 按钮,经 move_requested 上报。
 
 signal move_requested(from_index: int, to_index: int)
+# 本行开始被拖拽(from_index, 指针在行内的抓取偏移 Y):列表据此接管跟随/让位/落位
+signal drag_started(from_index: int, grab_offset_y: float)
 
 var _recipe: RecipeData = null
 var recipe_index: int = -1
@@ -34,11 +38,9 @@ func setup(in_recipe: RecipeData, in_index: int, in_building: Workshop,
 
 func make_draggable():
 	set_meta(&"drag_recipe_index", recipe_index)
-	# 行必须 PASS:PanelContainer 默认 mouse_filter = STOP,而 Viewport::_gui_drop 向上找
-	# 可接收拖放的控件时,遇到"can_drop_data 为假且 mouse_filter = STOP"的控件就 break。
-	# 本行不实现 _can_drop_data(拖放目标在 RecipeList 上),于是拖放永远到不了列表 ——
-	# 表现为拖拽预览跟着光标走、松手却什么都不发生。改 PASS 后事件照常冒泡,
-	# 落点得以继续上溯到 RecipeList 的 _can_drop_data。
+	# 行保持 PASS:Viewport::_gui_drop 从指针下的控件向上找拖放目标时,遇到
+	# "can_drop_data 为假且 mouse_filter = STOP"的控件就 break。本行不实现 _can_drop_data
+	# (拖放目标是父级 RecipeList),若此处为 STOP,拖放永远到不了列表;PASS 让事件继续上溯。
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 # 节点每次现查(不 reliance _ready 顺序):setup 可能在 _ready 前被调用,
@@ -261,17 +263,15 @@ func _refresh_progress():
 
 # —— 拖拽源 ——
 
-func _get_drag_data(_in_at_position: Vector2):
+# 拖拽源:返回索引 + 抓取偏移(指针在行内的 Y),并发 drag_started 让列表接管视觉。
+# 不调用 set_drag_preview:跟随指针的是行本身(列表按指针 Y 摆放它),不需要浮层预览。
+func _get_drag_data(in_at_position: Vector2):
 	var drag_recipe_index: int = get_meta(&"drag_recipe_index", -1)
 	if drag_recipe_index < 0 or _recipe == null:
 		return null
-	var drag_data: Dictionary = { "drag_recipe_index": drag_recipe_index }
-	set_drag_preview(_make_preview())
+	var drag_data: Dictionary = {
+		"drag_recipe_index": drag_recipe_index,
+		"grab_offset_y": in_at_position.y,
+	}
+	drag_started.emit(drag_recipe_index, in_at_position.y)
 	return drag_data
-
-func _make_preview() -> Control:
-	var preview := Label.new()
-	preview.text = _recipe.label if _recipe and _recipe.label != "" else _recipe.output
-	preview.modulate = Color(0.9, 0.9, 0.9, 0.8)
-	preview.custom_minimum_size = Vector2(120, 24)
-	return preview

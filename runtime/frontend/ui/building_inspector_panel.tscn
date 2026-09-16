@@ -1,7 +1,9 @@
-[gd_scene format=3 uid="uid://cft6u81tmutgv"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://b4jxyojhs3bwp" path="res://runtime/frontend/ui/workshop_inspector_panel.gd" id="1_wip"]
-[ext_resource type="Script" uid="uid://8cfpojok72d5" path="res://runtime/frontend/ui/workshop_recipe_list.gd" id="2_wip"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/building_inspector_panel.gd" id="1_bip"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/attack_preference_component.tscn" id="2_pref"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/stockpile_content_component.tscn" id="3_stock"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/recipe_list_component.tscn" id="4_recipe"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0.07, 0.08, 0.11, 0.92)
@@ -60,7 +62,7 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
-[node name="WorkshopInspectorPanel" type="Control"]
+[node name="BuildingInspectorPanel" type="Control"]
 visible = false
 custom_minimum_size = Vector2(260, 0)
 anchors_preset = 6
@@ -69,12 +71,12 @@ anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
 offset_left = -268.0
-offset_top = -210.0
+offset_top = -240.0
 offset_right = -8.0
-offset_bottom = 210.0
+offset_bottom = 240.0
 grow_horizontal = 0
 grow_vertical = 2
-script = ExtResource("1_wip")
+script = ExtResource("1_bip")
 
 [node name="Background" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -87,6 +89,7 @@ mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
 
 [node name="Title" type="Label" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -97,10 +100,11 @@ offset_bottom = 36.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(0.93, 0.95, 0.98, 1)
 theme_override_font_sizes/font_size = 16
-text = "Workshop"
+text = "Building"
 vertical_alignment = 1
 
 [node name="CloseButton" type="Button" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -117,36 +121,29 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
 text = "×"
 
-[node name="Hint" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 16.0
-offset_top = 36.0
-offset_right = -48.0
-offset_bottom = 54.0
-grow_horizontal = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
-theme_override_font_sizes/font_size = 11
-text = "Drag or use ▲▼ to reorder priority"
-vertical_alignment = 1
-
-[node name="RecipeList" type="VBoxContainer" parent="."]
+[node name="Components" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = 58.0
+offset_top = 44.0
 offset_right = -12.0
 offset_bottom = -64.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 4
-script = ExtResource("2_wip")
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="AttackPreference" parent="Components" instance=ExtResource("2_pref")]
+
+[node name="StockpileContent" parent="Components" instance=ExtResource("3_stock")]
+
+[node name="RecipeList" parent="Components" instance=ExtResource("4_recipe")]
 
 [node name="DeleteButton" type="Button" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
