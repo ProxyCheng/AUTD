@@ -35,29 +35,19 @@ func _on_selected_changed(in_target: Object):
 	for entity_actor: EntityActor in entity_actors.values():
 		entity_actor.set_selected(entity_actor.entity == in_target)
 
-# 屏幕坐标点击拾取实体:对所有在场可见 actor 做射线-AABB 测试,取最近命中,无则 null。
+# 点击拾取的候选实体 actor:在场、可见、且 backend 对象为 Creature 的实体。
 # 遍历 entity_actors(而非 backend entities):该表只存已放置 actor,回收时先 erase,
-# 故每条记录都有有效 entity,天然只拾取可见者。最近命中保证相邻工人可区分。
-func pick_entity(in_screen_position: Vector2) -> Entity:
-	var camera: CameraController = get_viewport().get_camera_3d()
-	if not camera:
-		return null
-	var origin: Vector3 = camera.project_ray_origin(in_screen_position)
-	var direction: Vector3 = camera.project_ray_normal(in_screen_position)
-	var best_distance: float = INF
-	var picked: Entity = null
+# 故每条记录都有有效 entity,天然只拾取可见者。
+# Creature 即检视范围:炮弹/箭矢 extends Ballistic(非 Creature),不参与命中、不吞点击。
+func pick_candidates() -> Array[Node3D]:
+	var candidates: Array[Node3D] = []
 	for entity_actor: EntityActor in entity_actors.values():
 		if not entity_actor.visible or not entity_actor.entity:
 			continue
-		# 炮弹/箭矢不可检视:参与命中会吞掉其后世界的点击。
-		if entity_actor.entity is Ballistic:
+		if entity_actor.entity is not Creature:
 			continue
-		# 已知限制(v1):建筑 actor 不参与命中测试,站在建筑后面的工人仍可被选中(不做遮挡判定)。
-		var distance: float = entity_actor.ray_hit_distance(origin, direction)
-		if distance >= 0.0 and distance < best_distance:
-			best_distance = distance
-			picked = entity_actor.entity
-	return picked
+		candidates.append(entity_actor)
+	return candidates
 
 func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Array):
 	var camera: CameraController = get_viewport().get_camera_3d()

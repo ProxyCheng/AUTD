@@ -1,49 +1,49 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://runtime/frontend/ui/labor_content_component.gd" id="1_lcc"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/creature_content_component.gd" id="1_ccc"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_load_bg"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_bg"]
 bg_color = Color(0, 0, 0, 0.4)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_load_fill"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_fill"]
 bg_color = Color(0.4, 0.8, 0.95, 0.9)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="LaborContentComponent" type="VBoxContainer"]
+[node name="CreatureContentComponent" type="VBoxContainer"]
 mouse_filter = 2
 theme_override_constants/separation = 6
-script = ExtResource("1_lcc")
+script = ExtResource("1_ccc")
 
-[node name="BagLabel" type="Label" parent="."]
+[node name="StatusLabel" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
-theme_override_font_sizes/font_size = 13
-text = "log  2"
+theme_override_colors/font_color = Color(0.93, 0.95, 0.98, 1)
+theme_override_font_sizes/font_size = 15
+text = "Idle"
 vertical_alignment = 1
 
-[node name="LoadBar" type="ProgressBar" parent="."]
+[node name="HealthBar" type="ProgressBar" parent="."]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 mouse_filter = 2
 show_percentage = false
-theme_override_styles/background = SubResource("StyleBoxFlat_load_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_load_fill")
+theme_override_styles/background = SubResource("StyleBoxFlat_hp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hp_fill")
 
-[node name="LoadLabel" type="Label" parent="."]
+[node name="HealthLabel" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
 theme_override_font_sizes/font_size = 13
-text = "0 / 5"
+text = "100 / 100"
 vertical_alignment = 1

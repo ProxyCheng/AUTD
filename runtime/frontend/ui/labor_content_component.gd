@@ -1,23 +1,12 @@
 class_name LaborContentComponent
 extends InspectorComponent
 
-# 工人内容组件:服务 Labor —— 显示状态行 + 随身仓内容(类型/件数,工具另附耐久)与装载条。
-# 只读 backend 可观察状态(§5.4):状态随 labor.state_changed 刷新;随身仓是多类型仓,
-# Bag 没有"按类型变化"信号,count_changed 是唯一的内容变化通知,故 refresh() 每次重读
-# types()/count_of()/peek_state(),不缓存内容 —— 否则会漏掉 take_state/add_state 的搬动。
+# 工人内容组件:服务 Labor —— 仅显示随身仓内容(类型/件数,工具另附耐久)与装载条;
+# 状态行与生命值由 CreatureContentComponent 负责(工人面板会同时绑定两个组件)。
+# 只读 backend 可观察状态(§5.4):随身仓是多类型仓,Bag 没有"按类型变化"信号,
+# count_changed 是唯一的内容变化通知,故 refresh() 每次重读 types()/count_of()/
+# peek_state(),不缓存内容 —— 否则会漏掉 take_state/add_state 的搬动。
 
-# labor.state 取值 → 面板文案。取值集合来自 backend(不猜):creature.gd(dizzy/die)、
-# idle_task.gd(idle)、move_to_target_task.gd(walk)、provide_workload_task.gd(work);
-# 未列出的取值原样回显,不吞新状态。  # { state: 显示文案 }
-const STATUS_TEXT: Dictionary = {
-	"idle": "Idle",
-	"walk": "Walking",
-	"work": "Working",
-	"dizzy": "Stunned",
-	"die": "Down",
-}
-
-var _status_label: Label = null
 var _bag_label: Label = null
 var _load_bar: ProgressBar = null
 var _load_label: Label = null
@@ -26,7 +15,6 @@ func supports(in_target: Object) -> bool:
 	return in_target is Labor
 
 func _ready():
-	_status_label = get_node_or_null("%StatusLabel") as Label
 	_bag_label = get_node_or_null("%BagLabel") as Label
 	_load_bar = get_node_or_null("%LoadBar") as ProgressBar
 	_load_label = get_node_or_null("%LoadLabel") as Label
@@ -38,7 +26,6 @@ func _connect_signals():
 	var labor: Labor = target as Labor
 	if not is_instance_valid(labor):
 		return
-	labor.state_changed.connect(refresh)
 	var bag: Bag = labor.carried_bag
 	if not is_instance_valid(bag):
 		return
@@ -49,7 +36,6 @@ func _disconnect_signals():
 	var labor: Labor = target as Labor
 	if not is_instance_valid(labor):
 		return
-	labor.state_changed.disconnect(refresh)
 	var bag: Bag = labor.carried_bag
 	if not is_instance_valid(bag):
 		return
@@ -60,8 +46,6 @@ func refresh():
 	var labor: Labor = target as Labor
 	if not is_instance_valid(labor):
 		return
-	if _status_label:
-		_status_label.text = STATUS_TEXT.get(labor.state, labor.state)
 	# carried_bag 在 Labor._ready() 里才创建:绑定早于它时按空仓/零装载渲染。
 	var bag: Bag = labor.carried_bag
 	if not is_instance_valid(bag):

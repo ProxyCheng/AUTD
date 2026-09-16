@@ -6,9 +6,14 @@ var type: String = ""
 var building_model: Node3D = null
 var axis: Vector2i = Vector2i.ZERO
 var direction: Vector2i = Vector2i.UP
+# 模型本地空间合并 AABB(相对 actor 原点,随 scale/本地朝向不变),点击拾取用。
+var _model_local_box: AABB = AABB()
+
+# 模型测量失败时的兜底拾取盒:以建筑所在格为脚印(actor 原点在格中心),保证建筑永远可点。
+const FALLBACK_PICK_BOX: AABB = AABB(Vector3(-0.5, 0.0, -0.5), Vector3(1.0, 1.0, 1.0))
 
 # —— 选中高亮 ——
-# 选中状态由 frontend(LevelActor.selected_building)持有;本 actor 只是表现层:
+# 选中状态由 frontend(LevelActor.selected_target)持有;本 actor 只是表现层:
 # set_selected(true/false) 显隐选中地盘(SelectionRing),不接触 backend 玩法。
 var selected: bool = false
 var _selection_ring: Node3D = null
@@ -188,10 +193,24 @@ func bind(in_building: Building):
 func get_type_key() -> String:
 	return "Building_%s" % type
 
+# 世界空间射线 vs 模型本地包围盒的 slab 测试:与实体 actor 共用 ActorPick(唯一实现)。
+# 模型测量失败(空盒)时退回格子脚印盒,保证建筑不会因模型问题而不可点。
+func ray_hit_distance(in_origin: Vector3, in_direction: Vector3) -> float:
+	var box: AABB = _model_local_box
+	if box.size == Vector3.ZERO:
+		box = FALLBACK_PICK_BOX
+	return ActorPick.hit_distance(in_origin, in_direction, box, global_transform)
+
+# 点击命中的 backend 目标:与 EntityActor 统一访问器,供 LevelActor.pick_target 取回。
+func pick_target() -> Object:
+	return building
+
 func _on_type_changed():
 	if building_model:
 		remove_child(building_model)
 		building_model.queue_free()
+	# 旧模型已释放:先清拾取盒;新模型测量失败时由 ray_hit_distance 退回格子脚印盒。
+	_model_local_box = AABB()
 	# 类型变化后攻击范围可能不同,销毁旧范围面,下次选中按新类型重建
 	if _range_indicator:
 		remove_child(_range_indicator)
@@ -205,6 +224,8 @@ func _on_type_changed():
 		building_model.owner = owner
 		# 组统一定位/测量;容量条与工作量条均为其子条,随组竖排
 		work_progress.setup(self, building_model)
+		# 点击拾取的本地包围盒:与 entity_actor 同一度量工具(actor 本地空间,不含自身朝向)。
+		_model_local_box = HeadBar.measure_box(building_model, self)
 
 func _on_axis_changed():
 	position = Vector3(axis.x, 0, axis.y)

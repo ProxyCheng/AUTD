@@ -20,6 +20,16 @@ func _on_selected_changed(in_target: Object):
 		var is_selected: bool = building != null and axis == building.axis
 		actor.set_selected(is_selected)
 
+# 点击拾取的候选建筑 actor:当前已放置(可见)的建筑。
+# 遍历 building_actors(而非 backend cells):该表只存已放置 actor,回收时先 erase,
+# 故每条记录都有有效 building,天然只拾取在场者。
+func pick_candidates() -> Array[Node3D]:
+	var candidates: Array[Node3D] = []
+	for actor: BuildingActor in building_actors.values():
+		if actor.visible:
+			candidates.append(actor)
+	return candidates
+
 func _ready():
 	var camera = get_viewport().get_camera_3d() as CameraController
 	camera.viewing_axis_changed.connect(_on_viewing_axis_changed)

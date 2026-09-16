@@ -45,9 +45,24 @@ func _on_camera_tapped(in_screen_position: Vector2):
 	if mode:
 		mode.on_tap(in_screen_position)
 
-# 世界点击拾取实体(工人等):转发给 room actor 做射线-AABB 命中测试,无命中返回 null。
-func pick_entity(in_screen_position: Vector2) -> Entity:
-	return %room.pick_entity(in_screen_position)
+# 世界点击拾取:对全部可见建筑 actor 与实体 actor 做同一套射线-AABB,取最近命中。
+# 建筑与实体同池判定 → 工人站在建筑后面时近者胜出(遮挡正确),无命中返回 null。
+func pick_target(in_screen_position: Vector2) -> Object:
+	var camera: CameraController = get_camera()
+	if not camera:
+		return null
+	var origin: Vector3 = camera.project_ray_origin(in_screen_position)
+	var direction: Vector3 = camera.project_ray_normal(in_screen_position)
+	var candidates: Array[Node3D] = %map.pick_candidates()
+	candidates.append_array(%room.pick_candidates())
+	var best_distance: float = INF
+	var picked: Object = null
+	for actor: Node3D in candidates:
+		var distance: float = actor.ray_hit_distance(origin, direction)
+		if distance >= 0.0 and distance < best_distance:
+			best_distance = distance
+			picked = actor.pick_target()
+	return picked
 
 # —— 检视目标(GUI 侧栏)——
 # 打开选中目标的检视面板:记录选中 → 高亮 → 分发到面板 → 切到 inspect mode。
