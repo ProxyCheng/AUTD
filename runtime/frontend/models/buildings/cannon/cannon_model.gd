@@ -46,6 +46,9 @@ var _load_ball: Node3D = null
 var _load_ball_from_world: Vector3 = Vector3.ZERO
 var _load_ball_from_ready: bool = false
 
+# 引信冒烟发射器(嵌在 %fuse 下,随引信一起旋转)。
+@onready var _fume: GPUParticles3D = %fume
+
 func _ready():
 	_load_ball = _make_load_ball()
 
@@ -61,6 +64,14 @@ func set_state(in_state: String):
 	if in_state == _state:
 		return
 	super(in_state)
+	_apply_fume()
+
+# 引信冒烟:只在引信点燃的阶段(蓄力/开火)喷烟。ready 是引信已烧到底的静置态,
+# 不冒烟;idle/loading 引信未点燃,同样熄火。
+func _apply_fume():
+	if not _fume:
+		return
+	_fume.emitting = _state in ["charging", "firing"]
 
 # 装填期间炮筒由装填动画独占,忽略瞄准俯仰(BuildingActor 每帧仍会转发目标位置)。
 # 装填结束交还给基类,瞄准驱动自动接管。

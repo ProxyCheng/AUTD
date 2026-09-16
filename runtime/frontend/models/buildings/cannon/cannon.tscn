@@ -15,40 +15,101 @@ albedo_texture = ExtResource("2_odvvv")
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wtrx2"]
 albedo_texture = ExtResource("2_odvvv")
 
+[sub_resource type="Curve" id="Curve_ud6gl"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.15, 0.8), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_ethrm"]
+curve = SubResource("Curve_ud6gl")
+
+[sub_resource type="Curve" id="Curve_lwhr4"]
+_limits = [0.0, 2.0, 0.0, 1.0]
+_data = [Vector2(0, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 1.8), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_ued78"]
+curve = SubResource("Curve_lwhr4")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_jmowk"]
+emission_shape = 1
+emission_sphere_radius = 0.0008
+direction = Vector3(0, 0, 1)
+spread = 40.0
+initial_velocity_min = 0.004
+initial_velocity_max = 0.01
+gravity = Vector3(0, 0, 0)
+scale_min = 0.8
+scale_max = 1.2
+scale_curve = SubResource("CurveTexture_ued78")
+alpha_curve = SubResource("CurveTexture_ethrm")
+
+[sub_resource type="Gradient" id="Gradient_ud6gl"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.55, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ethrm"]
+gradient = SubResource("Gradient_ud6gl")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_utf63"]
+transparency = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.72, 0.72, 0.75, 0.6)
+albedo_texture = SubResource("GradientTexture2D_ethrm")
+billboard_mode = 1
+
+[sub_resource type="QuadMesh" id="QuadMesh_flf1e"]
+material = SubResource("StandardMaterial3D_utf63")
+size = Vector2(0.28, 0.28)
+
 [node name="cannon" unique_id=1931128311 instance=ExtResource("1_72ky0")]
 script = ExtResource("2_ud6gl")
 
-[node name="base" parent="." index="0" unique_id=367655680]
+[node name="base" parent="." index="0" unique_id=827947134]
 transform = Transform3D(40, 0, 0, 0, -1.7484556e-06, 40, 0, -40, -1.7484556e-06, 0, 0, 0)
 material_override = SubResource("StandardMaterial3D_wjapt")
 surface_material_override/0 = ExtResource("3_emysx")
 
-[node name="cog_left" parent="base" index="0" unique_id=455402544]
+[node name="cog_left" parent="base" index="0" unique_id=705625859]
 unique_name_in_owner = true
 surface_material_override/0 = ExtResource("3_emysx")
 
-[node name="cog_right" parent="base" index="1" unique_id=1146982154]
+[node name="cog_right" parent="base" index="1" unique_id=1340917244]
 unique_name_in_owner = true
 surface_material_override/0 = ExtResource("3_emysx")
 
-[node name="cog_top" parent="base" index="2" unique_id=120794154]
+[node name="cog_top" parent="base" index="2" unique_id=1682057193]
 unique_name_in_owner = true
 surface_material_override/0 = ExtResource("3_emysx")
 
-[node name="deck" parent="base/cog_top" index="0" unique_id=2039989941]
+[node name="deck" parent="base/cog_top" index="0" unique_id=1327228263]
 material_override = SubResource("StandardMaterial3D_763vu")
 
-[node name="bracket" parent="base/cog_top/deck" index="0" unique_id=596416142]
+[node name="bracket" parent="base/cog_top/deck" index="0" unique_id=1807591959]
 material_override = ExtResource("3_emysx")
 
-[node name="body" parent="base/cog_top/deck/bracket" index="0" unique_id=1214821307]
+[node name="body" parent="base/cog_top/deck/bracket" index="0" unique_id=1235732029]
 unique_name_in_owner = true
 material_override = SubResource("StandardMaterial3D_wtrx2")
 
-[node name="fuse" parent="base/cog_top/deck/bracket/body" index="0" unique_id=1114393833]
+[node name="fuse" parent="base/cog_top/deck/bracket/body" index="0" unique_id=1957395534]
 unique_name_in_owner = true
 surface_material_override/0 = ExtResource("3_emysx")
 surface_material_override/1 = ExtResource("3_emysx")
+
+[node name="fume" type="GPUParticles3D" parent="base/cog_top/deck/bracket/body/fuse" index="0" unique_id=407167848]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.002377199, 0.003182307)
+emitting = false
+amount = 22
+lifetime = 1.2
+process_material = SubResource("ParticleProcessMaterial_jmowk")
+draw_pass_1 = SubResource("QuadMesh_flf1e")
 
 [node name="AmmoStack" type="Node3D" parent="base/cog_top" index="1" unique_id=905007233]
 unique_name_in_owner = true
