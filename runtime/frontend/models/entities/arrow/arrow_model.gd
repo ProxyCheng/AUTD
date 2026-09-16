@@ -8,12 +8,12 @@ extends Node3D
 # 抛物线/重力纯属表现,公式在 Trajectory(见 runtime/frontend/models/trajectory.gd);
 # backend 只给平面轨迹(进度 + 初始水平距离),起点高度与飞行时长在这里按发射器几何补出。
 
-# 发射器几何(与 Crossbow 的射箭几何同源:转轴 P + 起点偏移 S)。
+# 发射器几何(与 Turret 的发射几何同源:转轴 P + 起点偏移 S)。
 func _pivot() -> Vector2:
-	return Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT)
+	return Vector2(Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT)
 
 func _spawn() -> Vector2:
-	return Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT)
+	return Vector2(Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT)
 
 func set_state(in_state: String):
 	pass

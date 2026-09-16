@@ -52,12 +52,12 @@ var _load_ball_from_ready: bool = false
 func _ready():
 	_load_ball = _make_load_ball()
 
-# 出膛俯仰:起点几何沿用 Crossbow 的静态值,弹速取 Cannon.PROJECTILE_SPEED
+# 出膛俯仰:起点几何沿用 Turret 的静态值,弹速取 Cannon.PROJECTILE_SPEED
 # (backend 单一事实来源,前端不另存一份),经 Trajectory 求解。
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
 	return Trajectory.aim_pitch_for(in_center, in_aim, in_target,
-		Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
-		Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Cannon.PROJECTILE_SPEED)
+		Vector2(Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT),
+		Vector2(Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT), Cannon.PROJECTILE_SPEED)
 
 # 同状态重复调用直接早退:重绑进开火态时不重播形变(引信/炮管保持当前姿态)。
 func set_state(in_state: String):

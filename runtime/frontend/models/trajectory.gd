@@ -22,7 +22,7 @@ static func launch_pitch(in_horizontal_distance: float, in_launch_height: float,
 	return atan2(arc_slope(0.0, in_launch_height, flight_time) / in_horizontal_distance, 1.0)
 
 # —— 发射器几何求解(转轴 P + 起点偏移 S,发射器局部系)——
-# 各发射器(弩炮/火炮)只持有自己的静态几何(见 Crossbow/Cannon 的 PIVOT_*/SPAWN_*),
+# 各发射器(弩炮/火炮)只持有自己的静态几何(见 Turret 的 PIVOT_*/SPAWN_*),
 # 求解逻辑集中在此:避免每加一种发射器就复制一遍同样的向量旋转与不动点迭代。
 # S = P + R(θ)·S_off —— 起点随离弦仰角 θ 绕转轴旋转。
 static func spawn_offset_at(in_pitch: float, in_pivot: Vector2, in_spawn: Vector2) -> Vector2:

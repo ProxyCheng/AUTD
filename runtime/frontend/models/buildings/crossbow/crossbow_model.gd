@@ -264,12 +264,12 @@ func _nock_source_transform() -> Variant:
 		return null
 	return _ammo_stack.get_prop_transform(count - 1)
 
-# 出膛俯仰:用发射器几何(转轴 P + 起点偏移 S,取自 Crossbow)经 Trajectory 求解,
+# 出膛俯仰:用发射器几何(转轴 P + 起点偏移 S,取自 Turret)经 Trajectory 求解,
 # 保证弩口朝向与箭的抛物线切线一致。
 func _aim_pitch(in_center: Vector2, in_aim: Vector2, in_target: Vector2) -> float:
 	return Trajectory.aim_pitch_for(in_center, in_aim, in_target,
-		Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT),
-		Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Crossbow.ARROW_SPEED)
+		Vector2(Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT),
+		Vector2(Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT), Crossbow.ARROW_SPEED)
 
 # 绑定后端展示仓:基类把仓转给箭垛;弩另需按 bag.count 判断"弦上是否有箭"(%Arrow 显隐)。
 func bind_bag(in_bag: Bag):

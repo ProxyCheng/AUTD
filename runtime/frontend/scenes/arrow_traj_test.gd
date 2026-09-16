@@ -3,11 +3,11 @@ extends Node3D
 # 弩矢弹道调试场景(开发工具,不参与正式流程):
 #   拖动"目标距离"滑块 → 移动靶子,实时观察弩身俯仰 / 箭离弦仰角;
 #   拖动"重力 G"滑块   → 直接改 Trajectory.GRAVITY,实时看抛物线弧度变化;
-#   拖动"俯仰转轴 P / 起点偏移"滑块 → 直接改 Crossbow 的射箭几何(转轴 + 起点偏移)。
+#   拖动"俯仰转轴 P / 起点偏移"滑块 → 直接改 Turret 的发射几何(转轴 + 起点偏移)。
 # 数据流走真实链路:BuildingActor 每帧读 crossbow.target.position → TurretModel.set_target_position
 # → Trajectory.aim_pitch_for,所以 HUD 数字就是模型实际采用的值,不是另算一份。
 #
-# 俯仰几何(生产代码 Crossbow 里已落库,本场景只是可视化 + 试参):
+# 俯仰几何(生产代码 Turret 里已落库,本场景只是可视化 + 试参):
 #   转轴 P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT      (O=弩中心地面点)
 #   起点 S = P + R(θ)·(SPAWN_FORWARD, SPAWN_HEIGHT)          (弩身局部系,随俯仰角 θ 旋转)
 #   射箭起点高度 = S.y —— 不再固定,随俯仰变化。
@@ -28,7 +28,7 @@ const GRAVITY_MAX: float = 40.0
 const GRAVITY_STEP: float = 0.5
 const GRAVITY_DEFAULT: float = 9.8
 
-# 俯仰转轴 P 与起点偏移的默认值(= 生产代码 Crossbow 的落库值;启动时回写一遍便于试参)。
+# 俯仰转轴 P 与起点偏移的默认值(= 生产代码 Turret 的落库值;启动时回写一遍便于试参)。
 const PIVOT_FORWARD_MIN: float = -0.5
 const PIVOT_FORWARD_MAX: float = 1.5
 const PIVOT_FORWARD_DEFAULT: float = 0.16
@@ -76,7 +76,7 @@ var _hud: Label = null
 var _dist_value_label: Label = null
 var _grav_value_label: Label = null
 
-# 俯仰几何可视化标记/标签(几何数值本体在 Crossbow 的静态字段)
+# 俯仰几何可视化标记/标签(几何数值本体在 Turret 的静态字段)
 var _pivot_value_label: Label = null
 var _spawn_value_label: Label = null
 var _pivot_marker: MeshInstance3D = null
@@ -87,10 +87,10 @@ var _geom_im: ImmediateMesh = null
 func _ready():
 	# 复位可调试常量,避免上一次运行残留(static var 在同一进程内会保留)。
 	Trajectory.GRAVITY = GRAVITY_DEFAULT
-	Crossbow.PIVOT_FORWARD = PIVOT_FORWARD_DEFAULT
-	Crossbow.PIVOT_HEIGHT = PIVOT_HEIGHT_DEFAULT
-	Crossbow.SPAWN_FORWARD = SPAWN_FORWARD_DEFAULT
-	Crossbow.SPAWN_HEIGHT = SPAWN_HEIGHT_DEFAULT
+	Turret.PIVOT_FORWARD = PIVOT_FORWARD_DEFAULT
+	Turret.PIVOT_HEIGHT = PIVOT_HEIGHT_DEFAULT
+	Turret.SPAWN_FORWARD = SPAWN_FORWARD_DEFAULT
+	Turret.SPAWN_HEIGHT = SPAWN_HEIGHT_DEFAULT
 	_build_backend()
 	_build_frontend()
 	_set_distance(DIST_DEFAULT)
@@ -379,7 +379,7 @@ func _build_ui():
 	pf_slider.min_value = PIVOT_FORWARD_MIN
 	pf_slider.max_value = PIVOT_FORWARD_MAX
 	pf_slider.step = 0.01
-	pf_slider.value = Crossbow.PIVOT_FORWARD
+	pf_slider.value = Turret.PIVOT_FORWARD
 	pf_slider.custom_minimum_size = Vector2(380, 0)
 	pf_slider.value_changed.connect(_on_pivot_forward_changed)
 	vbox.add_child(pf_slider)
@@ -387,7 +387,7 @@ func _build_ui():
 	ph_slider.min_value = PIVOT_HEIGHT_MIN
 	ph_slider.max_value = PIVOT_HEIGHT_MAX
 	ph_slider.step = 0.01
-	ph_slider.value = Crossbow.PIVOT_HEIGHT
+	ph_slider.value = Turret.PIVOT_HEIGHT
 	ph_slider.custom_minimum_size = Vector2(380, 0)
 	ph_slider.value_changed.connect(_on_pivot_height_changed)
 	vbox.add_child(ph_slider)
@@ -400,7 +400,7 @@ func _build_ui():
 	sf_slider.min_value = SPAWN_FORWARD_MIN
 	sf_slider.max_value = SPAWN_FORWARD_MAX
 	sf_slider.step = 0.01
-	sf_slider.value = Crossbow.SPAWN_FORWARD
+	sf_slider.value = Turret.SPAWN_FORWARD
 	sf_slider.custom_minimum_size = Vector2(380, 0)
 	sf_slider.value_changed.connect(_on_spawn_forward_changed)
 	vbox.add_child(sf_slider)
@@ -408,7 +408,7 @@ func _build_ui():
 	sh_slider.min_value = SPAWN_HEIGHT_MIN
 	sh_slider.max_value = SPAWN_HEIGHT_MAX
 	sh_slider.step = 0.01
-	sh_slider.value = Crossbow.SPAWN_HEIGHT
+	sh_slider.value = Turret.SPAWN_HEIGHT
 	sh_slider.custom_minimum_size = Vector2(380, 0)
 	sh_slider.value_changed.connect(_on_spawn_height_changed)
 	vbox.add_child(sh_slider)
@@ -434,28 +434,28 @@ func _on_gravity_changed(in_value: float):
 	_update_grav_label()
 
 func _on_pivot_forward_changed(in_value: float):
-	Crossbow.PIVOT_FORWARD = in_value
+	Turret.PIVOT_FORWARD = in_value
 	_update_pivot_label()
 
 func _on_pivot_height_changed(in_value: float):
-	Crossbow.PIVOT_HEIGHT = in_value
+	Turret.PIVOT_HEIGHT = in_value
 	_update_pivot_label()
 
 func _on_spawn_forward_changed(in_value: float):
-	Crossbow.SPAWN_FORWARD = in_value
+	Turret.SPAWN_FORWARD = in_value
 	_update_spawn_label()
 
 func _on_spawn_height_changed(in_value: float):
-	Crossbow.SPAWN_HEIGHT = in_value
+	Turret.SPAWN_HEIGHT = in_value
 	_update_spawn_label()
 
 func _update_pivot_label():
 	if _pivot_value_label:
-		_pivot_value_label.text = "俯仰转轴 P: forward %.2f  height %.2f" % [Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT]
+		_pivot_value_label.text = "俯仰转轴 P: forward %.2f  height %.2f" % [Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT]
 
 func _update_spawn_label():
 	if _spawn_value_label:
-		_spawn_value_label.text = "起点偏移(相对 P): forward %.2f  up %.2f" % [Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT]
+		_spawn_value_label.text = "起点偏移(相对 P): forward %.2f  up %.2f" % [Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT]
 
 func _set_distance(in_distance: float):
 	_distance = in_distance
@@ -478,7 +478,7 @@ func _update_grav_label():
 
 # 当前离弦仰角 θ(与 backend fire() 完全同源:Trajectory.aim_pitch_for)。
 func _pitch_angle() -> float:
-	return Trajectory.aim_pitch_for(Vector2(CROSSBOW_AXIS), AIM_AXIS, _target.position, Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT), Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT), Crossbow.ARROW_SPEED)
+	return Trajectory.aim_pitch_for(Vector2(CROSSBOW_AXIS), AIM_AXIS, _target.position, Vector2(Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT), Vector2(Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT), Crossbow.ARROW_SPEED)
 
 func _forward_axis() -> Vector3:
 	return Vector3(AIM_AXIS.x, 0.0, AIM_AXIS.y)
@@ -486,12 +486,12 @@ func _forward_axis() -> Vector3:
 # 转轴 P = O + forward·PIVOT_FORWARD + up·PIVOT_HEIGHT
 func _pivot_world() -> Vector3:
 	var o := Vector3(CROSSBOW_AXIS.x, 0.0, CROSSBOW_AXIS.y)
-	return o + _forward_axis() * Crossbow.PIVOT_FORWARD + Vector3.UP * Crossbow.PIVOT_HEIGHT
+	return o + _forward_axis() * Turret.PIVOT_FORWARD + Vector3.UP * Turret.PIVOT_HEIGHT
 
 # 起点 S = O + forward·off.x + up·off.y,off = Trajectory.spawn_offset_at(θ, P, S)
 func _spawn_world() -> Vector3:
 	var o := Vector3(CROSSBOW_AXIS.x, 0.0, CROSSBOW_AXIS.y)
-	var off: Vector2 = Trajectory.spawn_offset_at(_pitch_angle(), Vector2(Crossbow.PIVOT_FORWARD, Crossbow.PIVOT_HEIGHT), Vector2(Crossbow.SPAWN_FORWARD, Crossbow.SPAWN_HEIGHT))
+	var off: Vector2 = Trajectory.spawn_offset_at(_pitch_angle(), Vector2(Turret.PIVOT_FORWARD, Turret.PIVOT_HEIGHT), Vector2(Turret.SPAWN_FORWARD, Turret.SPAWN_HEIGHT))
 	return o + _forward_axis() * off.x + Vector3.UP * off.y
 
 func _update_geometry():
