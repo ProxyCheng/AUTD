@@ -181,6 +181,7 @@ func tick(in_delta: float):                      # void → 不写 -> void
 - **一棵树 = 一次任务,跑完重建**:`Creature` 持 `current_tree + bt_instance`,每帧 `bt_instance.update(in_delta)`(固定短 tick,无时间溢出/剩余时间语义);树返回非 RUNNING 即本任务结束,下帧经虚方法 `create_tree() -> BehaviorTree` 请求新树(`begin_tree(in_tree)` 供外部直接换活,如 LaborManager 派发)。`instantiate(agent, blackboard, owner, scene_root)` 需提供非空 scene root。
 - **运行时数据走黑板**(每实体一个 `Blackboard`):目标点、派发的活等用 `set_var/get_var` 传递;instantiate 会深拷贝 task 树,故共享 `.tres` 模板安全,实体差异放黑板。
 - 树内叶子只消费 `in_delta` 计时(不用墙钟),与固定 tick 一致;dizzy 等打断只是暂停喂树,实例状态原样保留(勿在恢复时重建实例)。
+- **移动一律取 `Entity.get_move_speed()`**(不要直接读 `entity.move_speed`):基础值即 `move_speed`,子类可覆写表达派生减速(如 `Labor` 按 `carried_bag` 装载比例负重减速,满载为 `LOADED_SPEED_FACTOR` 倍);派生量从数据源推算,不缓存第二份。
 - **frontend state 契约**:叶子输出的 `state` 取值与 model 动画约定一致(`"idle"`/`"walk"`…,参考 §5.4),由叶子 `_enter/_tick` 里设实体可观察属性。
 - **LaborManager 派活**:每工人一棵 `JobRunnerTask` 包装树,运行数据(`job_tree`/`active_task`)写进该工人黑板;JobRunnerTask 每 tick 查 `active_task.is_cancelled`,取消即 FAILURE,工人经 `request_work` 归还调度池。
 

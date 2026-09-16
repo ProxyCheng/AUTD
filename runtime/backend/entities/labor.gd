@@ -5,9 +5,24 @@ extends Creature
 # 不向 Logistics 注册——它不是物流供需节点,仅随工人存取。
 var carried_bag: Bag = null
 
+# 空载移速:工人不带货时的基准速度(格/秒)。负重在此基准上按装载比例递减。
+const BASE_MOVE_SPEED: float = 1.0
+
+# 负重减速:随身仓装载比例越高走得越慢。
+# 空载 = BASE_MOVE_SPEED,满载(CARRY_CAPACITY 件)= BASE_MOVE_SPEED * LOADED_SPEED_FACTOR,
+# 中间线性插值;系数越小减速越明显(当前满载只剩三成速度)。
+const LOADED_SPEED_FACTOR: float = 0.3
+
 func _init():
 	super._init()
-	move_speed = 1
+	move_speed = BASE_MOVE_SPEED
+
+# 覆写 Entity.get_move_speed:按随身仓装载比例减速(从 carried_bag 推算,不缓存第二份速度)。
+func get_move_speed() -> float:
+	var load_ratio: float = 0.0
+	if is_instance_valid(carried_bag) and carried_bag.max_count > 0:
+		load_ratio = clampf(float(carried_bag.count) / float(carried_bag.max_count), 0.0, 1.0)
+	return move_speed * lerpf(1.0, LOADED_SPEED_FACTOR, load_ratio)
 
 # 原 LaborBrain 的注册/注销逻辑内联:进场向调度中心注册,离场注销。
 func _ready():

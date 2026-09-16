@@ -10,7 +10,7 @@ extends BTAction
 # 典型用法:
 #   man_building   参考点=建筑中心,圆心偏移到操作角、半径 0 → 精确站到角上;
 #   transport_haul 参考点=建筑中心,圆心偏移 0、半径 0.5(格内切圆)→ 走到建筑范围内即可。
-# 每次 _tick 只消费传入的 delta(move_speed * delta 步长),固定短 tick 语义。
+# 每次 _tick 只消费传入的 delta(get_move_speed() * delta 步长),固定短 tick 语义。
 
 @export var target_var: StringName = &"target_position"
 # 目标圆圆心相对 target_position 的偏移(Vector2)
@@ -32,7 +32,7 @@ func _tick(in_delta: float) -> int:
 	var entity := get_agent() as Entity
 	if not entity:
 		return BT.Status.FAILURE
-	if entity.move_speed <= 0:
+	if entity.get_move_speed() <= 0:
 		return BT.Status.FAILURE
 	var center := _target_center(entity)
 	var distance := entity.position.distance_to(center)
@@ -40,7 +40,7 @@ func _tick(in_delta: float) -> int:
 	var travel := maxf(distance - arrival_distance, 0.0)
 	if travel <= 0.001:
 		return BT.Status.SUCCESS
-	var step := entity.move_speed * in_delta
+	var step := entity.get_move_speed() * in_delta
 	if step >= travel:
 		# 正好停在圆边界,不越过圆心
 		entity.position = entity.position.move_toward(center, travel)

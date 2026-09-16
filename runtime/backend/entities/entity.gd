@@ -38,6 +38,11 @@ signal state_changed()
 
 var move_speed: float = 0.1
 
+# 实际移速:默认即 move_speed;子类可覆写以表达派生减速(如 Labor 负重)。
+# 移动类叶子一律经此取值,不直接读 move_speed。
+func get_move_speed() -> float:
+	return move_speed
+
 static func create(in_type: String) -> Entity:
 	var entity_class = load("res://runtime/backend/entities/%s.gd" % in_type)
 	var entity: Entity = entity_class.new()

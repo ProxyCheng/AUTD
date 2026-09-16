@@ -33,7 +33,7 @@ func _tick(in_delta: float) -> int:
 			return BT.Status.RUNNING
 		_pick_target()
 	var distance := agent.position.distance_to(_target)
-	var step := agent.move_speed * in_delta
+	var step := agent.get_move_speed() * in_delta
 	if step >= distance:
 		agent.position = _target
 		_rest_timer = randf_range(rest_min, rest_max)
