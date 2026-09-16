@@ -1,9 +1,16 @@
 class_name TakeFromBagTask
 extends BTAction
 
-# 取货叶子:到达源装卸点后,从黑板的 source_bag 实际取 carry_amount 件。
-# 取多少写入工人随身仓 carried_bag(源可能已被并发搬空而少给),供 PutToBagTask 落库。
-# 一件都没取到(源空了)则 FAILURE,由外层 JobRunnerTask 结束本任务归还工人。
+# 取货叶子:到达源装卸点后,从黑板的 source_bag 实际取 carry_amount 件,装进工人随身仓。
+# 取多少以实际取出数为准(源可能已被并发搬空而少给),供 PutToBagTask 落库。
+# 随身仓是多类型仓:按源仓类型入库,不会覆盖仓里已有的其他类型(如手上那把工具)。
+#
+# 源仓缺失/一件都没取到时的返回由 optional 决定:
+#   false(默认,搬运语义)= FAILURE,由外层 JobRunnerTask 结束本任务归还工人;
+#   true(顶岗语义)= SUCCESS 且什么都没取 —— "没有工具就空手干活"不是失败。
+
+# 源仓缺失/空时是否视为成功(见类注释)。
+@export var optional: bool = false
 
 func _tick(_in_delta: float) -> int:
 	var bb := get_blackboard()
@@ -11,15 +18,23 @@ func _tick(_in_delta: float) -> int:
 	var raw_bag: Variant = bb.get_var(TransportTask.BB_SOURCE_BAG, null, false)
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 	if not is_instance_valid(raw_bag) or not (raw_bag is Bag):
-		return BT.Status.FAILURE
+		return _miss()
 	var bag: Bag = raw_bag
+	var labor := get_agent() as Labor
+	if labor == null or not is_instance_valid(labor.carried_bag):
+		return _miss()
 	var wanted: int = bb.get_var(TransportTask.BB_CARRY_AMOUNT, 0, false)
 	var taken: int = bag.remove_count(wanted)
 	if taken <= 0:
-		return BT.Status.FAILURE
-	# 装进工人随身仓(供 frontend 头顶表现);carried_bag 是携带量的唯一来源。
-	var labor := get_agent() as Labor
-	if labor and is_instance_valid(labor.carried_bag):
+		return _miss()
+	# 随身仓是多类型仓:按源仓类型入库,不动仓里已有的其他类型。
+	# 主要类型(item_type)只跟着散料走 —— 工具那格不该让头顶携带垛改显示工具
+	# (工具由 %tool 那个 ItemStack 专门展示,见 entity_actor)。
+	if not Bag.is_stateful(bag.item_type):
 		labor.carried_bag.item_type = bag.item_type
-		labor.carried_bag.add_count(taken)
+	labor.carried_bag.add_count_of(bag.item_type, taken)
 	return BT.Status.SUCCESS
+
+# 没取到货时的返回(见 optional)。
+func _miss() -> int:
+	return BT.Status.SUCCESS if optional else BT.Status.FAILURE

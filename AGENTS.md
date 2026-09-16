@@ -230,6 +230,23 @@ signal position_changed()
 - **防补播**:Actor 复用池重绑(`bind()`)时,把"上次已发声状态"缓存**对齐当前状态**再刷新(如 `building_actor._last_state = building.state`),避免滚回视野/复用池时补播一次状态音;**逐帧量(`progress_changed`)不得作为发声触发点**。
 - **素材与授权**:只收 **CC0 / 公共领域** 素材,或项目自有的原创素材;按用途放 `runtime/frontend/audio/sfx|music|ambience/`。第三方 CC0 素材的来源 URL/作者/授权登记在 `LICENSES/CC0_SOURCES.txt`;项目原创素材登记在 `LICENSES/ORIGINAL_WORKS.txt`。**新增素材必须一并提交授权/来源记录**。
 
+### 5.8 仓库内容与按件状态(Bag / BagItem)
+
+`Bag` 内容存为 `Array[BagItem]`(`bag_item.gd`),每格是"同类型的若干件":
+
+- **无状态散料**(原木/石头/箭/炮弹…):只记 `item_type` + `count`,同类型**恒合并成一格**;
+- **有状态物品**(工具耐久、未来的保鲜度…):`count` 恒 1,`state` 指向该件自己的状态载体,**每件各占一格**。
+
+**单类型 vs 多类型**:仓结构上支持多类型,但**默认每只仓只装一种**(`item_type` 声明,Logistics 按它做单类型供需撮合)。**多类型目前只用在工人随身仓**(`Labor.carried_bag`)—— 它不注册 Logistics,故供需撮合不受影响;多类型仓按类型读写走 `*_of` 系列(`count_of` / `add_count_of` / `remove_count_of`),展示侧用 `ItemStack.bind(bag, type)` 绑到指定类型。
+
+**状态载体**:入库时按类型取载体 —— 本仓的 `state_factory` 优先,否则走 `Bag.default_state_factory`(按类型名探 `backend/entities/<type>.gd`,是 `Tool` 就实例化并写 `type`)。故**任意仓都能自动保住工具的按件状态**(如接收工人归还工具的 Stockpile),不必逐仓配置;`Bag.is_stateful(type)` 带缓存地回答"该类型是否按件保存"。
+
+- `count` 是**只读派生量**(各格求和),写入一律经 `add_count*` / `remove_count*`;
+- 新增一种带状态物品**只需写一个载体类**,`Bag`、Logistics、生产消耗都不必改;
+- 读按件状态用 `peek_state(type := "")`(**只读、不取出**);`remove_count*` 对有状态格是**丢弃语义**(摘格并释放载体);**仓间搬运用 `take_state` / `add_state`**(搬实例本身,耐久不重置);
+- `clear_fungible()` 只清散料格、保留有状态单体(任务结束兜底清仓用它,否则会把工人手上的工具一起销毁);
+- 单类型仓的 `item_type` 不可破;真要让某仓装多种,消费方必须改用 `*_of` 系列。
+
 ---
 
 ## 6. 场景与节点规范
@@ -265,7 +282,7 @@ signal position_changed()
 
 **新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
 
-**新增工具/道具类型 `foo`:** `runtime/frontend/models/tools/foo/foo.fbx` + `foo.blend`(源,§9)。**纯表现资产,backend 不建对应类**。网格约定:手柄沿 +Z、工具平面落在 XZ 平面(刀头朝 −X)、原点在握把(手柄末端)、平直着色;材质按部位拆成无贴图纯色(`wood`/`metal`/`edge`),不引贴图。
+**新增工具/道具类型 `foo`:** 美术源 `runtime/frontend/models/tools/foo/foo.fbx` + `foo.blend`(源,§9)。网格约定:手柄沿 +Z、工具平面落在 XZ 平面(刀头朝 −X)、原点在握把(手柄末端)、平直着色;材质按部位拆成无贴图纯色(`wood`/`metal`/`edge`),不引贴图。若它要作为道具在仓里/工人手上显示,再建 `runtime/frontend/models/entities/foo/foo.tscn`(+ `foo_model.gd`)并登记进 `ItemStack.ITEM_MODEL_SCENES` —— 该场景须**把美术实例放平使长轴落在 +Z**(ItemStack 约定,见 §5.5)。带耐久这类**按件状态**的物品,再写一个状态载体类即可(默认工厂会按类型名认出来,§5.8);工具即 `extends Tool` 的实体类。工人持工具走 `Labor.carried_bag` 那格有状态单体,干完活由 man_building 树的 return 步骤还回 Stockpile(§5.8)。
 
 **新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树以 `.tres` 落 `runtime/backend/entities/ai/`(优先 `.tres`,不代码组装,约定见 §5.3),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 用法见 §5.3。
 

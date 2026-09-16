@@ -38,7 +38,8 @@ func _tick(in_delta: float) -> int:
 func _finish(in_bb: Blackboard):
 	if in_bb:
 		in_bb.set_var(LaborTask.BB_ACTIVE_TASK, null)
-	# 兜底:任务结束(成功/取消/失败)都清空随身仓,防取货后卸货失败残留头顶物品
+	# 兜底:任务结束(成功/取消/失败)清掉随身仓里的**散料残留**(防取货后卸货失败留下头顶物品),
+	# 但保留有状态单体(工具)—— 工具由 man_building 的归还步骤负责送回,不能在这里销毁。
 	var labor := get_agent() as Labor
 	if labor and is_instance_valid(labor.carried_bag):
-		labor.carried_bag.remove_count(labor.carried_bag.count)
+		labor.carried_bag.clear_fungible()

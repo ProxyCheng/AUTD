@@ -25,6 +25,7 @@ const ITEM_MODEL_SCENES: Dictionary = {
 	"cannonball": "res://runtime/frontend/models/entities/cannonball/cannonball.tscn",
 	"log": "res://runtime/frontend/models/entities/log/log.tscn",
 	"stone": "res://runtime/frontend/models/entities/stone/stone.tscn",
+	"axe": "res://runtime/frontend/models/entities/axe/axe.tscn",
 }
 
 # —— 几何配置(业务层按需覆盖;默认值面向"箭垛"常见形态) ——
@@ -44,8 +45,11 @@ enum CountMode { Raw, Fill }
 		count_delta = in_delta
 		_apply_display_count()
 
-# 绑定的 backend 展示仓;bind() 后本垛跟随其 item_type/count 变化。
+# 绑定的 backend 展示仓;bind() 后本垛跟随其类型/数量变化。
 var bag: Bag = null
+# 绑定的类型:空 = 跟随 bag.item_type(单类型仓的常用路径);
+# 非空 = 固定绑到该类型(多类型仓里挑一格展示,如工人随身仓里工具那格)。
+var bind_type: String = ""
 
 # 物品种类(可在场景里预置;空则不显示内容,待 _set_item_type)
 @export var item_type: String = "":
@@ -205,10 +209,12 @@ func last_removed_transform() -> Variant:
 	return prop.global_transform
 
 # 绑定 backend Bag:断开旧仓 → 连接新仓的 count/item_type 信号 → 全量刷新一次。
+# in_item_type 非空时固定展示该类型(多类型仓里挑一格);留空则跟随 bag.item_type。
 # 传 null 解除绑定(只清空可见数量,保留场景预设 item_type 供编辑器预览)。
-func bind(in_bag: Bag):
+func bind(in_bag: Bag, in_item_type: String = ""):
 	_unbind()
 	bag = in_bag
+	bind_type = in_item_type
 	if not is_instance_valid(bag):
 		bag = null
 		_apply_display_count()
@@ -228,16 +234,22 @@ func _unbind():
 	bag = null
 
 func _refresh():
-	if is_instance_valid(bag):
-		_set_item_type(bag.item_type)
+	_set_item_type(_display_type())
 	_apply_display_count()
 
 func _on_bag_count_changed():
 	_apply_display_count()
 
 func _on_bag_item_type_changed():
+	_set_item_type(_display_type())
+
+# 本垛展示的类型:显式 bind_type 优先,否则跟随仓的 item_type。
+func _display_type() -> String:
+	if not bind_type.is_empty():
+		return bind_type
 	if is_instance_valid(bag):
-		_set_item_type(bag.item_type)
+		return bag.item_type
+	return ""
 
 # 按 count_mode/count_delta 把 bag.count 折算为可见道具数并应用显隐。
 func _apply_display_count():
@@ -249,7 +261,8 @@ func _apply_display_count():
 func _display_count() -> int:
 	if not is_instance_valid(bag):
 		return 0
-	var n: int = bag.count
+	# 按"展示类型"取数:多类型仓(工人随身仓)只算该类型那几格,不把手上工具算进来
+	var n: int = bag.count_of(_display_type())
 	if count_mode == CountMode.Fill:
 		if n <= 0 or bag.max_count <= 0:
 			return 0

@@ -13,11 +13,17 @@ const WORK_ANGULAR_SPEED: float = TAU * 2.2  # 劳作循环角速度(弧度/秒)
 # 汗滴发射点:额头 ≈ 模型包围盒顶面往下 10% 身高(按实测 AABB 比例换算,不写死身高)
 const SWEAT_HEAD_TOP_RATIO: float = 0.10
 
-@onready var _body := $labor
+@onready var _body: Node3D = $labor
 @onready var _sweat: GPUParticles3D = %sweat
 var _body_base_transform: Transform3D
 var _working: bool = false
 var _work_time: float = 0.0
+
+# 手持工具挂点:劳作动画(前俯 + 颠动)作用在 $labor 上,工具必须挂在这下面才会跟着
+# 身体一起晃。EntityActor 用 has_method 探测本方法(§6 模型哑脚本约定),
+# 没有它的模型(如史莱姆)工具退回挂在 actor 根上。
+func tool_mount() -> Node3D:
+	return _body
 
 func _ready():
 	_setup_sweat()

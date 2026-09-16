@@ -21,4 +21,6 @@ var output_count: int = 1         # 单件产物数量(如 "2x+3y->2z");连续�
 @export
 var workload_per_unit: float = 2.0  # 产出一件所需累计工作量(秒,工人效率=1)
 @export
+var required_tool: String = ""    # 执行本配方所需的工具类型(如 "axe");"" = 无需工具,空手可做
+@export
 var inputs: Array[RecipeInputData] = []  # 单件产物消耗的原料清单(可空)

@@ -1,8 +1,10 @@
 class_name Labor
 extends Creature
 
-# 工人随身仓:携带量的唯一来源(供 frontend 头顶表现)。
-# 不向 Logistics 注册——它不是物流供需节点,仅随工人存取。
+# 工人随身仓:携带量的唯一来源(供 frontend 头顶表现)。不向 Logistics 注册——它不是
+# 物流供需节点,仅随工人存取。
+# 它是**多类型仓**:搬运的散料各占一格,手上那把工具(有状态单体)另占一格。工具占的那格
+# 由 man_building 树末的 return 步骤还回 Stockpile,所以稳态下随身仓不会一直被工具占着。
 var carried_bag: Bag = null
 
 # 空载移速:工人不带货时的基准速度(格/秒)。负重在此基准上按装载比例递减。

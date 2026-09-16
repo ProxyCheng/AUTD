@@ -3,15 +3,30 @@
 [ext_resource type="Script" uid="uid://clu83jjojamw2" path="res://runtime/frontend/actors/entity_actor.gd" id="1_uwtes"]
 [ext_resource type="Script" path="res://runtime/frontend/ui/entity_health_bar.gd" id="2_hpbar"]
 [ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/tool_durability_bar.gd" id="4_toolbar"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/head_bar_group.gd" id="5_bars"]
 
 [node name="entity_actor" type="Node3D" unique_id=1922527450]
 script = ExtResource("1_uwtes")
 
-[node name="health_bar" type="ProgressBar" parent="." unique_id=-838178284]
+[node name="head_bars" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+offset_right = 46.0
+offset_bottom = 5.0
+theme_override_constants/separation = 0
+script = ExtResource("5_bars")
+
+[node name="health_bar" type="ProgressBar" parent="head_bars"]
 unique_name_in_owner = true
 offset_right = 46.0
 offset_bottom = 5.0
 script = ExtResource("2_hpbar")
+
+[node name="durability_bar" type="ProgressBar" parent="head_bars"]
+unique_name_in_owner = true
+offset_right = 46.0
+offset_bottom = 5.0
+script = ExtResource("4_toolbar")
 
 [node name="carried" type="Node3D" parent="."]
 unique_name_in_owner = true
@@ -19,3 +34,9 @@ script = ExtResource("3_stack")
 per_row = 1
 layer_count = 5
 layer_spacing = 1.3
+
+[node name="tool" type="Node3D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_stack")
+per_row = 1
+layer_count = 1
