@@ -11,6 +11,11 @@ extends Node
 # 派发后把整棵 JobRunnerTask 包装树推给工人替换其当前任务树(替代旧的 TaskAction 链)。
 # 每人跑完自己的树即归还调度池,全部归还后任务结束(发 task_completed);
 # 中途取消则 JobRunnerTask 在工人下一 tick 检查到取消并以 FAILURE 中止,全部撤出后发 task_cancelled。
+# 无活可派的工人拿到空闲树(idle.tres):先卸下随身仓里"现在用不上"的物品,再原地游荡待命。
+
+
+# 空闲树(§5.3:行为链落 .tres,不代码组装):卸货 → 游荡。模板由 instantiate 深拷贝,多工人共用安全。
+const IDLE_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/idle.tres")
 
 
 class TaskRecord:
@@ -71,7 +76,7 @@ func cancel_task(in_task: LaborTask):
 		_release_task(in_task)
 
 # 劳工当前任务树已结束,请求下一棵(由 Labor.create_tree 调用)。
-# 返回要执行的行为树;无活可派时返回待命 IdleTask 单叶树。
+# 返回要执行的行为树;无活可派时返回空闲树(idle.tres:先卸下用不上的随身物品,再原地游荡)。
 func request_work(in_labor: Labor) -> BehaviorTree:
 	var record: TaskRecord = _assigned.get(in_labor)
 	if record:
@@ -80,7 +85,7 @@ func request_work(in_labor: Labor) -> BehaviorTree:
 	var tree: BehaviorTree = _schedule(in_labor)
 	if tree:
 		return tree
-	return _idle_tree()
+	return _idle_tree(in_labor)
 
 func _schedule(in_requester: Labor) -> BehaviorTree:
 	var requester_tree: BehaviorTree = null
@@ -152,11 +157,10 @@ func _release_task(in_task: LaborTask):
 		remove_child(in_task)
 		in_task.queue_free()
 
-func _idle_tree() -> BehaviorTree:
-	# 空闲游荡:锚点=进入空闲时的位置,半径 3 内走走停停,待派活时被任务树替换
-	var tree := BehaviorTree.new()
-	tree.set_root_task(WanderTask.new())
-	return tree
+# 无活可派的待命树:先卸下随身仓里"现在用不上"的物品(见 idle.tres),再原地游荡;
+# 待派活时整棵树被任务树替换。in_labor 预留给按工人差异定制的空闲行为,当前全体共用同一模板。
+func _idle_tree(in_labor: Labor) -> BehaviorTree:
+	return IDLE_TREE
 
 func _record_comes_first(in_a: TaskRecord, in_b: TaskRecord) -> bool:
 	if in_a.task.priority != in_b.task.priority:

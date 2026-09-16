@@ -95,6 +95,25 @@ func _schedule_transports():
 		_spawn_transport(source, demand_entry, amount)
 		spawned += 1
 
+# 最近的"同类型且可提供/可接收"的已注册仓:只读,不改任何账本。
+# in_need_stock = true 取有货的(count > 0,供领工具);false 取收得下的(未满,供还/卸货)。
+# 供顶岗取/还工具(ManBuildingTask)与空闲卸货(FindDepositBagTask)共用,是"就近挑仓"的唯一实现。
+func find_nearest_bag(in_item_type: String, in_from: Vector2, in_need_stock: bool) -> Bag:
+	var best: Bag = null
+	var best_distance: float = INF
+	for bag: Bag in bags.values():
+		if bag.item_type != in_item_type:
+			continue
+		if in_need_stock and bag.count <= 0:
+			continue
+		if not in_need_stock and bag.is_full():
+			continue
+		var distance: float = bag.access_position.distance_to(in_from)
+		if distance < best_distance:
+			best = bag
+			best_distance = distance
+	return best
+
 # 选供给方:同 item_type、有富余(bag 视为富余),选离请求方装卸点最近者以缩短搬运路程。
 func _find_source(in_demand: Bag) -> Bag:
 	var best: Bag = null

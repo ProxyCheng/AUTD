@@ -1,0 +1,29 @@
+[gd_resource type="BehaviorTree" format=3 uid="uid://cidle0deposit"]
+
+[ext_resource type="Script" uid="uid://councacsy8rrq" path="res://runtime/backend/entities/ai/tasks/find_deposit_bag_task.gd" id="1_find"]
+[ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="2_move"]
+[ext_resource type="Script" uid="uid://dsy356lnysjjb" path="res://runtime/backend/entities/ai/tasks/deposit_load_task.gd" id="3_deposit"]
+[ext_resource type="Script" uid="uid://sv2nw47pglic" path="res://runtime/backend/entities/ai/tasks/wander_task.gd" id="4_wander"]
+
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_idle"]
+
+[sub_resource type="BTAction" id="BTAction_find_deposit"]
+script = ExtResource("1_find")
+
+[sub_resource type="BTAction" id="BTAction_move_deposit"]
+script = ExtResource("2_move")
+target_var = &"deposit_access"
+
+[sub_resource type="BTAction" id="BTAction_deposit"]
+script = ExtResource("3_deposit")
+
+[sub_resource type="BTAction" id="BTAction_wander"]
+script = ExtResource("4_wander")
+
+[sub_resource type="BTSequence" id="BTSequence_root"]
+children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit"), SubResource("BTAction_wander")]
+
+[resource]
+description = "空闲树:先规划卸货(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品,找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;工具走 take_state/add_state 保耐久,散料先算目标仓余量再取)→ 再原地游荡(WanderTask 恒 RUNNING,待派活时整棵树被任务树替换)。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access;工具是否还用得上由 &work_building 的当前配方判定(配方还要这件工具就留着,见 FindDepositBagTask)。"
+blackboard_plan = SubResource("BlackboardPlan_idle")
+root_task = SubResource("BTSequence_root")

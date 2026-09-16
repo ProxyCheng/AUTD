@@ -75,26 +75,14 @@ func _find_tool_bag(in_labor: Labor) -> Bag:
 func _find_return_bag(in_tool_type: String) -> Bag:
 	return _nearest_bag(in_tool_type, false)
 
-# 在 Logistics 已注册的仓里挑最近的一只:类型匹配,且按 in_want_supply 取角色 ——
-# 取工具要"有货"(count > 0),还工具要"收得下"(未满)。
+# 在 Logistics 已注册的仓里挑最近的一只(只读查询,唯一实现在 Logistics.find_nearest_bag):
+# 类型匹配,且按 in_want_supply 取角色 —— 取工具要"有货"(count > 0),还工具要"收得下"(未满)。
+# 距离原点取岗位点:工人从岗位出发去取/还。
 func _nearest_bag(in_item_type: String, in_want_supply: bool) -> Bag:
 	if not Level.current or not Level.current.logistics:
 		return null
-	var from: Vector2 = building.work_entry_position()
-	var best: Bag = null
-	var best_distance: float = INF
-	for bag: Bag in Level.current.logistics.bags.values():
-		if bag.item_type != in_item_type:
-			continue
-		if in_want_supply and bag.count <= 0:
-			continue
-		if not in_want_supply and bag.is_full():
-			continue
-		var distance: float = bag.access_position.distance_to(from)
-		if distance < best_distance:
-			best = bag
-			best_distance = distance
-	return best
+	return Level.current.logistics.find_nearest_bag(
+			in_item_type, building.work_entry_position(), in_want_supply)
 
 # 当前配方所需的工具类型;无配方 / 配方不需要工具时返回 ""。
 func _required_tool() -> String:
