@@ -70,6 +70,13 @@ var _bags: Array[Bag] = []
 # 当前累计工作量(本件产出的进度;相对 active_recipe.workload_per_unit)
 var work_accum: float = 0
 
+# 本班是否已产出一件:每件一单(见 is_work_done)。无输入机器(伐木场/石矿)的输出被物流
+# 持续搬空,只要输出仓没满就永远"需要工人",工人因此不会自然换班 —— 于是派活时算定的取工具
+# 计划(ManBuildingTask._write_tool_plan)永不重算,斧头产出后工人会一直徒手。改为每产出一件
+# 即收单,由 _maintain_manning 立刻重新发布订单:每件都重走一遍派活流程,取工具计划随之重算;
+# 位置最近的工人多半还是它,且已完成步骤(移动)一帧内即达成,故表现上接近连续作业。
+var _produced_this_shift: bool = false
+
 # 在产件配方锁存:一件开工后固定用它直到完成 —— 配方重排只改变"下一件"的优先级,
 # 绝不打断/替换在产件;无在产件(锁存为空)时才按优先级重新挑选(见 _apply_workload)。
 var _unit_recipe: RecipeData = null
@@ -134,7 +141,7 @@ func work(in_workload: float):
 	_apply_workload(in_workload)
 
 func is_work_done() -> bool:
-	return not _needs_worker()
+	return _produced_this_shift or not _needs_worker()
 
 func _needs_worker() -> bool:
 	return _selected_recipe() != null
@@ -182,7 +189,7 @@ func _is_recipe_executable(in_recipe: RecipeData) -> bool:
 func _reset_shift():
 	# 注意:本钩子不清 work_accum(已累计进度跨班保留),故也不得清 _unit_recipe ——
 	# 锁存与累计量必须同生共死,单独清一个会让余量被错记到别的配方上。
-	pass
+	_produced_this_shift = false
 
 # 默认配方兑现:工作量线性累计,攒满一件即产出入仓,剩余部分留作下一件进度。
 # 在产件锁存(_unit_recipe):一件开工后固定用它直到完成,配方重排只影响下一件 ——
@@ -204,6 +211,7 @@ func _apply_workload(in_workload: float):
 		var recipe: RecipeData = _unit_recipe
 		if not _produce_unit(recipe):
 			break
+		_produced_this_shift = true
 		work_accum -= recipe.workload_per_unit
 		# 一件完成即清锁:下一件重新按优先级挑选(单件耗时逐次从新锁存重读);
 		# 余量留给下一件,不足以开工时下次注入再选。

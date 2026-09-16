@@ -49,11 +49,16 @@ func _write_tool_plan(in_labor: Labor):
 	in_labor.blackboard.set_var(BB_TOOL_ACCESS,
 			source.access_position if source else building.work_entry_position())
 
-# 备好"干完把工具还去哪":找一只收该工具类型的仓(通常是把工具交出去的 Stockpile)。
-# 没有可还的仓 → 归还仓置 null 且归还点落到岗位点(ReturnToolTask 无仓时直接跳过,工具自己留着)。
+# 备好"干完把工具还去哪":只还"本单用不上的工具"。
+# 手上没有工具 → 无物可还,归还点落到岗位点,ReturnToolTask 空跑跳过(否则每件白跑一趟容器);
+# 手上正是本单要用的工具 → 留着接着用 —— 每件一单(见 Workshop.is_work_done),若每单都
+# "还了再领",工人就得往返容器数格,斧头省下的时间还不够走路。故工具一直握到本机不再需要它
+# (配方换掉)或它报废为止。
 func _write_return_plan(in_labor: Labor):
-	var tool_type: String = _required_tool()
-	var target := _find_return_bag(tool_type) if not tool_type.is_empty() else null
+	var held: Tool = _held_tool(in_labor)
+	var target: Bag = null
+	if held != null and held.type != _required_tool():
+		target = _find_return_bag(held.type)
 	in_labor.blackboard.set_var(ReturnToolTask.BB_RETURN_BAG, target)
 	in_labor.blackboard.set_var(BB_RETURN_ACCESS,
 			target.access_position if target else building.work_entry_position())
@@ -108,3 +113,14 @@ func _already_holds(in_labor: Labor, in_tool_type: String) -> bool:
 		return false
 	var tool: Tool = carrier
 	return tool.type == in_tool_type
+
+# 工人随身仓里那件工具(任意类型);无 / 已 freed / 非 Tool 时返回 null。
+func _held_tool(in_labor: Labor) -> Tool:
+	if not is_instance_valid(in_labor.carried_bag):
+		return null
+	var carrier: Object = in_labor.carried_bag.peek_state()
+	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+	if not is_instance_valid(carrier) or not (carrier is Tool):
+		return null
+	var tool: Tool = carrier
+	return tool
