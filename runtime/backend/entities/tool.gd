@@ -4,7 +4,9 @@ extends Entity
 # 手持工具基类:工人可持用的一类道具实体(斧/镐/锄/铲/剑…)。
 # 工具是无生命值的静态物品,故直接 extends Entity 而非 Creature —— 不参与受击/死亡,
 # 也不跑行为树。由车间按配方产出(见 CraftingWorkshop),具体工具子类(如 Axe)只声明
-# 自身差异,同族通用约定集中在此。
+# 磨损等自身差异,同族通用约定集中在此。
+# 注入倍率不在工具类上:由配方经 tool_bonuses 声明 { 工具类型: 倍率 },工人持哪种工具、
+# 加多少速全看配方(见 RecipeData / ProvideWorkloadTask),故新增更强的同族工具无需改 AI。
 #
 # 与表现层的契约:模型由前端按 type 装载(§5.5 的 EntityActor / §8 清单),本类不持有
 # 任何视觉引用(§1 前后端分离);本类也不引用音频(§5.7)。
@@ -72,12 +74,6 @@ func wear_for_workload(in_workload: float) -> bool:
 	if wear_per_workload <= 0.0 or in_workload <= 0.0:
 		return false
 	return wear(in_workload * wear_per_workload)
-
-# 本工具对某配方的工作效率倍率:基类 1.0(即工具本身不放大注入量;空手基准见 EMPTY_HANDED_EFFICIENCY),
-# 子类按用途覆写(如 Axe 砍树)。
-# 配方经 required_tool 声明"需要什么工具",实现方比对自身 type 决定是否生效。
-func work_efficiency_for(_in_recipe: RecipeData) -> float:
-	return 1.0
 
 # 房间每帧 tick 所有实体(Room.RoomRegion.tick);工具自身无逐帧逻辑,留空以兑现该契约。
 func tick(_in_delta: float):

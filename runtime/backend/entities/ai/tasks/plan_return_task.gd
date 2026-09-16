@@ -15,7 +15,7 @@ extends BTAction
 #
 # 判定:
 #   手上无工具 / 工人或随身仓失效 → "留着"计划(无物可还);
-#   机器仍是 Workshop 且 active_recipe != null 且 required_tool == 工具类型 → "留着":
+#   机器仍是 Workshop 且 active_recipe != null 且其 tool_bonuses 表含该工具类型 → "留着":
 #     工人留岗继续干活,还回去就得每件都往返容器数格,斧头省下的时间还不够走路;
 #   否则找一只最近的、收得下这件工具的已注册仓(Logistics.find_nearest_bag):
 #     有 → 写归还计划;没有(全图无处可收)→ "留着",工人拿着总比丢了好。
@@ -60,7 +60,7 @@ func _held_tool(in_carried: Bag) -> Tool:
 	return tool
 
 # 机器是否仍需要该类型工具:黑板 &work_building 仍有效、是 Workshop,且其当前配方
-# 还要这件工具(active_recipe != null 且 required_tool == 工具类型)才为真。
+# 还要这件工具(active_recipe != null 且 tool_bonuses 表含该类型)才为真。
 # active_recipe == null(如输出仓刚被本件填满)即视为不再需要。
 func _still_needed(in_tool_type: String) -> bool:
 	var raw_building: Variant = get_blackboard().get_var(ProvideWorkloadTask.BB_BUILDING, null, false)
@@ -71,7 +71,7 @@ func _still_needed(in_tool_type: String) -> bool:
 	var recipe: RecipeData = building.active_recipe
 	if recipe == null:
 		return false
-	return recipe.required_tool == in_tool_type
+	return recipe.tool_bonuses.has(in_tool_type)
 
 # 最近的"同类型且收得下"的已注册仓(只读查询,见 Logistics.find_nearest_bag);
 # 以工人当前位置为距离原点,故挑的是最近的一只。

@@ -3,8 +3,8 @@ extends Workshop
 
 # 伐木场:工人注入 workload 采伐原木(log)入输出仓。产出连续,输出仓满即停。
 # 配方经 recipes 声明(单配方:无输入 → log),顺序 = 执行优先级;基类按配方输出建输出仓。
-# 配方声明 required_tool = "axe":工人会先去有斧头的容器取一把再开工(见 man_building.tres);
-# 全图没有斧头时退化为空手工作(效率 0.1),有斧头则效率翻倍(见 Axe)。
+# 配方的 tool_bonuses 声明 { "axe": 2.0 }:工人会先去有斧头的容器取一把再开工(见 man_building.tres);
+# 全图没有斧头时退化为空手工作(效率 0.1),持斧则注入量翻倍。
 
 # 产出一件原木所需的累计工作量(秒)。伐木略慢于石矿,鼓励按需布置。
 const LOG_WORKLOAD: float = 2.5
@@ -18,5 +18,5 @@ func _make_log_recipe() -> RecipeData:
 	recipe.label = "Log"
 	recipe.output = "log"
 	recipe.workload_per_unit = LOG_WORKLOAD
-	recipe.required_tool = "axe"
+	recipe.tool_bonuses = {"axe": 2.0}
 	return recipe

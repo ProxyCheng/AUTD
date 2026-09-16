@@ -203,7 +203,7 @@ static func default_state_factory(in_item_type: String) -> Object:
 	var carrier: Object = load(path).new()
 	if carrier is Tool:
 		# type 是工具的注册表主键(§5.2):Entity.create 会写,这里直接 new 也得补上,
-		# 否则展示侧绑到空类型、配方的 required_tool 匹配也会失败。
+		# 否则展示侧绑到空类型、配方的 tool_bonuses 匹配也会失败。
 		var tool: Tool = carrier
 		tool.type = in_item_type
 		return tool
