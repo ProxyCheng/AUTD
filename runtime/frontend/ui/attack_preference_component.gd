@@ -14,8 +14,8 @@ const _PREF_VALUE: Array[String] = [
 
 var _option: OptionButton = null
 
-func supports(in_building: Building) -> bool:
-	return in_building is AttackBuilding
+func supports(in_target: Object) -> bool:
+	return in_target is AttackBuilding
 
 func _ready():
 	_option = get_node_or_null("%PreferenceOption") as OptionButton
@@ -27,23 +27,23 @@ func _ready():
 		if not _option.item_selected.is_connected(_on_option_selected):
 			_option.item_selected.connect(_on_option_selected)
 	# bind() 可能早于 _ready(组件节点先被面板绑定):此时补一次刷新
-	if building:
+	if target:
 		refresh()
 
 func _connect_signals():
-	var attack: AttackBuilding = building as AttackBuilding
+	var attack: AttackBuilding = target as AttackBuilding
 	if attack:
 		attack.target_preference_changed.connect(refresh)
 
 func _disconnect_signals():
-	var attack: AttackBuilding = building as AttackBuilding
+	var attack: AttackBuilding = target as AttackBuilding
 	if attack:
 		attack.target_preference_changed.disconnect(refresh)
 
 func refresh():
 	if not _option:
 		return
-	var attack: AttackBuilding = building as AttackBuilding
+	var attack: AttackBuilding = target as AttackBuilding
 	if not attack:
 		return
 	# 同步 UI 到 backend 当前偏好
@@ -52,7 +52,7 @@ func refresh():
 
 # 控件变化 → 调 backend 公开方法落状态(经 setter → 信号回流 refresh)。
 func _on_option_selected(in_index: int):
-	var attack: AttackBuilding = building as AttackBuilding
+	var attack: AttackBuilding = target as AttackBuilding
 	if not attack:
 		return
 	if in_index < 0 or in_index >= _PREF_VALUE.size():

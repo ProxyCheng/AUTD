@@ -4,6 +4,8 @@
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/attack_preference_component.tscn" id="2_pref"]
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/stockpile_content_component.tscn" id="3_stock"]
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/recipe_list_component.tscn" id="4_recipe"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/labor_content_component.gd" id="5_labor"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/labor_content_component.tscn" id="6_laborc"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0.07, 0.08, 0.11, 0.92)
@@ -141,6 +143,8 @@ theme_override_constants/separation = 8
 [node name="StockpileContent" parent="Components" instance=ExtResource("3_stock")]
 
 [node name="RecipeList" parent="Components" instance=ExtResource("4_recipe")]
+
+[node name="LaborContent" parent="Components" instance=ExtResource("6_laborc")]
 
 [node name="DeleteButton" type="Button" parent="."]
 unique_name_in_owner = true

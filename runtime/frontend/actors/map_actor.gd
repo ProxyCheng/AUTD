@@ -11,11 +11,13 @@ func bind(in_map: Map):
 	map.cells_changed.connect(_on_cells_changed)
 
 # 选中变化 → 遍历当前全部建筑 actor,仅与选中 building 相同的 actor 高亮。
-# actor 用 axis 反查(building.axis);选中对象可能在可视区外无 actor,静默忽略。
-func _on_selected_changed(in_building: Building):
+# 选中目标已泛化为 Object(可为工人等 Entity):cast 成 Building 失败时为 null,
+# 全部去环(单一 selected_target 保证不会出现建筑环与实体环并存)。
+func _on_selected_changed(in_target: Object):
+	var building: Building = in_target as Building
 	for axis in building_actors.keys():
 		var actor: BuildingActor = building_actors.get(axis)
-		var is_selected: bool = in_building != null and axis == in_building.axis
+		var is_selected: bool = building != null and axis == building.axis
 		actor.set_selected(is_selected)
 
 func _ready():

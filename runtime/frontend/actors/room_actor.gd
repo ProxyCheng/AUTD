@@ -14,10 +14,50 @@ const REMOVAL_SFX_BY_TYPE: Dictionary = {
 var room: Room = null
 var entity_actors: Dictionary = {}
 var entity_actors_pool: Dictionary = {}
+# 当前选中的 backend 对象(LevelActor.selected_target 的镜像):实体重新进入可视区时
+# 用它恢复选中环(见 _place_entity_actor)。
+var _selected_target: Object = null
+
+func _ready():
+	# 监听 LevelActor 的选中切换(与 map_actor 同款接线:父节点已带脚本,可先于其 _ready 连接)。
+	var la := get_parent() as LevelActor
+	if la and not la.selected_changed.is_connected(_on_selected_changed):
+		la.selected_changed.connect(_on_selected_changed)
 
 func bind(in_room: Room):
 	room = in_room
 	room.entities_changed.connect(_on_entities_changed)
+
+# 选中变化:缓存目标,并让全部在场 actor 重新判定高亮 —— 单一 selected_target 保证
+# 任意时刻至多一个高亮(选中工人时建筑环全灭,反之亦然)。
+func _on_selected_changed(in_target: Object):
+	_selected_target = in_target
+	for entity_actor: EntityActor in entity_actors.values():
+		entity_actor.set_selected(entity_actor.entity == in_target)
+
+# 屏幕坐标点击拾取实体:对所有在场可见 actor 做射线-AABB 测试,取最近命中,无则 null。
+# 遍历 entity_actors(而非 backend entities):该表只存已放置 actor,回收时先 erase,
+# 故每条记录都有有效 entity,天然只拾取可见者。最近命中保证相邻工人可区分。
+func pick_entity(in_screen_position: Vector2) -> Entity:
+	var camera: CameraController = get_viewport().get_camera_3d()
+	if not camera:
+		return null
+	var origin: Vector3 = camera.project_ray_origin(in_screen_position)
+	var direction: Vector3 = camera.project_ray_normal(in_screen_position)
+	var best_distance: float = INF
+	var picked: Entity = null
+	for entity_actor: EntityActor in entity_actors.values():
+		if not entity_actor.visible or not entity_actor.entity:
+			continue
+		# 炮弹/箭矢不可检视:参与命中会吞掉其后世界的点击。
+		if entity_actor.entity is Ballistic:
+			continue
+		# 已知限制(v1):建筑 actor 不参与命中测试,站在建筑后面的工人仍可被选中(不做遮挡判定)。
+		var distance: float = entity_actor.ray_hit_distance(origin, direction)
+		if distance >= 0.0 and distance < best_distance:
+			best_distance = distance
+			picked = entity_actor.entity
+	return picked
 
 func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Array):
 	var camera: CameraController = get_viewport().get_camera_3d()
@@ -66,6 +106,8 @@ func _place_entity_actor(in_entity_id: int):
 		entity_actor.owner = owner
 	entity_actor.bind(entity)
 	entity_actor.show()
+	# 恢复缓存选中:选中的工人走出可视区被回收、再次进入视野时,环要跟着回来。
+	entity_actor.set_selected(entity_actor.entity == _selected_target)
 	entity_actors.set(in_entity_id, entity_actor)
 
 func _recycle_entity_actor(in_entity_id: int):

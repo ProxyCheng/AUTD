@@ -10,13 +10,14 @@ var speed: float = 1
 var level: Level = null
 var mode: Mode = null
 
-# —— 当前选中的建筑(frontend 持有;表现层概念,backend 不作记录)——
-# selected_building 变化 → selected_changed;drives 高亮 + 检视面板。
-var selected_building: Building = null
-signal selected_changed(building: Building)
+# —— 当前选中的检视目标(frontend 持有;表现层概念,backend 不作记录)——
+# selected_target 变化 → selected_changed;drives 高亮 + 检视面板。
+# 目标可为 Building,也可为 Entity(工人等),故用 Object 承载。
+var selected_target: Object = null
+signal selected_changed(target: Object)
 
-# 建筑 actor 按可见性回收/重建,故选中高亮通过 actor 处理(见 map_actor 与
-# BuildingActor.set_selected),这里记录的是 backend Building 对象(生命周期在 Map)。
+# actor 按可见性回收/重建,故选中高亮通过 actor 处理(见 map_actor 与 room_actor),
+# 这里记录的是 backend 对象(生命周期在 Map / Room)。
 
 func bind(in_level: Level):
 	level = in_level
@@ -24,6 +25,17 @@ func bind(in_level: Level):
 	add_child(level)
 	%map.bind(level.map)
 	%room.bind(level.room)
+	# 选中实体被移除(死亡/命中)时关闭检视面板:queue_free 延迟执行,回调期间实体仍有效,
+	# 读 .id 安全(Room.entities_changed 移除事件)。
+	level.room.entities_changed.connect(_on_room_entities_changed)
+
+# 房间实体增删:仅关心当前选中实体被移除的情况(其余表现交给 room_actor)。
+func _on_room_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Array):
+	var target_entity: Entity = selected_target as Entity
+	if not target_entity:
+		return
+	if in_removed_entity_ids.has(target_entity.id):
+		close_inspector()
 
 func get_camera() -> CameraController:
 	return %camera
@@ -33,43 +45,64 @@ func _on_camera_tapped(in_screen_position: Vector2):
 	if mode:
 		mode.on_tap(in_screen_position)
 
-# —— 建筑检视(GUI 侧栏)——
-# 打开选中建筑的检视面板:记录选中 → 高亮 → 分发到对应面板 → 切到 inspect mode。
-# 面板是屏幕空间 Control(挂 %inspector CanvasLayer),非世界空间头顶条。
-func inspect_building(in_building: Building):
-	select_building(in_building)
+# 世界点击拾取实体(工人等):转发给 room actor 做射线-AABB 命中测试,无命中返回 null。
+func pick_entity(in_screen_position: Vector2) -> Entity:
+	return %room.pick_entity(in_screen_position)
+
+# —— 检视目标(GUI 侧栏)——
+# 打开选中目标的检视面板:记录选中 → 高亮 → 分发到面板 → 切到 inspect mode。
+# 目标可为 Building 或 Entity;面板是屏幕空间 Control(挂 %inspector CanvasLayer),非世界空间头顶条。
+func inspect_target(in_target: Object) -> bool:
+	select_target(in_target)
 	var panel: Node = %inspector.get_node("Panel")
 	if not panel or not panel.has_method(&"configure"):
-		return
+		return false
 	# configure 返回 true 才说明有对应面板被打开;
-	# 无面板建筑(main_base/enemy_spawner 等)撤销选中(去掉高亮),保持 roaming。
-	if panel.call(&"configure", in_building):
+	# 无面板目标(main_base/enemy_spawner 等)撤销选中(去掉高亮),保持当前模式。
+	if panel.call(&"configure", in_target):
 		AudioManager.sfx(&"ui_open")
 		set_mode(&"inspect")
-	else:
-		# 该建筑没有对应面板(如 main_base / enemy_spawner):选中随即被撤销。
-		# 给一声"点到了但不可检视"的反馈,避免点击完全没响应。
-		AudioManager.sfx(&"ui_select")
-		clear_selection()
+		return true
+	# 该目标没有对应面板:选中随即被撤销。
+	# 给一声"点到了但不可检视"的反馈,避免点击完全没响应。
+	AudioManager.sfx(&"ui_select")
+	clear_selection()
+	return false
 
-# 记录当前选中建筑并广播(高亮 actor 由 map_actor 监听 selected_changed 驱动)。
-func select_building(in_building: Building):
-	if in_building == selected_building:
+# 记录当前选中目标并广播(高亮 actor 由 map_actor / room_actor 监听 selected_changed 驱动)。
+func select_target(in_target: Object):
+	if in_target == selected_target:
 		return
-	selected_building = in_building
-	selected_changed.emit(in_building)
+	selected_target = in_target
+	selected_changed.emit(in_target)
 
 # 清空选中(关闭检视或取消选中时);不发强制的无面板关闭。
 func clear_selection():
-	if selected_building == null:
+	if selected_target == null:
 		return
-	selected_building = null
+	selected_target = null
 	selected_changed.emit(null)
+
+# —— 检视面板开关 ——
+# _dismissing 防重入:panel.close() 会同步回调 BuildingInspectorHost → close_inspector(),
+# 若不拦截会形成 close_inspector → _dismiss_inspector → panel.close 的级联递归
+# (重复关面板 / 二次 set_mode / ui_toggle 响两声)。
+var _dismissing: bool = false
+
+# 关闭面板但**不**切模式(close_inspector 与 set_mode 共用);级联重入在此被拦下。
+func _dismiss_inspector():
+	if _dismissing:
+		return
+	_dismissing = true
+	clear_selection()
+	%inspector.get_node("Panel").call(&"close")
+	_dismissing = false
 
 # 关闭检视面板并回到 roaming;先清空选中(面板已在关闭时清除绑定)。
 func close_inspector():
-	clear_selection()
-	%inspector.get_node("Panel").call(&"close")
+	if _dismissing:
+		return
+	_dismiss_inspector()
 	set_mode(&"roaming")
 
 # 删除建筑(检视面板内 Delete 按钮触发):先关闭面板(断开其对 building 的绑定),
@@ -84,6 +117,10 @@ func delete_building(in_building: Building):
 		AudioManager.sfx_at(&"build_remove", Vector3(axis.x, 0, axis.y))
 
 func set_mode(in_mode_id: StringName):
+	# 切到非检视模式时,先关掉还开着的检视面板,避免面板跨模式残留。
+	# _dismiss_inspector 自带 _dismissing 守卫:close_inspector 自己的 set_mode 不会二次关闭。
+	if in_mode_id != &"inspect" and mode is InspectMode:
+		_dismiss_inspector()
 	var had_mode: bool = mode != null
 	if mode:
 		mode.leave()

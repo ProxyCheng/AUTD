@@ -1,23 +1,23 @@
 class_name BuildingInspectorHost
 extends Control
 
-# 检视面板宿主(挂在 battle.tscn %inspector/Panel 上):一屏检视一个建筑。
+# 检视面板宿主(挂在 battle.tscn %inspector/Panel 上):一屏检视一个目标(建筑或实体)。
 # 本容器只做两件事:把 configure/close 转发给唯一子面板(BuildingInspectorPanel),
 # 并把面板的 closed / delete_requested 级联回 LevelActor —— 不再按类型选面板,
 # 面板自己按组件 supports() 决定能否显示(见 building_inspector_panel.gd)。
 #
-# LevelActor.inspect_building 调本容器 configure(in_building),返回是否成功开启;
+# LevelActor.inspect_target 调本容器 configure(in_target),返回是否成功开启;
 # close_inspector 调 close();面板 × 关闭经 closed → owner.close_inspector 回 roaming。
 
 var _closing: bool = false   # 防重入 guard,避免 close_inspector 级联递归
 var _panel: BuildingInspectorPanel = null
 
-# 绑定建筑:转发给面板;返回 true 表示成功开启检视(有组件支持该建筑),false = 无可检视内容。
-func configure(in_building: Building) -> bool:
+# 绑定检视目标:转发给面板;返回 true 表示成功开启检视(有组件支持该目标),false = 无可检视内容。
+func configure(in_target: Object) -> bool:
 	_ensure_panel()
 	if not _panel:
 		return false
-	return _panel.configure(in_building)
+	return _panel.configure(in_target)
 
 # 关闭当前检视(LevelActor.close_inspector 调用,或面板关闭按钮 × 级联后进入)。
 func close():

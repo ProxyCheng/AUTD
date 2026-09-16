@@ -9,31 +9,31 @@ var _type_label: Label = null
 var _stock_bar: ProgressBar = null
 var _stock_label: Label = null
 
-func supports(in_building: Building) -> bool:
-	return in_building is Stockpile
+func supports(in_target: Object) -> bool:
+	return in_target is Stockpile
 
 func _ready():
 	_type_label = get_node_or_null("%TypeLabel") as Label
 	_stock_bar = get_node_or_null("%StockBar") as ProgressBar
 	_stock_label = get_node_or_null("%StockLabel") as Label
 	# bind() 可能早于 _ready(组件节点先被面板绑定):此时补一次刷新
-	if building:
+	if target:
 		refresh()
 
 func _connect_signals():
-	var stockpile: Stockpile = building as Stockpile
+	var stockpile: Stockpile = target as Stockpile
 	if stockpile:
 		stockpile.content_type_changed.connect(refresh)
 		stockpile.stored_count_changed.connect(refresh)
 
 func _disconnect_signals():
-	var stockpile: Stockpile = building as Stockpile
+	var stockpile: Stockpile = target as Stockpile
 	if stockpile:
 		stockpile.content_type_changed.disconnect(refresh)
 		stockpile.stored_count_changed.disconnect(refresh)
 
 func refresh():
-	var stockpile: Stockpile = building as Stockpile
+	var stockpile: Stockpile = target as Stockpile
 	if not stockpile:
 		return
 	if _type_label:

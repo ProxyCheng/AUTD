@@ -1,25 +1,27 @@
 class_name BuildingInspectorPanel
 extends Control
 
-# 通用建筑检视面板(屏幕空间侧栏,挂在 battle.tscn %inspector/Panel 下)。
-# 一屏只检视一个建筑:面板自身不含任何建筑专属 UI,只做三件事 ——
+# 通用检视面板(屏幕空间侧栏,挂在 battle.tscn %inspector/Panel 下)。
+# 一屏只检视一个目标:目标可为 Building,也可为 Entity(如工人);面板自身不含任何
+# 目标专属 UI,只做三件事 ——
 #   1. 绑定/解绑 %Components 下的全部 InspectorComponent:组件各自 supports() 声明
-#      服务的建筑类型、自行监听 backend 信号刷新(见 inspector_component.gd),
+#      服务的检视目标类型、自行监听 backend 信号刷新(见 inspector_component.gd),
 #      面板不按类型路由、不窥探组件内部;
-#   2. 标题(make_title:建筑类型 → 显示名);
-#   3. 关闭(×)/删除按钮的意图信号。
+#   2. 标题(make_title:类型 → 显示名);
+#   3. 关闭(×)/删除按钮的意图信号(%DeleteButton 仅建筑显示,实体无删除)。
 # 组件组合可自由调整:在 building_inspector_panel.tscn 的 %Components 里增删组件即可。
 #
 # 对外契约(LevelActor / InspectMode / BuildingInspectorHost 依赖):
-#   configure(in_building) -> bool   绑定并显示;无组件支持该建筑时返回 false 且不显示
+#   configure(in_target) -> bool     绑定并显示;无组件支持该目标时返回 false 且不显示
 #   close()                          解绑、隐藏、发 closed
 #   signal closed / delete_requested(building)
 
 signal closed()
-# 点击 Delete 按钮:请求删除当前检视的建筑(由 LevelActor 监听处理;面板本身不删)。
+# 点击 Delete 按钮:请求删除当前检视的建筑(仅建筑显示该按钮;由 LevelActor 监听处理,
+# 面板本身不删)。
 signal delete_requested(building: Building)
 
-# 建筑类型 → 面板标题(保持历史显示名);未列出的类型回退为 type.capitalize()。
+# 检视目标类型 → 面板标题(保持历史显示名);未列出的类型回退为 type.capitalize()。
 const TITLES: Dictionary = {
 	"crafting_workshop": "Workshop",
 	"tree_workshop": "Workshop",
@@ -27,33 +29,37 @@ const TITLES: Dictionary = {
 	"crossbow": "Crossbow",
 	"cannon": "Cannon",
 	"stockpile": "Stockpile",
+	"labor": "Worker",
 }
 
-var building: Building = null
+var target: Object = null
 var _title_label: Label = null
 var _close_button: Button = null
 var _delete_button: Button = null
 var _components: Array[InspectorComponent] = []
 
-# 绑定检视对象:先解绑旧组件再绑定新建筑;全部组件都不支持时返回 false(不显示)。
-func configure(in_building: Building) -> bool:
+# 绑定检视目标:先解绑旧组件再绑定新目标;全部组件都不支持时返回 false(不显示)。
+func configure(in_target: Object) -> bool:
 	_ensure_widgets()
 	_ensure_components()
 	_unbind_components()
-	building = in_building
-	if building == null:
+	target = in_target
+	if target == null:
 		hide()
 		return false
 	var bound_any: bool = false
 	for component: InspectorComponent in _components:
-		if component.bind(building):
+		if component.bind(target):
 			bound_any = true
 	if not bound_any:
-		building = null
+		target = null
 		hide()
 		return false
 	if _title_label:
-		_title_label.text = make_title(building)
+		_title_label.text = make_title(target)
+	# 删除按钮仅建筑可用:实体(工人)检视不提供删除
+	if _delete_button:
+		_delete_button.visible = target is Building
 	show()
 	return true
 
@@ -61,14 +67,15 @@ func configure(in_building: Building) -> bool:
 func close():
 	_ensure_components()
 	_unbind_components()
-	building = null
+	target = null
 	hide()
 	AudioManager.sfx(&"ui_close")
 	closed.emit()
 
 # 标题(类型 → 显示名;未列出的类型回退 type.capitalize())。
-func make_title(in_building: Building) -> String:
-	return TITLES.get(in_building.type, in_building.type.capitalize())
+func make_title(in_target: Object) -> String:
+	var type: String = str(in_target.get(&"type"))
+	return TITLES.get(type, type.capitalize())
 
 # —— 通用装配 ——
 
@@ -76,8 +83,8 @@ func _ready():
 	_ensure_widgets()
 	_ensure_components()
 	# configure 可能早于 _ready(组件节点尚未就绪):这里补一次绑定
-	if building:
-		configure(building)
+	if target:
+		configure(target)
 
 func _ensure_widgets():
 	if _title_label:
@@ -111,8 +118,10 @@ func _on_close_pressed():
 	close()
 
 # 删除按钮:发出 delete_requested(building) 交由 LevelActor 处理(关面板+销毁建筑)。
-# 面板本身不删建筑(哑组件,只表达意图,经信号回调),遵循 AGENTS §6 约定。
+# 仅建筑检视会显示该按钮;面板本身不删建筑(哑组件,只表达意图,经信号回调),
+# 遵循 AGENTS §6 约定。
 func _on_delete_pressed():
+	var building: Building = target as Building
 	if not building:
 		return
 	AudioManager.sfx(&"ui_click")

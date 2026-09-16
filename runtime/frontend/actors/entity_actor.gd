@@ -15,6 +15,16 @@ var model_height: float = 0.0
 # 模型本地空间合并 AABB(相对 actor 原点,随 scale/本地朝向不变),供头顶携带物定位
 var _model_local_box: AABB = AABB()
 
+# —— 点击拾取 ——
+# 点击宽容度(米):包围盒外扩量,小模型(如工人)也能点中。
+const PICK_MARGIN: float = 0.12
+
+# —— 选中高亮 ——
+# 选中状态由 frontend(LevelActor.selected_target)持有;本 actor 只是表现层:
+# set_selected(true/false) 显隐选中环,不接触 backend 玩法。
+var selected: bool = false
+var _selection_ring: Node3D = null
+
 # —— 音效 ——
 # 脚步:行走状态按间隔播放(带轻微音高抖动);受击/死亡由 state 变化驱动
 # (dizzy=受击,die=死亡),不逐帧触发,避免噪声。
@@ -29,6 +39,10 @@ var _footstep_timer: float = 0.0
 @onready var _tool_stack: ItemStack = %tool
 
 func bind(in_entity: Entity):
+	# 重绑(复用池回收/重建)时复位选中,避免上个实体的高亮残留。
+	selected = false
+	if _selection_ring:
+		_selection_ring.visible = false
 	if entity:
 		entity.position_changed.disconnect(_on_entity_position_changed)
 		entity.direction_changed.disconnect(_on_entity_direction_changed)
@@ -61,6 +75,74 @@ func bind(in_entity: Entity):
 
 func get_type_key() -> String:
 	return "Entity_%s" % type
+
+# 显隐选中环(点击选中工人等实体时由 LevelActor 驱动)。
+func set_selected(in_selected: bool):
+	if in_selected == selected:
+		return
+	selected = in_selected
+	if not _selection_ring:
+		_build_selection_ring()
+	if _selection_ring:
+		_selection_ring.visible = selected
+
+# 程序化生成选中环:与 BuildingActor 同款 TorusMesh(默认平躺 XZ 面,勿再绕 X 旋转),
+# 但半径由模型本地包围盒推出 —— 工人远小于 1×1 建筑,不能沿用建筑的硬编码半径。
+func _build_selection_ring():
+	var outer: float = maxf(maxf(_model_local_box.size.x, _model_local_box.size.z) * 0.75, 0.15)
+	var ring := MeshInstance3D.new()
+	ring.name = "SelectionRing"
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = outer * 0.75
+	ring_mesh.outer_radius = outer
+	ring_mesh.rings = 16
+	ring_mesh.ring_segments = 32
+	ring.mesh = ring_mesh
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.25, 0.85, 1.0, 0.7)
+	mat.emission_enabled = true
+	mat.emission = Color(0.25, 0.85, 1.0)
+	mat.emission_energy_multiplier = 1.5
+	ring.material_override = mat
+	# TorusMesh 默认已在 XZ 平面(绕 Y 轴的平躺环),直接平铺地面即可,勿再绕 X 旋转(会立起来)。
+	# 略抬 y 防与地面 z-fight。
+	ring.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.03, 0))
+	ring.visible = false
+	add_child(ring)
+	_selection_ring = ring
+
+# 世界空间射线 vs 模型本地包围盒(外扩 PICK_MARGIN)的 slab 测试,返回进入距离 tmin;未命中 -1。
+# actor 自身无缩放(缩放只在 model 子节点上),故 actor 本地空间的 t 即世界尺度。
+# tmin 从 0 起算 → 相机背后的命中被拒;包围盒为空(无网格)的实体不可点。
+func ray_hit_distance(in_origin: Vector3, in_direction: Vector3) -> float:
+	if _model_local_box.size == Vector3.ZERO or in_direction.is_zero_approx():
+		return -1.0
+	var box: AABB = _model_local_box.grow(PICK_MARGIN)
+	var to_local: Transform3D = global_transform.affine_inverse()
+	var local_origin: Vector3 = to_local * in_origin
+	var local_direction: Vector3 = to_local.basis * in_direction
+	var tmin: float = 0.0
+	var tmax: float = INF
+	for axis: int in 3:
+		var origin_axis: float = local_origin[axis]
+		var direction_axis: float = local_direction[axis]
+		if absf(direction_axis) < 0.000001:
+			# 射线平行于该轴:原点在板外则永不相交
+			if origin_axis < box.position[axis] or origin_axis > box.end[axis]:
+				return -1.0
+			continue
+		var t1: float = (box.position[axis] - origin_axis) / direction_axis
+		var t2: float = (box.end[axis] - origin_axis) / direction_axis
+		if t1 > t2:
+			var swap: float = t1
+			t1 = t2
+			t2 = swap
+		tmin = maxf(tmin, t1)
+		tmax = minf(tmax, t2)
+		if tmin > tmax:
+			return -1.0
+	return tmin
 
 func _on_entity_position_changed():
 	if not entity:
