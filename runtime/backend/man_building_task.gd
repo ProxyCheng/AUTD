@@ -22,6 +22,8 @@ const BB_TOOL_ACCESS: StringName = &"tool_access"
 const BB_RETURN_ACCESS: StringName = &"return_access"
 # 一次只领一件工具。
 const TOOL_TAKE_AMOUNT: int = 1
+# 调度时"手上已握着本机所需工具"的优先级折扣:远大于地图尺寸,压过任何距离差。
+const TOOL_HOLD_PRIORITY: float = 100.0
 
 var building: Workshop = null
 var entry_position: Vector2 = Vector2.ZERO
@@ -39,6 +41,18 @@ func make_tree(in_labor: Labor) -> BehaviorTree:
 	_write_tool_plan(in_labor)
 	_write_return_plan(in_labor)
 	return JOB_TREE
+
+# 就近调度 + 工具优先:已经握着本机所需工具的工人优先被派到本机。
+# 工具是"按件"的、全图往往只有一两把,而默认 cost_for(LaborTask)只看距离 —— 于是会派一个
+# 空手工人过来,把工具留在另一个闲置工人手上(空闲树见 &work_building 仍要这件工具就不卸,见
+# FindDepositBagTask),本机只能空手开工(效率差 20 倍,见 Tool.EMPTY_HANDED_EFFICIENCY)。
+# 扣一个远大于地图尺寸的常量,确保"手上有工具"压过任何距离差;配方不需要工具时 _required_tool()
+# 为空,_already_holds 恒 false,行为与默认一致。
+func cost_for(in_labor: Labor) -> float:
+	var cost: float = super.cost_for(in_labor)
+	if _already_holds(in_labor, _required_tool()):
+		cost -= TOOL_HOLD_PRIORITY
+	return cost
 
 # 备好"要不要取工具、去哪取":工人已持有匹配工具 / 配方不需要工具 / 全图没有该工具的容器
 # → 源仓置 null 且行走目标落到岗位点,等价直接空手开工(TakeFromBagTask.optional = true)。
