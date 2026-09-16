@@ -11,7 +11,8 @@ extends Entity
 #
 # 耐久:容器(Bag)只存可计数的"类型 + 数量",取出时实例化一件(见 Labor.equip_tool),
 # 因此耐久是"按件"的;占比经 durability_changed 广播,由前端 ToolDurabilityBar 显示。
-# 工人跨任务一直握着同一件,直到它报废 —— 这样耐久才有意义(放下再取会重置为满)。
+# 工人跨任务握着同一件(工具在仓间搬来搬去都走 Bag.move_to,实例与耐久一路跟着走、不重置);
+# 一直没派上用场的会被空闲树放回仓里(见 UNUSED_PUT_AWAY_SECONDS)。
 
 const DEFAULT_MAX_DURABILITY: float = 100.0
 # 空手注入倍率:配方需要工具而工人手上没有时的效率系数(见 ProvideWorkloadTask._tool_factor)。
@@ -33,6 +34,24 @@ signal durability_changed()
 
 # 每注入 1 单位工作量消耗的耐久点;<= 0 表示本工具不磨损(子类按用途调整)。
 var wear_per_workload: float = 1.0
+
+# "持有但一直没被用上"的时长(秒):工人每 tick 推进它,工具真正驱动工作时清零(见 mark_used)。
+# 超过 UNUSED_PUT_AWAY_SECONDS 即视为用不上,工人空闲时把它放回仓里(见 FindDepositBagTask)。
+# 为什么按时长判定、而不是"上一台机器还要不要它":机器可能永远不再雇这个工人(输出仓满了、
+# 换了配方、派给了别人),那种判定会把工具一直卡在游荡的工人手上,全图的仓里反而没有它。
+var unused_time: float = 0.0
+
+# 持有超过这么久没被用上,就放回仓里。取值只需盖过"同一台机器两件活之间的短暂空闲"
+# (Workshop._maintain_manning 等 _manned_timer 衰减,约 0.2 秒),所以几秒足够。
+const UNUSED_PUT_AWAY_SECONDS: float = 5.0
+
+# 本工具刚驱动过一次工作(由 ProvideWorkloadTask 调用):重置未使用计时。
+func mark_used():
+	unused_time = 0.0
+
+# 是否已"持有太久没被用上"(空闲树据此决定放回仓里)。
+func is_unused_too_long() -> bool:
+	return unused_time >= UNUSED_PUT_AWAY_SECONDS
 
 # 耐久占比 [0,1](§5.4 契约:数据层恒输出归一化值,到条宽/动画的换算留给前端)。
 func durability_ratio() -> float:

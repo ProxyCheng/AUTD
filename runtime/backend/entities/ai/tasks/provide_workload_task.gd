@@ -37,10 +37,13 @@ func _tick(in_delta: float) -> int:
 	var tool := _held_tool(labor, building)
 	var injected: float = in_delta * efficiency * _tool_factor(tool, building)
 	building.work(injected)
-	if tool and tool.wear_for_workload(injected):
-		# 工具报废:从随身仓摘格丢弃(remove_count 对状态格是丢弃语义)
-		labor.carried_bag.remove_count_of(tool.type, 1)
-		return BT.Status.FAILURE
+	if tool:
+		# 这件工具真的派上用场了:清零"未使用计时"(见 Tool.unused_time)。
+		tool.mark_used()
+		if tool.wear_for_workload(injected):
+			# 工具报废:从随身仓摘格丢弃(remove_count 对状态格是丢弃语义)
+			labor.carried_bag.remove_count_of(tool.type, 1)
+			return BT.Status.FAILURE
 	if building.is_work_done():
 		return BT.Status.SUCCESS
 	return BT.Status.RUNNING

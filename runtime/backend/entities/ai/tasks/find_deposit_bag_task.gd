@@ -4,11 +4,14 @@ extends BTAction
 # 空闲卸货·规划叶子:工人闲置时,从随身仓里挑一类"现在用不上"的物品,找一只最近且
 # 收得下的已注册仓,把卸货计划写进黑板(供后续 MoveToTargetTask / DepositLoadTask 执行)。
 #
-# "用不上"的判定靠黑板 &work_building(ManBuildingTask 派活时写入,跨任务保留,即
-# "我上次在哪台机器干活"):该机器仍在、其当前配方还要这件工具 → 留着别卸。这道闸是必须的 ——
-# 工人每做完一件都会短暂空闲(Workshop._maintain_manning 要等 _manned_timer 衰减后才重新下单),
-# 若此时把斧头卸了,下一单又得走回容器取,来回数格的路比斧头省下的砍伐时间还长。
-# 机器无可行配方(active_recipe == null,如输出仓满)时工具不再需要,照卸不误。
+# "用不上"的判定:
+#   有状态工具 —— 看**持有期间有没有被用上**(Tool.unused_time):刚用完的留着(机器多半马上
+#     再来派活,免得每件都往返容器数格),一直没派上用场的才放回去;
+#   散料 —— 没有"在用"概念,闲置即可卸。
+# 曾经用"上一台机器还要不要这件工具"(黑板 &work_building)来判定,已废弃:机器可能永远不再
+# 雇这个工人(输出仓满了/换配方/派给了别人),那样工具会一直卡在游荡的工人手上,而全图的仓里
+# 反而没有它 —— 本机派来的新工人只能空手开工(效率差 20 倍,见 Tool.EMPTY_HANDED_EFFICIENCY)。
+# 本叶由空闲树周期性重跑(WanderTask 跑满 duration 后让出、整棵树重建),所以"用不上"会被反复检查。
 #
 # 恒 SUCCESS:无可卸 / 全图无处可收都只是"不卸",不是失败。
 #
@@ -46,27 +49,17 @@ func _tick(_in_delta: float) -> int:
 	_plan(agent, shed_type, target)
 	return BT.Status.SUCCESS
 
-# 挑随身仓里第一类"现在用不上"的物品:配方还要用的那类工具跳过,其余(别的工具/散料)都可卸。
+# 挑随身仓里第一类"现在用不上"的物品:有状态工具看"持有太久没被用上",散料闲置即可卸(见文件头)。
 func _pick_shed_type(in_carried: Bag) -> String:
-	var needed_tool: String = _needed_tool()
 	for item_type: String in in_carried.types():
-		if item_type == needed_tool:
-			continue
+		var carrier: Object = in_carried.peek_state(item_type)
+		# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
+		if is_instance_valid(carrier) and carrier is Tool:
+			var tool: Tool = carrier
+			if not tool.is_unused_too_long():
+				continue
 		return item_type
 	return ""
-
-# 工人"还要用"的工具类型:黑板 &work_building 仍有效、其当前配方要工具时取该类型,否则 ""。
-# 机器无可行配方(active_recipe == null,如输出仓满/换配方)即视为不再需要,其工具可卸。
-func _needed_tool() -> String:
-	var raw_building: Variant = get_blackboard().get_var(ProvideWorkloadTask.BB_BUILDING, null, false)
-	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
-	if not is_instance_valid(raw_building) or not (raw_building is Workshop):
-		return ""
-	var building: Workshop = raw_building
-	var recipe: RecipeData = building.active_recipe
-	if recipe == null:
-		return ""
-	return recipe.required_tool
 
 # 最近的"同类型且收得下"的已注册仓(只读查询,见 Logistics.find_nearest_bag);
 # 以工人当前位置为距离原点,故挑的是最近的一只。
