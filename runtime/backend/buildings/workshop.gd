@@ -4,8 +4,9 @@ extends Building
 # 工人驱动的机器基类(作坊)。机器 = 一张(或多张)配方 + 一名工人注入工作量。
 #
 # 配方体系:本基类持有 recipes(Array[RecipeData])作为配方列表,按数组顺序决定执行
-# 优先级(越靠前越优先)。每次生产从列表里按优先级挑出"当前可执行"的配方
-# (见 _selected_recipe:输入齐备且输出仓未满),消费其 inputs、兑现其 output。
+# 优先级(越靠前越优先)。每件开工时从列表里按优先级挑出"当前可执行"的配方并锁存
+# (见 _selected_recipe/_apply_workload:输入齐备且输出仓未满),消费其 inputs、兑现其 output;
+# 在产件完成前重排配方只影响下一件,不会打断在产件。
 # GUI 通过 move_recipe(from, to) 调整顺序即可改变执行优先级,无需改代码。
 #
 # 配方形态(与 RecipeData 注释一致):
@@ -68,6 +69,10 @@ var _bags: Array[Bag] = []
 
 # 当前累计工作量(本件产出的进度;相对 active_recipe.workload_per_unit)
 var work_accum: float = 0
+
+# 在产件配方锁存:一件开工后固定用它直到完成 —— 配方重排只改变"下一件"的优先级,
+# 绝不打断/替换在产件;无在产件(锁存为空)时才按优先级重新挑选(见 _apply_workload)。
+var _unit_recipe: RecipeData = null
 
 # —— 对外可观察存量镜像 ——
 # 镜像目标:生产类 = 输出仓;消耗类 = 弹药输入仓。由 _bind_mirror 指定。
@@ -148,17 +153,22 @@ func manning_priority() -> int:
 
 # —— 配方查询:当前应执行的配方 ——
 
-# 从 recipes 按优先级挑出第一个"当前可执行"的配方。
-# 可执行 = 输出仓未满(若无输出则视为真)且输入齐备。
+# 当前应执行的配方:在产件锁存优先(重排不打断在产件),无在产件时按优先级挑选。
 # 返回前同步 active_recipe(有变化则触发 active_recipe_changed),供 frontend 高亮当前执行配方。
 func _selected_recipe() -> RecipeData:
-	var chosen: RecipeData = null
-	for recipe: RecipeData in recipes:
-		if _is_recipe_executable(recipe):
-			chosen = recipe
-			break
+	var chosen: RecipeData = _unit_recipe
+	if chosen == null:
+		chosen = _pick_recipe()
 	active_recipe = chosen
 	return chosen
+
+# 从 recipes 按优先级挑出第一个"当前可执行"的配方;无则 null。
+# 可执行 = 输出仓未满(若无输出则视为真)且输入齐备。只做挑选,不改锁存/不碰 active_recipe。
+func _pick_recipe() -> RecipeData:
+	for recipe: RecipeData in recipes:
+		if _is_recipe_executable(recipe):
+			return recipe
+	return null
 
 # 单张配方的可执行性:输出仓未满(无输出则视为真)且输入齐备。
 func _is_recipe_executable(in_recipe: RecipeData) -> bool:
@@ -170,21 +180,40 @@ func _is_recipe_executable(in_recipe: RecipeData) -> bool:
 # —— 子类钩子:值岗生命周期 / 机器推进 ——
 
 func _reset_shift():
+	# 注意:本钩子不清 work_accum(已累计进度跨班保留),故也不得清 _unit_recipe ——
+	# 锁存与累计量必须同生共死,单独清一个会让余量被错记到别的配方上。
 	pass
 
 # 默认配方兑现:工作量线性累计,攒满一件即产出入仓,剩余部分留作下一件进度。
+# 在产件锁存(_unit_recipe):一件开工后固定用它直到完成,配方重排只影响下一件 ——
+# 已累计的工作量绝不转给别的配方。
 func _apply_workload(in_workload: float):
-	var recipe := _selected_recipe()
-	if recipe == null:
+	# 无在产件:按优先级挑一件开工并锁存;无可行配方则不锁、不累计。
+	if _unit_recipe == null:
+		_unit_recipe = _pick_recipe()
+	if _unit_recipe == null:
 		return
-	if recipe.output != "" and output_bag and output_bag.is_full():
+	# 在产件暂停条件(缺料/输出仓满):锁存保留,本件不换配方,等条件恢复再续。
+	if not _has_inputs_for(_unit_recipe):
+		return
+	var bag: Bag = _output_bag_for(_unit_recipe.output)
+	if bag and bag.is_full():
 		return
 	work_accum += in_workload
-	while work_accum >= recipe.workload_per_unit:
-		if not _produce_unit():
+	while work_accum >= _unit_recipe.workload_per_unit:
+		var recipe: RecipeData = _unit_recipe
+		if not _produce_unit(recipe):
 			break
 		work_accum -= recipe.workload_per_unit
-	progress = clampf(work_accum / recipe.workload_per_unit, 0.0, 1.0)
+		# 一件完成即清锁:下一件重新按优先级挑选(单件耗时逐次从新锁存重读);
+		# 余量留给下一件,不足以开工时下次注入再选。
+		_unit_recipe = _pick_recipe() if work_accum > 0.0 else null
+		if _unit_recipe == null:
+			break
+	# progress 按在产件归一化;无在产件时保持原值(归零语义留给子类)
+	if _unit_recipe:
+		progress = clampf(work_accum / _unit_recipe.workload_per_unit, 0.0, 1.0)
+	active_recipe = _unit_recipe
 
 # 机器帧推进:维护建筑可观察 state(供 frontend 播/静止)。仅"有人值守且在产出"时
 # 置 "working",否则 "idle" —— 前端动画只在真正生产时播放。产出进度归零语义留给子类。
@@ -314,18 +343,18 @@ func occupancy_fill() -> float:
 # —— 内部 ——
 
 # 实际产出一件:先扣输入(可过),再向输出仓塞一件(自带上限截断)。
-func _produce_unit() -> bool:
-	var recipe := _selected_recipe()
-	if recipe == null:
+# 配方由 _apply_workload 传入锁存的在产件,避免完成时重新挑选导致"产出 ≠ 累计所对"。
+func _produce_unit(in_recipe: RecipeData) -> bool:
+	if in_recipe == null:
 		return false
-	var bag: Bag = _output_bag_for(recipe.output)
+	var bag: Bag = _output_bag_for(in_recipe.output)
 	if bag and bag.is_full():
 		return false
-	if not _consume_inputs_for(recipe):
+	if not _consume_inputs_for(in_recipe):
 		return false
 	if bag:
 		# 按配方 output_count 一次入仓多件(默认 1);"2x+3y->2z" 等比例方与实际产出一致
-		bag.add_count(recipe.output_count)
+		bag.add_count(in_recipe.output_count)
 	return true
 
 # 建一只参与物流的仓并注册。is_demand = true 为纯需求方(低于上限即求补到满,永不外供,
