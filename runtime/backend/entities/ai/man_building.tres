@@ -8,6 +8,17 @@
 
 [sub_resource type="BlackboardPlan" id="BlackboardPlan_21s5x"]
 
+[sub_resource type="BTAction" id="BTAction_plan_return"]
+script = ExtResource("5_plan")
+
+[sub_resource type="BTAction" id="BTAction_move_return"]
+script = ExtResource("1_move")
+target_var = &"return_access"
+arrival_distance = 0.5
+
+[sub_resource type="BTAction" id="BTAction_return_tool"]
+script = ExtResource("4_return")
+
 [sub_resource type="BTAction" id="BTAction_move_tool"]
 script = ExtResource("1_move")
 target_var = &"tool_access"
@@ -24,21 +35,10 @@ arrival_center_offset = Vector2(0.4, 0.4)
 [sub_resource type="BTAction" id="BTAction_work"]
 script = ExtResource("2_work")
 
-[sub_resource type="BTAction" id="BTAction_plan_return"]
-script = ExtResource("5_plan")
-
-[sub_resource type="BTAction" id="BTAction_move_return"]
-script = ExtResource("1_move")
-target_var = &"return_access"
-arrival_distance = 0.5
-
-[sub_resource type="BTAction" id="BTAction_return_tool"]
-script = ExtResource("4_return")
-
 [sub_resource type="BTSequence" id="BTSequence_root"]
-children = [SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work"), SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool")]
+children = [SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool"), SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work")]
 
 [resource]
-description = "顶岗任务:先走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask,源仓缺失不视为失败,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)→ 产出后按机器当前配方重判工具去留(PlanReturnTask:本机仍要这件工具就留在手上,不再需要则把归还目标改指最近收得下的仓)→ 走到归还点(return_access)把工具交回 Stockpile(ReturnToolTask,没有可还的仓就自己留着)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag。"
+description = "顶岗任务:开工前先重判手上工具的去留(PlanReturnTask:手上那件不是本机当前配方要用的,就把归还目标改指最近收得下的仓;正是本机要用的则留在手上,免得每件往返容器)→ 走到归还点(return_access)把用不上的工具交回容器(ReturnToolTask,没有可还的仓就自己留着)→ 走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask,源仓缺失不视为失败,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag。"
 blackboard_plan = SubResource("BlackboardPlan_21s5x")
 root_task = SubResource("BTSequence_root")

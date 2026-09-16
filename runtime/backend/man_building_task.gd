@@ -49,11 +49,13 @@ func _write_tool_plan(in_labor: Labor):
 	in_labor.blackboard.set_var(BB_TOOL_ACCESS,
 			source.access_position if source else building.work_entry_position())
 
-# 备好"干完把工具还去哪":只还"本单用不上的工具"。
+# 备好"开工前把工具还去哪":只还"本单用不上的工具"。
 # 手上没有工具 → 无物可还,归还点落到岗位点,ReturnToolTask 空跑跳过(否则每件白跑一趟容器);
 # 手上正是本单要用的工具 → 留着接着用 —— 每件一单(见 Workshop.is_work_done),若每单都
 # "还了再领",工人就得往返容器数格,斧头省下的时间还不够走路。故工具一直握到本机不再需要它
 # (配方换掉)或它报废为止。
+# 这里写的只是初稿:去留由 PlanReturnTask 在任务开头(取工具、干活之前)重判并覆盖 —— 工人可能
+# 带着上一岗的工具过来(伐木场的斧头到了石矿),那件对本机毫无用处,必须开工前放下。
 func _write_return_plan(in_labor: Labor):
 	var held: Tool = _held_tool(in_labor)
 	var target: Bag = null
