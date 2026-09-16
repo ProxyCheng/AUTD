@@ -3,8 +3,59 @@
 [ext_resource type="PackedScene" uid="uid://cnny5u5hnybki" path="res://runtime/frontend/models/entities/labor/labor.fbx" id="1_i8auj"]
 [ext_resource type="Script" uid="uid://bfe51u36fbbkh" path="res://runtime/frontend/models/entities/labor/labor_model.gd" id="1_wppqg"]
 
+[sub_resource type="Curve" id="Curve_sweat"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.45, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_sweat"]
+curve = SubResource("Curve_sweat")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_sweat"]
+emission_shape = 1
+emission_sphere_radius = 0.03
+direction = Vector3(0, 1, 0)
+spread = 80.0
+initial_velocity_min = 0.35
+initial_velocity_max = 0.9
+gravity = Vector3(0, -4.5, 0)
+scale_min = 0.7
+scale_max = 1.3
+alpha_curve = SubResource("CurveTexture_sweat")
+
+[sub_resource type="Gradient" id="Gradient_sweat"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.6, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_sweat"]
+gradient = SubResource("Gradient_sweat")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sweat"]
+transparency = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.78, 0.9, 1, 0.9)
+albedo_texture = SubResource("GradientTexture2D_sweat")
+billboard_mode = 1
+
+[sub_resource type="QuadMesh" id="QuadMesh_sweat"]
+material = SubResource("StandardMaterial3D_sweat")
+size = Vector2(0.02, 0.02)
+
 [node name="Labor" type="Node3D" unique_id=41762285]
 script = ExtResource("1_wppqg")
 
 [node name="labor" parent="." unique_id=1489506686 instance=ExtResource("1_i8auj")]
 transform = Transform3D(-0.4, 0, -3.4969112e-08, 0, 0.4, 0, 3.4969112e-08, 0, -0.4, 0, 0, 0)
+
+[node name="sweat" type="GPUParticles3D" parent="." unique_id=1432875421]
+unique_name_in_owner = true
+emitting = false
+amount = 16
+lifetime = 0.55
+process_material = SubResource("ParticleProcessMaterial_sweat")
+draw_pass_1 = SubResource("QuadMesh_sweat")
