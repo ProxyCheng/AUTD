@@ -24,6 +24,7 @@ signal delete_requested(building: Building)
 # 检视目标类型 → 面板标题(保持历史显示名);未列出的类型回退为 type.capitalize()。
 const TITLES: Dictionary = {
 	"crafting_workshop": "Workshop",
+	"tool_workshop": "Tool Workshop",
 	"tree_workshop": "Workshop",
 	"stone_mine": "Workshop",
 	"crossbow": "Crossbow",

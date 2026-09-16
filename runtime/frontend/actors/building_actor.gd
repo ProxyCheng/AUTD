@@ -31,6 +31,7 @@ const WORK_SFX_BY_TYPE: Dictionary = {
 	&"tree_workshop": &"work_chop",
 	&"stone_mine": &"work_mine",
 	&"crafting_workshop": &"work_craft",
+	&"tool_workshop": &"work_craft",
 }
 # 各工种音量偏移(dB):打造用的金属锅采样本身偏响,压一档避免盖过其它音。
 const WORK_SFX_VOLUME_DB: Dictionary = {

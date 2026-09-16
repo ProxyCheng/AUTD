@@ -3,7 +3,7 @@ extends Entity
 
 # 手持工具基类:工人可持用的一类道具实体(斧/镐/锄/铲/剑…)。
 # 工具是无生命值的静态物品,故直接 extends Entity 而非 Creature —— 不参与受击/死亡,
-# 也不跑行为树。由车间按配方产出(见 CraftingWorkshop),具体工具子类(如 Axe)只声明
+# 也不跑行为树。由车间按配方产出(见 ToolWorkshop),具体工具子类(如 Axe)只声明
 # 磨损等自身差异,同族通用约定集中在此。
 # 注入倍率不在工具类上:由配方经 tool_bonuses 声明 { 工具类型: 倍率 },工人持哪种工具、
 # 加多少速全看配方(见 RecipeData / ProvideWorkloadTask),故新增更强的同族工具无需改 AI。

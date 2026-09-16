@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://biwufuh3iict1" path="res://runtime/frontend/ui/building_inspector_host.gd" id="15_host"]
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/building_inspector_panel.tscn" id="17_twb3a"]
 [ext_resource type="Script" uid="uid://cce3bi4pk8v8x" path="res://runtime/frontend/controllers/audio_manager.gd" id="19_twb3a"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/card_tool_workshop.tscn" id="20_ctool"]
 
 [node name="level" type="Node3D" unique_id=129698533]
 script = ExtResource("1_cwvjj")
@@ -125,6 +126,9 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="card_cannon" parent="modes/building/ui/cards" unique_id=2008288346 instance=ExtResource("14_vrdxo")]
+layout_mode = 2
+
+[node name="card_tool_workshop" parent="modes/building/ui/cards" instance=ExtResource("20_ctool")]
 layout_mode = 2
 
 [node name="inspect" type="Node" parent="modes" unique_id=1113869200]
