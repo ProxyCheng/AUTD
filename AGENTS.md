@@ -60,7 +60,8 @@ autd/
 │     ├─ audio/           # 音频:audio_library.gd(id→流表)+ sfx/ music/ ambience/ + LICENSES/
 │     ├─ models/          # 美术资源,按类型分子目录
 │     │  ├─ buildings/<type>/<type>.tscn + <type>_model.gd
-│     │  └─ entities/<type>/<type>.tscn + <type>_model.gd
+│     │  ├─ entities/<type>/<type>.tscn + <type>_model.gd
+│     │  └─ tools/<type>/<type>.fbx + <type>.blend(纯表现道具,无 backend 类)
 │     └─ textures/        # land_<type>.png 等地形贴图
 ├─ editor/                # @tool 编辑器场景:cell_editor / map_editor / level_editor(.gd + .tscn)
 └─ addons/                # 第三方插件(不得手改)
@@ -263,6 +264,8 @@ signal position_changed()
 **新增显示袋子的建筑:** 建筑脚本须覆写 `get_display_bag() -> Bag`(决定展示哪个 bag),对应模型脚本须实现 `bind_bag(in_bag: Bag)`(`BuildingActor` 负责转发,内部走 `ItemStack` 镜像,见 §5.5);工人随身库存是挂在 `Labor` 上的 `Bag`(`Labor.carried_bag`),不是 `Creature` 的字段。
 
 **新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
+
+**新增工具/道具类型 `foo`:** `runtime/frontend/models/tools/foo/foo.fbx` + `foo.blend`(源,§9)。**纯表现资产,backend 不建对应类**。网格约定:手柄沿 +Z、工具平面落在 XZ 平面(刀头朝 −X)、原点在握把(手柄末端)、平直着色;材质按部位拆成无贴图纯色(`wood`/`metal`/`edge`),不引贴图。
 
 **新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树以 `.tres` 落 `runtime/backend/entities/ai/`(优先 `.tres`,不代码组装,约定见 §5.3),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 用法见 §5.3。
 
