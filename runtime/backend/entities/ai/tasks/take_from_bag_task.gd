@@ -24,7 +24,8 @@ func _tick(_in_delta: float) -> int:
 	if labor == null or not is_instance_valid(labor.carried_bag):
 		return _miss()
 	var wanted: int = bb.get_var(TransportTask.BB_CARRY_AMOUNT, 0, false)
-	var taken: int = bag.remove_count(wanted)
+	# 搬运一律走 move_to:有状态单体(工具)搬实例本身、耐久不重置;取多少以实际搬走数为准。
+	var taken: int = bag.move_to(labor.carried_bag, bag.item_type, wanted)
 	if taken <= 0:
 		return _miss()
 	# 随身仓是多类型仓:按源仓类型入库,不动仓里已有的其他类型。
@@ -32,7 +33,6 @@ func _tick(_in_delta: float) -> int:
 	# (工具由 %tool 那个 ItemStack 专门展示,见 entity_actor)。
 	if not Bag.is_stateful(bag.item_type):
 		labor.carried_bag.item_type = bag.item_type
-	labor.carried_bag.add_count_of(bag.item_type, taken)
 	return BT.Status.SUCCESS
 
 # 没取到货时的返回(见 optional)。

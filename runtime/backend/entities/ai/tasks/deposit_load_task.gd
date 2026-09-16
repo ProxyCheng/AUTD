@@ -2,9 +2,8 @@ class_name DepositLoadTask
 extends BTAction
 
 # 空闲卸货·落库叶子:走到目标仓装卸点后,把 FindDepositBagTask 规划的那类物品实际搬进仓。
-# 工具(有状态单体)走 take_state/add_state 搬实例本身,耐久跟着一起过去,不重置;目标仓
-# 此刻被占满则原样放回随身仓(绝不丢件)。散料先算目标仓余量再取 —— remove_count_of 对
-# 有状态格是丢弃语义,多取会直接毁件。
+# 搬运一律走 Bag.move_to:工具(有状态单体)搬实例本身,耐久跟着一起过去、不重置;
+# 散料按目标仓余量截断,目标仓此刻被占满则留在随身仓(绝不丢件)。
 #
 # 恒 SUCCESS:空闲树不因"仓满了/东西没了"中断;无处可卸时规划步骤已写成空计划(空跑跳过)。
 # 不置 state / 不发信号:空闲期间的 state 归 WanderTask(§5.3 的 frontend state 契约)。
@@ -27,26 +26,10 @@ func _tick(_in_delta: float) -> int:
 	if not is_instance_valid(raw_carried) or not (raw_carried is Bag):
 		return BT.Status.SUCCESS
 	var carried: Bag = raw_carried
+	# 有状态单体一次搬一件(实例本身带走,耐久不重置);散料搬该类型的全部存量,
+	# 目标仓余量/随身仓存量的截断与拒收放回都在 move_to 内部完成。
 	if Bag.is_stateful(item_type):
-		_deposit_stateful(carried, bag, item_type)
-		return BT.Status.SUCCESS
-	_deposit_fungible(carried, bag, item_type)
+		carried.move_to(bag, item_type, 1)
+	else:
+		carried.move_to(bag, item_type, carried.count_of(item_type))
 	return BT.Status.SUCCESS
-
-# 有状态单体(工具):搬实例本身(耐久不重置);目标仓满则放回随身仓,绝不丢件。
-func _deposit_stateful(in_carried: Bag, in_bag: Bag, in_item_type: String):
-	var carrier: Object = in_carried.take_state(in_item_type)
-	if carrier == null:
-		return
-	if not in_bag.add_state(in_item_type, carrier):
-		in_carried.add_state(in_item_type, carrier)
-
-# 散料:先算目标仓余量,再取不超过余量的件数(remove_count_of 对有状态格是丢弃语义,
-# 超量取会白丢;目标仓装不下的部分留在随身仓)。
-func _deposit_fungible(in_carried: Bag, in_bag: Bag, in_item_type: String):
-	var room: int = in_bag.max_count - in_bag.count
-	var amount: int = mini(room, in_carried.count_of(in_item_type))
-	if amount <= 0:
-		return
-	in_carried.remove_count_of(in_item_type, amount)
-	in_bag.add_count_of(in_item_type, amount)

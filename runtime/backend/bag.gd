@@ -130,6 +130,37 @@ func remove_count_of(in_item_type: String, in_amount: int) -> int:
 		count_changed.emit()
 	return removed
 
+# 把 in_amount 件 in_item_type 从本仓搬到 in_dest,返回实际搬走的件数(按目标余量/本仓存量截断)。
+# 搬运单位是"物品"而不是"件数":有状态物品(工具等)走 take_state/add_state,搬的是实例本身,
+# 耐久等按件状态跟着一起走、不重置;散料走计数搬运。目标拒收则原样放回本仓,绝不丢件。
+# 等价于 Minecraft 的 extractItem/insertItem —— 搬运动作的唯一实现。
+func move_to(in_dest: Bag, in_item_type: String, in_amount: int) -> int:
+	if not is_instance_valid(in_dest) or in_dest == self or in_item_type.is_empty() or in_amount <= 0:
+		return 0
+	if is_stateful(in_item_type):
+		var moved: int = 0
+		while moved < in_amount:
+			if in_dest.is_full():
+				break
+			var carrier: Object = take_state(in_item_type)
+			if carrier == null:
+				break
+			if not in_dest.add_state(in_item_type, carrier):
+				# 目标拒收(取出后恰被占满):原样放回本仓,绝不丢件
+				add_state(in_item_type, carrier)
+				break
+			moved += 1
+		return moved
+	# 散料:先按"目标余量 ∩ 本仓存量 ∩ 请求量"算可搬数,再计数搬运。
+	# 绝不超量取出 —— remove_count_of 对有状态格是丢弃语义,多取会毁件。
+	var room: int = in_dest.max_count - in_dest.count
+	var amount: int = mini(mini(room, count_of(in_item_type)), in_amount)
+	if amount <= 0:
+		return 0
+	remove_count_of(in_item_type, amount)
+	in_dest.add_count_of(in_item_type, amount)
+	return amount
+
 # 入库/出库的简写:按本仓 item_type 操作(单类型仓的常用路径)。
 func add_count(in_amount: int) -> int:
 	return add_count_of(item_type, in_amount)
