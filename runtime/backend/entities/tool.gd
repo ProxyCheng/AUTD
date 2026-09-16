@@ -14,6 +14,9 @@ extends Entity
 # 工人跨任务一直握着同一件,直到它报废 —— 这样耐久才有意义(放下再取会重置为满)。
 
 const DEFAULT_MAX_DURABILITY: float = 100.0
+# 空手注入倍率:配方需要工具而工人手上没有时的效率系数(见 ProvideWorkloadTask._tool_factor)。
+# 空手仍能干活,只是极慢;配方本就不需要工具时不受此影响(恒 1.0)。
+const EMPTY_HANDED_EFFICIENCY: float = 0.1
 
 var max_durability: float = DEFAULT_MAX_DURABILITY
 # 当前耐久,恒被夹在 [0, max_durability];归零即报废(见 is_broken)。
@@ -51,7 +54,8 @@ func wear_for_workload(in_workload: float) -> bool:
 		return false
 	return wear(in_workload * wear_per_workload)
 
-# 本工具对某配方的工作效率倍率:基类 1.0(等同空手),子类按用途覆写(如 Axe 砍树)。
+# 本工具对某配方的工作效率倍率:基类 1.0(即工具本身不放大注入量;空手基准见 EMPTY_HANDED_EFFICIENCY),
+# 子类按用途覆写(如 Axe 砍树)。
 # 配方经 required_tool 声明"需要什么工具",实现方比对自身 type 决定是否生效。
 func work_efficiency_for(_in_recipe: RecipeData) -> float:
 	return 1.0

@@ -10,6 +10,8 @@ extends BTAction
 # 手持工具(可选):工人随身仓里那件**匹配当前配方 required_tool** 的工具,按
 # Tool.work_efficiency_for 放大注入量,并按注入量磨损它;工具因此报废则摘格丢弃并
 # FAILURE —— 本次顶岗中止,工人下一轮重新去领工具(见 ManBuildingTask._write_tool_plan)。
+# 配方需要工具而工人空手时,注入量降到 Tool.EMPTY_HANDED_EFFICIENCY(0.1 倍):空手仍能
+# 干活,只是极慢;配方本就不需要工具时不受影响(恒 1.0)。
 
 const BB_BUILDING: StringName = &"work_building"
 
@@ -58,8 +60,12 @@ func _held_tool(in_labor: Labor, in_building: Workshop) -> Tool:
 	var tool: Tool = carrier
 	return tool
 
-# 手持工具对本配方的效率倍率;无工具 = 1.0(空手)。
+# 手持工具对本配方的效率倍率:配方本就不需要工具 = 1.0(空手即正常,无惩罚);
+# 配方需要工具而工人空手 = Tool.EMPTY_HANDED_EFFICIENCY(0.1);持工具则取工具自身倍率。
 func _tool_factor(in_tool: Tool, in_building: Workshop) -> float:
-	if in_tool == null:
+	var recipe: RecipeData = in_building.active_recipe
+	if recipe == null or recipe.required_tool.is_empty():
 		return 1.0
-	return in_tool.work_efficiency_for(in_building.active_recipe)
+	if in_tool == null:
+		return Tool.EMPTY_HANDED_EFFICIENCY
+	return in_tool.work_efficiency_for(recipe)
