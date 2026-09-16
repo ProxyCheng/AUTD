@@ -305,14 +305,19 @@ func _sync_tool():
 	# 期望长度(actor 空间)→ ItemStack 节点 scale(挂点本地空间)
 	var target_len: float = maxf(model_height * TOOL_LENGTH_RATIO, TOOL_MIN_LENGTH)
 	var node_scale: float = target_len / maxf(_tool_stack.long_axis(), 0.0001) / mount_scale
-	# 绕 Y 转 90°:ItemStack 约定长轴沿挂点 +Z,转后长轴横在工人右侧(actor 局部 +X)
+	# 先绕 X 转 −90° 把工具立起来:ItemStack 局部空间里长轴沿 +Z、刀头在 +Z 端(实测:转 +90° 会朝下),
+	# 转后刀头朝上(actor 局部 +Y)。
+	# 再绕工具自身长轴(Z)转 −90°:局部 −X 是刀头指向(ItemStack 约定"宽=X"、§8 约定"刀头朝 −X"),
+	# 转后刀刃朝正前(actor 局部 −Z,与普通实体 look_at 的前向一致);不转的话刀刃横指身体一侧。
+	# 两步都经实测校验:局部 +Z → +Y(朝上)、局部 −X → −Z(朝前)。
 	var local := Transform3D(
-			Basis.from_euler(Vector3(0.0, PI * 0.5, 0.0)).scaled(Vector3.ONE * node_scale),
+			(Basis.from_euler(Vector3(-PI * 0.5, 0.0, 0.0))
+					* Basis.from_euler(Vector3(0.0, 0.0, -PI * 0.5))).scaled(Vector3.ONE * node_scale),
 			Vector3.ZERO)
-	# 落位:身体右缘 + 半个工具长 + 间隙 → 整件工具都在身体之外,不会被遮住
+	# 落位:身体右缘 + 间隙 —— 工具已竖直,中心不再需要偏出半个长度;整件工具都在身体之外,不会被遮住
 	var center: Vector3 = _model_local_box.get_center()
 	local.origin = chain.affine_inverse() * Vector3(
-			_model_local_box.end.x + target_len * 0.5 + model_height * TOOL_HOLD_GAP_RATIO,
+			_model_local_box.end.x + model_height * TOOL_HOLD_GAP_RATIO,
 			center.y,
 			center.z)
 	_tool_local_transform = local
