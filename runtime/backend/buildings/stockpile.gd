@@ -73,7 +73,9 @@ func set_content_type(in_type: String) -> bool:
 	bag.item_type = in_type
 	return true
 
-# 入库/出库入口(供搬运/生产侧调用),返回实际生效数量。
+# 入库/出库入口,返回实际生效数量。
+# 注意语义:这是"凭空造件/凭空销毁"的原语(入库造新件、出库丢弃),**不是搬运** ——
+# 仓间搬物品必须走 Bag.move_to(搬实例本身,有状态物品的耐久等按件状态才不会被重置)。
 func store(in_count: int) -> int:
 	if not bag:
 		return 0

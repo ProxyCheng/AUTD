@@ -243,7 +243,7 @@ signal position_changed()
 
 - `count` 是**只读派生量**(各格求和),写入一律经 `add_count*` / `remove_count*`;
 - 新增一种带状态物品**只需写一个载体类**,`Bag`、Logistics、生产消耗都不必改;
-- 读按件状态用 `peek_state(type := "")`(**只读、不取出**);`remove_count*` 对有状态格是**丢弃语义**(摘格并释放载体);**仓间搬运用 `take_state` / `add_state`**(搬实例本身,耐久不重置);
+- 读按件状态用 `peek_state(type := "")`(**只读、不取出**);`remove_count*` 对有状态格是**丢弃语义**(摘格并释放载体);**仓间搬运一律走 `Bag.move_to(dest, type, amount)`** —— 搬运单位是"物品"而非"件数"(等价 Minecraft 的 `extractItem`/`insertItem`):有状态物品搬实例本身(耐久等按件状态跟着走、不重置),散料按"目标余量 ∩ 本仓存量 ∩ 请求量"截断,目标拒收则原样放回、绝不丢件。`take_state`/`add_state` 只是它内部的手段,不要在新代码里直接配对使用(手写 `remove_count` + `add_count_of` 搬有状态物品会销毁实例、重置耐久);
 - `clear_fungible()` 只清散料格、保留有状态单体(任务结束兜底清仓用它,否则会把工人手上的工具一起销毁);
 - 单类型仓的 `item_type` 不可破;真要让某仓装多种,消费方必须改用 `*_of` 系列。
 

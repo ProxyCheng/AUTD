@@ -24,6 +24,6 @@ script = ExtResource("4_wander")
 children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit"), SubResource("BTAction_wander")]
 
 [resource]
-description = "空闲树:先规划卸货(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品,找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;工具走 take_state/add_state 保耐久,散料先算目标仓余量再取)→ 再原地游荡(WanderTask 恒 RUNNING,待派活时整棵树被任务树替换)。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access;工具是否还用得上由 &work_building 的当前配方判定(配方还要这件工具就留着,见 FindDepositBagTask)。"
+description = "空闲树:先规划卸货(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品,找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断)→ 再原地游荡(WanderTask 恒 RUNNING,待派活时整棵树被任务树替换)。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access;工具是否还用得上由 &work_building 的当前配方判定(配方还要这件工具就留着,见 FindDepositBagTask)。"
 blackboard_plan = SubResource("BlackboardPlan_idle")
 root_task = SubResource("BTSequence_root")
