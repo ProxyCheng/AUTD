@@ -3,6 +3,13 @@
 [ext_resource type="PackedScene" uid="uid://bfvr1jf8oglpr" path="res://runtime/frontend/models/entities/cannonball/cannonball.fbx" id="1_cyk2q"]
 [ext_resource type="Script" uid="uid://q80mmnegu7e5" path="res://runtime/frontend/models/entities/cannonball/cannonball_model.gd" id="1_nlyb2"]
 
+[sub_resource type="Curve" id="Curve_nlyb2"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_65ffn"]
+curve = SubResource("Curve_nlyb2")
+
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_nlyb2"]
 emission_shape = 1
 emission_sphere_radius = 0.03
@@ -12,18 +19,31 @@ initial_velocity_max = 0.25
 gravity = Vector3(0, 0, 0)
 scale_min = 0.7
 scale_max = 1.8
+alpha_curve = SubResource("CurveTexture_65ffn")
+
+[sub_resource type="Gradient" id="Gradient_xx343"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.55, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_rnau5"]
+gradient = SubResource("Gradient_xx343")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_65ffn"]
 transparency = 1
 cull_mode = 2
 depth_draw_mode = 2
 shading_mode = 0
-albedo_color = Color(0.14, 0.14, 0.16, 0.3)
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.14, 0.14, 0.16, 0.55)
+albedo_texture = SubResource("GradientTexture2D_rnau5")
 billboard_mode = 1
 
 [sub_resource type="QuadMesh" id="QuadMesh_xx343"]
 material = SubResource("StandardMaterial3D_65ffn")
-size = Vector2(0.18, 0.18)
+size = Vector2(0.3, 0.3)
 
 [node name="Cannonball" type="Node3D" unique_id=1787693387]
 script = ExtResource("1_nlyb2")
