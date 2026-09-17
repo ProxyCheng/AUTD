@@ -3,6 +3,8 @@ extends BTAction
 
 # 取货叶子:到达源装卸点后,从黑板的 source_bag 实际取 carry_amount 件,装进工人对应的随身仓。
 # 取多少以实际取出数为准(源可能已被并发搬空而少给),供 PutToBagTask 落库。
+# 物品类型取黑板 &item_type(搬运任务按需求方声明写入;通配仓的 item_type 为空,靠它才取得到货),
+# 为空才回退源仓 item_type(顶岗取工具的老路径不写该键)。
 # 入库按物品性质分流:
 #   散料 → 头顶仓(head_bag,多类型仓):按源仓类型入库,不动仓里已有的其他类型;
 #   有状态单体(工具)→ 手仓(hand_bag,容量 1):held_tool()/供能磨损/归还全读手仓,
@@ -26,20 +28,26 @@ func _tick(_in_delta: float) -> int:
 	var labor := get_agent() as Labor
 	if labor == null:
 		return _miss()
+	# 物品类型优先取黑板(搬运任务按需求方声明写入,通配仓靠它才取得到货);
+	# 为空才回退源仓的主要类型(顶岗取工具的老路径不写该键,行为不变)。
+	var item_type: String = bb.get_var(TransportTask.BB_ITEM_TYPE, "", false)
+	if item_type.is_empty():
+		item_type = bag.item_type
 	var wanted: int = bb.get_var(TransportTask.BB_CARRY_AMOUNT, 0, false)
 	# 入库分流(见文件头):有状态单体进手仓,散料进头顶仓。
-	var stateful: bool = Bag.is_stateful(bag.item_type)
+	var stateful: bool = Bag.is_stateful(item_type)
 	var dest: Bag = labor.hand_bag if stateful else labor.head_bag
 	if not is_instance_valid(dest):
 		return _miss()
 	# 搬运一律走 move_to:有状态单体(工具)搬实例本身、耐久不重置;取多少以实际搬走数为准。
-	var taken: int = bag.move_to(dest, bag.item_type, wanted)
+	var taken: int = bag.move_to(dest, item_type, wanted)
 	if taken <= 0:
 		return _miss()
 	# 头顶仓是多类型仓:主要类型(item_type)只跟着散料走 —— 工具那件不该让头顶携带垛改显示工具
 	# (工具由 %tool 那个 ItemStack 专门展示,见 entity_actor)。
-	if not stateful:
-		labor.head_bag.item_type = bag.item_type
+	# 解析结果为空时不写:否则会把头顶仓的主要类型抹成空、展示侧随之失去绑定。
+	if not stateful and not item_type.is_empty():
+		labor.head_bag.item_type = item_type
 	return BT.Status.SUCCESS
 
 # 没取到货时的返回(见 optional)。

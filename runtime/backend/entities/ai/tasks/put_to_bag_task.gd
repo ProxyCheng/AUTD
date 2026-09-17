@@ -1,10 +1,17 @@
 class_name PutToBagTask
 extends BTAction
 
-# 卸货叶子:到达目标装卸点后,把工人随身仓中属于目标仓类型的物品实际放入 dest_bag。
+# 卸货叶子:到达目标装卸点后,把工人随身仓中属于目标类型的物品实际放入 dest_bag。
 # 走 Bag.move_to 逐件搬运(有状态单体搬实例本身、耐久不重置);目标仓装不下的部分留在随身仓,不丢件。
+# 物品类型取黑板 &item_type(搬运任务按需求方声明写入;通配仓的 item_type 为空,靠它才放得进),
+# 为空才回退目标仓 item_type(老路径不写该键)。
 # 货源按物品性质分流(与 TakeFromBagTask 的入库分流对称):
 #   散料 → 头顶仓(head_bag);有状态单体(工具)→ 手仓(hand_bag)。
+#
+# 失败约定(与 TakeFromBagTask 的"没取到就 FAILURE"对称):没能把随身携带的该类物品**全部**放进
+# 目标仓(目标满/被并发占满)即 FAILURE —— 由外层 JobRunnerTask 结束本趟、残留留在随身仓
+# (不再销毁,见 JobRunnerTask._finish),由工人的下一次空闲窗口或下一份活的 shed 步骤重新入仓。
+# 携带量为 0 时视为"卸完了",仍 SUCCESS(空跑不是失败)。
 
 func _tick(_in_delta: float) -> int:
 	var bb := get_blackboard()
@@ -14,12 +21,19 @@ func _tick(_in_delta: float) -> int:
 	if not is_instance_valid(raw_bag) or not (raw_bag is Bag):
 		return BT.Status.FAILURE
 	var bag: Bag = raw_bag
+	var item_type: String = bb.get_var(TransportTask.BB_ITEM_TYPE, "", false)
+	if item_type.is_empty():
+		item_type = bag.item_type
 	var labor := get_agent() as Labor
 	if labor:
-		var stateful: bool = Bag.is_stateful(bag.item_type)
+		var stateful: bool = Bag.is_stateful(item_type)
 		var source: Bag = labor.hand_bag if stateful else labor.head_bag
 		if is_instance_valid(source):
-			# 只卸目标仓自己声明的那类物品:随身仓是多类型仓,count 是各类型总和,
+			# 只卸解析出的那一类:随身仓是多类型仓,count 是各类型总和,
 			# 按它落库会把工具等其他类型也一并塞进单类型仓(且工具的实例会被丢弃重建)。
-			source.move_to(bag, bag.item_type, source.count_of(bag.item_type))
+			# 先记携带量,再与落库数比对 —— 少放了就是本趟没完成(见文件头的失败约定)。
+			var carried: int = source.count_of(item_type)
+			var deposited: int = source.move_to(bag, item_type, carried)
+			if deposited < carried:
+				return BT.Status.FAILURE
 	return BT.Status.SUCCESS

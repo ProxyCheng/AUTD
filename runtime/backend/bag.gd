@@ -13,7 +13,8 @@ extends Node
 # *_of 系列,展示侧用 ItemStack.bind(bag, type) 绑到指定类型。
 #
 # 三层数量语义(count 为整仓件数,各类型求和):
-#   max_count            严格物理上限,count 永不超过它(add_count 按剩余空间截断)。
+#   max_count            严格物理上限,count 永不超过它(add_count 按剩余空间截断);
+#                        = UNLIMITED(-1) 时表示无上限(见该常量)。
 #   preferred_min_count  舒适下限:count < 该值 → 本 bag 处于"缺货请求"态,希望被补货。
 #   preferred_max_count  舒适上限:count > 该值 → 本 bag 处于"富余供给"态,超出部分可外供;
 #                        count 达到它即视为"补货完成",不再触发搬运请求。
@@ -45,6 +46,9 @@ var state_factory: Callable = Callable()
 # 仓内各格(散料按类型各合并成一格;有状态物品每件一格)
 var items: Array[BagItem] = []
 
+# max_count 的哨兵:无上限仓(入库不按余量截断,is_full() 恒 false)。
+# 用显式常量而非 0/负数裸值,是为了把"无限仓"与"容量为 0 的仓"在语义上分开。
+const UNLIMITED: int = -1
 var max_count: int = 10
 var preferred_min_count: int = 0
 var preferred_max_count: int = max_count
@@ -60,9 +64,24 @@ var count: int:
 # Logistics 匹配按此度量距离;搬运移动以其为直线接近目标,由 transport_haul 的
 # MoveToTargetTask.arrival_center_offset 决定"停在距建筑中心固定偏移"的停靠圈。
 var access_position: Vector2 = Vector2.ZERO
-# 补货(搬运)任务的调度优先级:由创建该 bag 的建筑按需求紧急度声明。
-# 默认普通搬运 0;Crossbow 弹药箱这类攻击建筑设为更高(供弹优先于普通物流)。
+# —— 三条优先级轴(互不影响)——
+#   transport_priority = 需求紧急度:谁先被补货(Logistics._schedule_transports 的排序键);
+#   deposit_priority   = 作为"放货地点"的偏好:高者优先被选为落库目标,同档再比距离;
+#   withdraw_priority  = 作为"取货地点"的偏好:高者优先被选为取货源,同档再比距离。
+# 两条偏好轴由 Logistics.find_nearest_bag / _find_source 消费,默认全 0 —— 于是既有 bag 的
+# 匹配结果与"纯就近"完全一致。
+#
+# transport_priority:由创建该 bag 的建筑按需求紧急度声明。默认普通搬运 0;
+# Crossbow 弹药箱这类攻击建筑设为更高(供弹优先于普通物流)。
 var transport_priority: int = 0
+var deposit_priority: int = 0
+var withdraw_priority: int = 0
+# 偏好档位的常用极值(供建筑声明,不改匹配算法):作为落库目标排最后 / 作为取货源优先。
+const DEPOSIT_LAST: int = -1
+const WITHDRAW_FIRST: int = 1
+# 通配:true = 本仓不限类型,Logistics 撮合时跳过 item_type 比对(见 find_nearest_bag/_find_source)。
+# item_type 仍是"主要类型"(展示与默认读写用);通配只看本标志,绝不用 item_type == "" 表示。
+var accepts_any_type: bool = false
 
 signal count_changed()
 signal item_type_changed()
@@ -89,12 +108,19 @@ func count_of(in_item_type: String) -> int:
 			total += entry.count
 	return total
 
-# 入库:按剩余空间接受 in_amount 件,返回实际入库数(超出 max_count 部分丢弃)。
+# 本仓该类型的"可外供余量":无限仓 = 全部存量(永远供得起),有限仓 = 超出舒适上限的部分。
+# 供 Logistics 挑供给方(见 _find_source / _schedule_transports),只读、不改账。
+func surplus_of(in_item_type: String) -> int:
+	if is_unlimited():
+		return count_of(in_item_type)
+	return maxi(0, count_of(in_item_type) - preferred_max_count)
+
+# 入库:按可接受量接受 in_amount 件,返回实际入库数(有限仓超出 max_count 的部分丢弃)。
 # 该类型若有状态载体则逐件造载体、每件各占一格,否则合并进同类型的散料格。
 func add_count_of(in_item_type: String, in_amount: int) -> int:
 	if in_item_type.is_empty() or in_amount <= 0:
 		return 0
-	var accepted: int = mini(in_amount, max_count - count)
+	var accepted: int = _accept_amount(in_amount)
 	if accepted <= 0:
 		return 0
 	var stored: int = _store(in_item_type, accepted)
@@ -151,10 +177,11 @@ func move_to(in_dest: Bag, in_item_type: String, in_amount: int) -> int:
 				break
 			moved += 1
 		return moved
-	# 散料:先按"目标余量 ∩ 本仓存量 ∩ 请求量"算可搬数,再计数搬运。
+	# 散料:先按"目标可接受量 ∩ 本仓存量 ∩ 请求量"算可搬数,再计数搬运。
 	# 绝不超量取出 —— remove_count_of 对有状态格是丢弃语义,多取会毁件。
-	var room: int = in_dest.max_count - in_dest.count
-	var amount: int = mini(mini(room, count_of(in_item_type)), in_amount)
+	# 取 min 三者等价于原来的 mini(mini(room, 存量), 请求量):有限仓 _accept_amount = mini(请求量, room);
+	# 无限仓 room 无意义,直接以请求量为上限。
+	var amount: int = mini(in_dest._accept_amount(in_amount), count_of(in_item_type))
 	if amount <= 0:
 		return 0
 	remove_count_of(in_item_type, amount)
@@ -250,16 +277,28 @@ static func is_stateful(in_item_type: String) -> bool:
 	_stateful_cache.set(in_item_type, result)
 	return result
 
+# 无限仓(见 UNLIMITED):不参与"缺货/满仓"判定 —— 它不会求补(preferred_* 对它无意义),
+# 也永远收得下。必须显式短路,否则 max_count == -1 会让 is_full() 恒真(倒过来变成永久"满")。
+func is_unlimited() -> bool:
+	return max_count == UNLIMITED
+
 func is_understocked() -> bool:
-	return count < preferred_min_count
+	return not is_unlimited() and count < preferred_min_count
 
 func is_overstocked() -> bool:
 	return count > preferred_max_count
 
 func is_full() -> bool:
-	return count >= max_count
+	return not is_unlimited() and count >= max_count
 
 # —— 内部 ——
+
+# 本仓此刻还能再收下多少件(容量规则唯一实现):无限仓来多少收多少,有限仓按剩余空间截断。
+# add_count_of 与 move_to 的散料路径共用它,保证"能收多少"只有一处定义。
+func _accept_amount(in_amount: int) -> int:
+	if is_unlimited():
+		return in_amount
+	return mini(in_amount, max_count - count)
 
 # 存入 in_amount 件 in_item_type:有状态类型逐件造载体,散料合并进同类型的那一格。
 func _store(in_item_type: String, in_amount: int) -> int:

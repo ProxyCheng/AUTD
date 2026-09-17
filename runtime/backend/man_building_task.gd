@@ -14,7 +14,7 @@ extends LaborTask
 #     的 MoveToTargetTask.arrival_center_offset 表达(= WORK_ENTRY_OFFSET,radius 0 → 精确站角);
 #   &work_building   = 建筑(ProvideWorkloadTask.BB_BUILDING);
 #   &tool_access     = 去哪取工具(有容器=容器装卸点;否则=岗位点,即直接空手开工);
-#   &source_bag / &carry_amount = 取哪只仓、取几件(给 TakeFromBagTask);
+#   &source_bag / &carry_amount / &item_type = 取哪只仓、取几件、取哪一类(给 TakeFromBagTask);
 #   &return_access / &return_bag = 干完把工具还去哪(给 ReturnToolTask;无可还的仓则为岗位点)。
 # .tres 模板每次由 JobRunnerTask.instantiate 深拷贝,多工人共享安全。
 
@@ -30,6 +30,9 @@ const TOOL_HOLD_PRIORITY: float = 100.0
 
 var building: Workshop = null
 var entry_position: Vector2 = Vector2.ZERO
+# _find_tool_bag 命中的工具类型(供 _write_tool_plan 写进黑板 &item_type)。
+# GDScript 无出参,故由该成员回传;取用与写黑板在同一函数内同步完成,不会跨工人串味。
+var _matched_tool_type: String = ""
 
 func _init(in_building: Workshop, in_entry_position: Vector2, in_required_count: int = 1, in_priority: int = 10):
 	super(in_required_count, in_priority)
@@ -63,6 +66,9 @@ func _write_tool_plan(in_labor: Labor):
 	var source := _find_tool_bag(in_labor)
 	in_labor.blackboard.set_var(TransportTask.BB_SOURCE_BAG, source)
 	in_labor.blackboard.set_var(TransportTask.BB_CARRY_AMOUNT, TOOL_TAKE_AMOUNT)
+	# 显式写命中的工具类型:通配仓(accepts_any_type)的 item_type 为空,只按仓的 item_type 取
+	# 会一件都取不到(move_to 拒绝空类型)。无仓可去时写空串,TakeFromBagTask 随即回退仓的 item_type。
+	in_labor.blackboard.set_var(TransportTask.BB_ITEM_TYPE, _matched_tool_type)
 	in_labor.blackboard.set_var(BB_TOOL_ACCESS,
 			source.access_position if source else building.work_entry_position())
 
@@ -84,13 +90,17 @@ func _write_return_plan(in_labor: Labor):
 
 # 当前配方所需工具的容器:按接受类型从强到弱,取第一类"还有货"且离岗位点最近的仓;
 # 已持有接受工具、配方不接受工具(表为空)、或全图无货时返回 null。
+# 命中的类型写入 _matched_tool_type —— 通配仓的 item_type 为空,取货叶子必须拿到显式类型,
+# 故不能只回传 Bag(见 _write_tool_plan)。
 # 注:不实现"手上已有较弱工具时再去换更强的一把" —— 持有任意接受工具即视为满足(已知后续项)。
 func _find_tool_bag(in_labor: Labor) -> Bag:
+	_matched_tool_type = ""
 	if _holds_accepted_tool(in_labor):
 		return null
 	for tool_type: String in _accepted_tools():
 		var bag: Bag = _nearest_bag(tool_type, true)
 		if bag:
+			_matched_tool_type = tool_type
 			return bag
 	return null
 

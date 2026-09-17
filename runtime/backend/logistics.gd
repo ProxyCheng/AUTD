@@ -98,48 +98,60 @@ func _schedule_transports():
 		var source := _find_source(demand_entry)
 		if not source:
 			continue
-		var amount: int = mini(available, source.count - source.preferred_max_count)
+		var amount: int = mini(available, source.surplus_of(demand_entry.item_type))
 		amount = mini(amount, CARRY_CAPACITY)
 		if amount <= 0:
 			continue
 		_spawn_transport(source, demand_entry, amount)
 		spawned += 1
 
-# 最近的"同类型且可提供/可接收"的已注册仓:只读,不改任何账本。
-# in_need_stock = true 取有货的(count > 0,供领工具);false 取收得下的(未满,供还/卸货)。
-# 供顶岗取/还工具(ManBuildingTask)与空闲卸货(FindDepositBagTask)共用,是"就近挑仓"的唯一实现。
+# 最近的"可收/可取的仓":只读,不改任何账本。
+# in_need_stock = true 取有货的(本仓该类型 count_of > 0,供领工具);false 取收得下的(未满,供还/卸货)。
+# 类型匹配:bag.accepts_any_type 为真则跳过类型比对(通配仓),否则要求 item_type 相同。
+# 排序:先比偏好档位(取货看 withdraw_priority,放货看 deposit_priority,高者胜),同档再比距离(近者胜)。
+# 既有 bag 两条偏好轴皆 0,故退化为纯就近,与引入偏好前完全一致。
+# 供顶岗取/还工具(ManBuildingTask)、空闲卸货(FindDepositBagTask)、开工前归还(PlanReturnTask)共用,
+# 是"就近挑仓"的唯一实现。
 func find_nearest_bag(in_item_type: String, in_from: Vector2, in_need_stock: bool) -> Bag:
 	var best: Bag = null
+	var best_priority: int = 0
 	var best_distance: float = INF
 	for bag: Bag in bags.values():
-		if bag.item_type != in_item_type:
+		if not bag.accepts_any_type and bag.item_type != in_item_type:
 			continue
-		if in_need_stock and bag.count <= 0:
+		if in_need_stock and bag.count_of(in_item_type) <= 0:
 			continue
 		if not in_need_stock and bag.is_full():
 			continue
+		var priority: int = bag.withdraw_priority if in_need_stock else bag.deposit_priority
 		var distance: float = bag.access_position.distance_to(in_from)
-		if distance < best_distance:
+		# best == null 兜首只候选:偏好可以为负(DEPOSIT_LAST),不能用 best_priority 的初值把它挡掉。
+		if best == null or priority > best_priority \
+				or (priority == best_priority and distance < best_distance):
 			best = bag
+			best_priority = priority
 			best_distance = distance
 	return best
 
-# 选供给方:同 item_type、有富余(bag 视为富余),选离请求方装卸点最近者以缩短搬运路程。
+# 选供给方:类型匹配同 find_nearest_bag(通配仓跳过类型比对),且本仓该类型有富余(surplus_of > 0)。
+# 排序:withdraw_priority 降序(高者优先被取货),同档比到请求方装卸点的距离(近者胜);
+# 既有 bag 的 withdraw_priority 皆 0,故退化为纯就近,与引入偏好前完全一致。
 func _find_source(in_demand: Bag) -> Bag:
 	var best: Bag = null
+	var best_priority: int = 0
 	var best_distance: float = INF
 	for candidate: Bag in bags.values():
 		if candidate == in_demand:
 			continue
-		if candidate.item_type != in_demand.item_type:
+		if not candidate.accepts_any_type and candidate.item_type != in_demand.item_type:
 			continue
-		if not candidate.is_overstocked():
-			continue
-		if candidate.count - candidate.preferred_max_count <= 0:
+		if candidate.surplus_of(in_demand.item_type) <= 0:
 			continue
 		var distance: float = candidate.access_position.distance_to(in_demand.access_position)
-		if distance < best_distance:
+		if best == null or candidate.withdraw_priority > best_priority \
+				or (candidate.withdraw_priority == best_priority and distance < best_distance):
 			best = candidate
+			best_priority = candidate.withdraw_priority
 			best_distance = distance
 	return best
 
@@ -147,7 +159,9 @@ func _spawn_transport(in_source: Bag, in_dest: Bag, in_amount: int):
 	var manager := _get_manager()
 	if not manager:
 		return
-	var task := TransportTask.new(in_source, in_dest, in_amount)
+	# 搬运类型取请求方声明的那一类:通配仓的 item_type 为空,类型必须由需求侧显式给出,
+	# 否则 move_to 会因空类型一件都搬不动却报成功(见 TransportTask.item_type)。
+	var task := TransportTask.new(in_source, in_dest, in_amount, in_dest.item_type)
 	manager.register_task(task)
 	_inbound_reserved.set(in_dest.id, int(_inbound_reserved.get(in_dest.id, 0)) + in_amount)
 	_tasks.set(task, { "source_bag": in_source, "dest_bag": in_dest, "amount": in_amount })

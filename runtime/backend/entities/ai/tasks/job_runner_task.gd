@@ -38,8 +38,8 @@ func _tick(in_delta: float) -> int:
 func _finish(in_bb: Blackboard):
 	if in_bb:
 		in_bb.set_var(LaborTask.BB_ACTIVE_TASK, null)
-	# 兜底:任务结束(成功/取消/失败)清掉**头顶仓**里的散料残留(防取货后卸货失败留下头顶物品)。
-	# 只清 head_bag:手上那件工具在手仓(hand_bag),由 man_building 的归还步骤负责送回,不能在这里销毁。
-	var labor := get_agent() as Labor
-	if labor and is_instance_valid(labor.head_bag):
-		labor.head_bag.clear_fungible()
+	# 残留物**刻意留着**,不再就地 clear_fungible:卸货失败已改为任务失败(见 PutToBagTask),
+	# 若在这里把头顶仓清空,没卸掉的货就被凭空销毁、直接丢件。留着反而有用 —— 工人的下一次
+	# 空闲窗口(idle.tres 的 FindDepositBagTask)或下一份活开工前的 shed 步骤会就近把它们重新入仓。
+	# 滞留量有界:head_bag.max_count = Logistics.CARRY_CAPACITY,故最多 CARRY_CAPACITY 件,不会堆积。
+	# 手仓那件工具(hand_bag)向来不在这里清,由顶岗的归还步骤/空闲卸货负责送回。
