@@ -343,14 +343,22 @@ func _sync_tool():
 	_tool_stack.transform = chain * local
 	_tool_stack.show()
 
-# 手上工具该用的节点 scale:期望长度 ÷ 该类型原始长轴 ÷ 挂点自身缩放(挂点带模型缩放,长度要除掉它)。
-# 与头顶同理,按类型算而不是读本垛此刻的读数 —— 工具还在飞的时候手仓是空的。
-func _tool_scale_for(in_tool_type: String) -> float:
+# 手上工具的**世界空间**目标尺寸(actor 自身无缩放,故 actor 空间同值):期望长度 ÷ 该类型原始长轴。
+# 飞行端点用这个 —— 它与 _tool_stack 的节点 scale 是同一把尺子(见 _sync_tool 的 chain * local)。
+func _tool_world_scale_for(in_tool_type: String) -> float:
 	if not _tool_stack:
 		return 1.0
-	var mount_scale: float = maxf(HeadBar.chain_to(_tool_mount if _tool_mount else self, self).basis.get_scale().x, 0.0001)
 	var target_len: float = maxf(model_height * TOOL_LENGTH_RATIO, TOOL_MIN_LENGTH)
-	return _tool_stack.scale_for(in_tool_type, target_len) / mount_scale
+	return _tool_stack.scale_for(in_tool_type, target_len)
+
+# 挂点**本地空间**的目标 scale(供 _sync_tool 写进 _tool_stack.transform):挂点自带模型缩放,
+# 故要把世界尺寸除掉它。**别拿它当世界尺寸用** —— 两者差一个挂点缩放(实测差 8 倍,飞行会变成巨物)。
+func _tool_scale_for(in_tool_type: String) -> float:
+	return _tool_world_scale_for(in_tool_type) / _tool_mount_scale()
+
+# 工具挂点的累计缩放(挂点是模型子树,含模型自身的缩放)。
+func _tool_mount_scale() -> float:
+	return maxf(HeadBar.chain_to(_tool_mount if _tool_mount else self, self).basis.get_scale().x, 0.0001)
 
 # 每帧把挂点(随劳作动画晃动的身体节点)的当前变换套到工具上 —— 身体晃,工具跟着晃。
 func _sync_tool_transform():
@@ -434,7 +442,7 @@ func _worker_bag_anchor(in_bag: Bag, in_item_type: String) -> Transform3D:
 	var expected_scale: float = 1.0
 	if in_bag == _hand_bag and _tool_stack:
 		anchor = _tool_stack.global_transform
-		expected_scale = _tool_scale_for(in_item_type)
+		expected_scale = _tool_world_scale_for(in_item_type)
 	elif _carried_stack:
 		anchor = _carried_stack.global_transform
 		expected_scale = _carried_scale_for(in_item_type)
