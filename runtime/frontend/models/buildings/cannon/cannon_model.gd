@@ -147,13 +147,18 @@ func _apply_loading(in_progress: float):
 	if t >= 1.0:
 		%body.rotation.x = _load_start_pitch
 
-# 炮弹位置:起点(垛顶)与终点(炮口)都换算到模型根局部系插值;局部 y 即世界竖直方向
+# 炮弹位置:起点(垛上那一格)与终点(炮口)都换算到模型根局部系插值;局部 y 即世界竖直方向
 # (模型根只随 actor 绕 y 转向),故直接在 y 上叠倒 U 拱高即可。
 func _tick_load_ball(in_k: float):
 	if not _load_ball:
 		return
 	if not _load_ball_from_ready:
-		_load_ball_from_world = _ammo_top_world()
+		# 起点 = 垛里"正被取走那发"的槽位(见 ItemStack.next_slot_transform)。位置给下面的插值用,
+		# 基(朝向 + 缩放)整份照抄那一发 —— 垛挂点自带旋转(实测绕 Y 转 180°)而炮弹挂在模型根下,
+		# 只抄位置不抄基,出膛前就会与垛里那发差一个朝向。
+		var slot: Transform3D = _ammo_stack.next_slot_transform()
+		_load_ball_from_world = slot.origin
+		_load_ball.transform = global_transform.affine_inverse() * slot
 		_load_ball_from_ready = true
 	var from_local: Vector3 = to_local(_load_ball_from_world)
 	var to_local_pos: Vector3 = to_local(_muzzle_world())
@@ -172,20 +177,12 @@ func _muzzle_world() -> Vector3:
 	var box: AABB = mesh.get_aabb()
 	return mesh.to_global(Vector3(0.0, box.position.y, 0.0))
 
-# 装填炮弹的起飞点(世界坐标):垛在进入装填时已按"武器内一发"少显示一支,那一发就落在
-# 垛未显示的第一格上,故直接取那一格的槽位(见 ItemStack.next_slot_transform;实时换算,
-# 垛转向后仍正确)。垛不可用时退回模型原点。
-func _ammo_top_world() -> Vector3:
-	if _ammo_stack:
-		return _ammo_stack.next_slot_transform().origin
-	return global_position
-
 func _show_load_ball(in_visible: bool):
 	if _load_ball:
 		_load_ball.visible = in_visible
 
-# 建装填炮弹节点(模型根子节点):与备弹垛同款场景,尺寸对齐垛内道具
-# (逐级相乘局部 scale,避免依赖尚未 refresh 的 global 变换)。
+# 建装填炮弹节点(模型根子节点):与备弹垛同款场景。姿态(位置/朝向/缩放)不在这里定 ——
+# 起飞段首帧整份照抄垛上那一格的槽位(见 _tick_load_ball),这样它出膛前与垛里那发完全重合。
 func _make_load_ball() -> Node3D:
 	var scene: PackedScene = load(LOAD_BALL_SCENE)
 	if not scene:
@@ -194,17 +191,7 @@ func _make_load_ball() -> Node3D:
 	ball.name = "LoadBall"
 	ball.visible = false
 	add_child(ball)
-	ball.scale = Vector3.ONE * _ammo_stack_scale()
 	return ball
-
-func _ammo_stack_scale() -> float:
-	var s: float = 1.0
-	var node: Node = _ammo_stack
-	while node and node != self:
-		if node is Node3D:
-			s *= (node as Node3D).scale.x
-		node = node.get_parent()
-	return s
 
 # 平滑缓动(smoothstep):起止都减速,读作机械臂而非瞬移。
 func _ease(in_t: float) -> float:
