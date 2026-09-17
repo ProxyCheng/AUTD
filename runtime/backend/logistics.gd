@@ -82,19 +82,26 @@ func tick(in_delta: float):
 
 # —— 计时搬运(ItemTransfer)——
 
-# 开一趟计时搬运:源仓此刻就扣货进托管仓("先扣"),之后每帧由 _tick_transfers 推进 progress,
-# 到点才把货交给目标仓。返回搬运 id 供叶子后续查询;源仓一件都没搬动(缺货/类型不符)→ -1。
+# 开一趟计时搬运:逐件"取 → 飞 → 交"(见 ItemTransfer),这里负责登记与广播。
+# 返回搬运 id 供叶子后续查询;源仓一件都没取到(缺货/类型不符)→ -1。
+# 顺序要紧:**先广播 transfer_started,再取第一件** —— 表现层是在 transfer_started 里接上
+# item_departed 的,反了的话第一件的起飞事件没人接,那件就白飞一趟。
 func begin_transfer(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -> int:
 	var transfer := ItemTransfer.new()
-	if not transfer.begin(in_source, in_dest, in_item_type, in_amount):
+	if not transfer.configure(in_source, in_dest, in_item_type, in_amount):
 		transfer.free()
 		return -1
+	add_child(transfer)
 	var transfer_id: int = _next_transfer_id
 	_next_transfer_id += 1
-	add_child(transfer)
 	_transfers.set(transfer_id, transfer)
 	transfer.finished.connect(_on_transfer_finished.bind(transfer_id))
 	transfer_started.emit(transfer)
+	if not transfer.take_first():
+		# 一件都没取到:这趟不算数,撤掉登记(已广播的开始事件没有副作用:还没起飞过任何一件)。
+		_transfers.erase(transfer_id)
+		transfer.queue_free()
+		return -1
 	return transfer_id
 
 # 按 id 取搬运:在途的、以及已终态但仍在保留期内的都能取到(叶子下一 tick 才来问结果);

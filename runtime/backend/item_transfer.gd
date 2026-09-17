@@ -37,7 +37,8 @@ var amount: int = 0
 # 在途件的真实归属(见类注释);本对象是它的父节点。
 var escrow: Bag = null
 var state: State = State.Running
-# 已扣出源仓 / 已交付目标仓的件数;两者之差即此刻还在飞的件数。
+# 已扣出源仓 / 已交付目标仓的件数。逐件循环(见 _advance),故两者之差恒为 0 或 1 ——
+# 同一时刻至多一件在飞,源仓与目标仓各只动一件,在途暴露面就是这一件。
 var moved: int = 0
 var delivered: int = 0
 # 本趟总时长(秒):按实际搬走的件数算(见 PER_ITEM_DURATION),故一件一件都看得清。
@@ -55,15 +56,18 @@ var progress: float = 0.0:
 		progress_changed.emit()
 
 signal progress_changed()
+# 第 in_index 件**刚被取出源仓**(进入托管仓)时广播:表现层据此起这一段飞行。
+# 逐件广播而不是开场一次广播 N 件 —— 源仓可能被并发搬空而少给,开场就摆 N 段飞行会飞出并不存在的货。
+signal item_departed(in_index: int)
 # 终态广播(Running 之外只发一次):表现层据此收尾自毁,叶子据此结算。
 signal finished(in_state: int)
 
 var _elapsed: float = 0.0
 var _settle_elapsed: float = 0.0
 
-# 开一趟搬运并**立刻**把货扣进托管仓("先扣")。返回 false 表示源仓一件都没搬动(缺货/类型不符),
-# 此时本对象不该被采用 —— 调用方直接按"什么都没取到"处理,不生成半成品搬运。
-func begin(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -> bool:
+# 配置两端与件数(此时**不取货**)。取货交给 take_first —— 调用方得先把"搬运开始"广播出去,
+# 表现层才来得及接上 item_departed(见 Logistics.begin_transfer);顺序反了第一件就没人接、白飞一趟。
+func configure(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -> bool:
 	if not is_instance_valid(in_source) or not is_instance_valid(in_dest):
 		return false
 	if in_item_type.is_empty() or in_amount <= 0:
@@ -79,10 +83,14 @@ func begin(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -
 	# 无限容量:托管仓只做中转,绝不能因为它"满了"而截断这趟搬运。
 	escrow.max_count = Bag.UNLIMITED
 	add_child(escrow)
-	moved = source_bag.move_to(escrow, item_type, amount)
 	# 总时长随件数走:每件各占一段进度,故件件都看得清(表现层把 N 件按同一把尺子排成一串)。
-	duration = maxf(PER_ITEM_DURATION, float(moved) * PER_ITEM_DURATION)
-	return moved > 0
+	duration = maxf(PER_ITEM_DURATION, float(amount) * PER_ITEM_DURATION)
+	return true
+
+# 取第一件("先扣"从这一件开始,见 _advance)。返回 false = 源仓一件都没取到(缺货/类型不符),
+# 此时本对象不成立,调用方应直接丢弃、按"什么都没取到"处理。
+func take_first() -> bool:
+	return _take_one()
 
 func tick(in_delta: float):
 	if state != State.Running:
@@ -90,8 +98,7 @@ func tick(in_delta: float):
 	if progress < 1.0:
 		_elapsed += in_delta
 		progress = _elapsed / duration
-		# 按进度逐件交付:第 i 件在进度 i/moved 处落进目标仓(与表现层那件的落地时刻同拍)。
-		_release_due()
+		_advance()
 		if progress < 1.0:
 			return
 	# 到点后每帧都试着把托管仓清空:目标仓可能正好这一帧才腾出位置。
@@ -106,17 +113,38 @@ func cancel():
 	_settle_elapsed = SETTLE_TIMEOUT
 	_settle(true)
 
-# 把"按当前进度该已交付的件数"补齐:进度 i/moved 处交付第 i 件,一次一件。
-# 整批一次塞给目标仓会让"目标区域"在动画刚开始就整批跳出来,与逐件飞行对不上。
-# 目标仓此刻收不下就停在这(下帧进度再涨一点会继续试),余下的由到点后的 _settle 兜底。
-func _release_due():
-	if not is_instance_valid(escrow) or not is_instance_valid(dest_bag) or moved <= 0:
-		return
-	var due: int = int(floor(progress * float(moved)))
-	while delivered < due:
-		if escrow.move_to(dest_bag, item_type, 1) <= 0:
+# 按进度推进"逐件"循环:到第 i 件的起跑点就从源仓取它(源 → 托管仓),到它的终点就交付(托管仓 → 目标)。
+# 于是同一时刻源仓只少一件、目标仓只多一件 —— 飞行与两端库存始终同拍,
+# 而不是"整批一次扣完、再一件件补进目标"(那样源仓会先闪空,看着像凭空消失)。
+func _advance():
+	var flying: int = mini(int(floor(progress * float(amount))), amount)
+	# 先交该交的(第 0..flying-1 件),再保证当前这件已经取出来(第 flying 件)。
+	while delivered < flying:
+		if not _deliver_one():
 			break
-		delivered += 1
+	while moved <= flying and moved < amount:
+		if not _take_one():
+			break
+
+# 取下一件进托管仓(先扣);源仓被并发搬空 → 返回 false,本批到此为止。
+# 取到的瞬间广播 item_departed:表现层据此起这一段飞行(逐件起,故不会飞出并不存在的货)。
+func _take_one() -> bool:
+	if not is_instance_valid(source_bag) or not is_instance_valid(escrow):
+		return false
+	if source_bag.move_to(escrow, item_type, 1) <= 0:
+		return false
+	item_departed.emit(moved)
+	moved += 1
+	return true
+
+# 把托管仓里那件交给目标仓;目标仓收不下 → 返回 false(余下由到点后的 _settle 兜底)。
+func _deliver_one() -> bool:
+	if not is_instance_valid(escrow) or not is_instance_valid(dest_bag):
+		return false
+	if escrow.move_to(dest_bag, item_type, 1) <= 0:
+		return false
+	delivered += 1
+	return true
 
 # 收尾:按 in_prefer_source 决定先给哪一端,收不下的再给另一端,再不行退主基地,三者都放不下就
 # 留在托管仓里下帧再试(见 _finish 的失物仓说明)。正常到点先给目标;取消则先还源侧。

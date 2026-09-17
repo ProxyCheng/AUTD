@@ -84,17 +84,25 @@ func _play_removal_fx(in_entity_id: int):
 	if sfx_id != &"":
 		AudioManager.sfx_at(sfx_id, position, randf_range(0.95, 1.05))
 
-# 一次计时搬运开始 → 让涉及的工人 actor 播一段飞行(见 EntityActor.play_item_transfer)。
-# 后端只给两端仓与进度,世界锚点由 actor 侧解算(§1:backend 不持有视觉)。
-# 工人不在场(离屏已回收)就不播:起终点都在屏幕外,没有表现价值;搬运本身照常走完。
+# 一次计时搬运开始 → 挂上它的"逐件起飞"事件(见 _on_item_departed)。
+# 这里**不**立刻起飞行:后端是逐件取、逐件交(见 ItemTransfer._advance),飞行也该逐件起 ——
+# 开场就按件数摆 N 段会飞出并不存在的货(源仓可能被并发搬空而少给)。
 func _on_transfer_started(in_transfer: ItemTransfer):
+	if not _labor_of(in_transfer):
+		return
+	if not in_transfer.item_departed.is_connected(_on_item_departed):
+		in_transfer.item_departed.connect(_on_item_departed.bind(in_transfer))
+
+# 某一件刚离开源仓 → 让对应工人 actor 起这一段飞行。
+# 每次都重新按 labor.id 找 actor:一批要飞好几段,中途工人可能已走出可视区被回收(那就不播)。
+func _on_item_departed(in_index: int, in_transfer: ItemTransfer):
 	var labor: Labor = _labor_of(in_transfer)
 	if not labor:
 		return
 	var actor: EntityActor = entity_actors.get(labor.id)
 	if not actor:
 		return
-	actor.play_item_transfer(in_transfer, self)
+	actor.spawn_transfer_flight(in_transfer, in_index, self)
 
 # 这次搬运涉及的工人:哪一端的仓挂在 Labor 下,那一端就是(两端都不是 → null)。
 func _labor_of(in_transfer: ItemTransfer) -> Labor:

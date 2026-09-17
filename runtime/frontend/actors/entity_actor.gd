@@ -379,10 +379,9 @@ func _held_tool() -> Tool:
 
 # —— 物品搬运表现(随身仓 ⇄ 建筑仓) ——
 
-# 播一次搬运飞行:把这次搬运的两端解成世界姿态,造一个 ItemFlight 交给 in_host 托管,
-# 由搬运自己的 progress 驱动(见 ItemFlight)。由 RoomActor 在 transfer_started 时调用 ——
-# 它是世界空间表现的宿主,也是唯一能按 labor.id 找到"这个工人此刻有没有 actor"的地方。
-func play_item_transfer(in_transfer: ItemTransfer, in_host: Node):
+# 起**一段**搬运飞行(第 in_index 件):把这次搬运的两端解成世界姿态,造一个 ItemFlight 交给
+# in_host 托管,由搬运自己的 progress 驱动(见 ItemFlight)。由 RoomActor 在 item_departed 时调用。
+func spawn_transfer_flight(in_transfer: ItemTransfer, in_index: int, in_host: Node):
 	var worker_bag: Bag = _worker_bag_of(in_transfer)
 	if not worker_bag:
 		return
@@ -403,16 +402,12 @@ func play_item_transfer(in_transfer: ItemTransfer, in_host: Node):
 	var outgoing: bool = worker_bag == in_transfer.source_bag
 	var from_pose: Transform3D = worker_anchor if outgoing else building_anchor
 	var to_pose: Transform3D = building_anchor if outgoing else worker_anchor
-	# 一件一段飞行:后端按进度逐件交付(见 ItemTransfer._release_due),这里按同一个件数把
-	# N 件排成一串 —— 每件只在自己那一段里可见,于是"工人带多件"看到的是接连飞过去,
-	# 而不是并成一件一次性飞过。
-	var count: int = maxi(in_transfer.moved, 1)
-	for index: int in count:
-		var flight: ItemFlight = ItemFlight.launch(in_transfer.item_type, from_pose, to_pose)
-		if not flight:
-			return
-		in_host.add_child(flight)
-		flight.follow(in_transfer, index, count)
+	var flight: ItemFlight = ItemFlight.launch(in_transfer.item_type, from_pose, to_pose)
+	if not flight:
+		return
+	in_host.add_child(flight)
+	# 窗口按**计划件数**切(与后端 _advance 的分段同一把尺子),不是按已取件数 —— 两者必须一致。
+	flight.follow(in_transfer, in_index, in_transfer.amount)
 
 # 这次搬运里属于本工人的那只仓(头顶仓 / 手仓);两端都不是本人的 → null。
 # 先 is_instance_valid 再比:搬运期间任一端仓可能已被销毁,拿 freed 实例做 `==` 会崩。

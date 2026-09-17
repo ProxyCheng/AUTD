@@ -23,18 +23,9 @@ func _tick(_in_delta: float) -> int:
 	var labor := get_agent() as Labor
 	if labor == null:
 		return BT.Status.FAILURE
-	# 已经在飞:等它落地再结算。此刻货在托管仓里(源仓已扣、随身仓还没进),别再去解析源仓。
+	# 已经在搬:等这一批飞完(后端逐件取、逐件交,见 ItemTransfer)。
 	if _transfer_id >= 0:
-		var status: int = await_transfer()
-		if status != BT.Status.SUCCESS:
-			return status
-		# 头顶仓是多类型仓:主要类型(item_type)只跟着散料走 —— 工具那件不该让头顶携带垛改显示工具
-		# (工具由 %tool 那个 ItemStack 专门展示,见 entity_actor)。货到这一刻才进随身仓,故类型也跟着这一刻写。
-		# 解析结果为空时不写:否则会把头顶仓的主要类型抹成空、展示侧随之失去绑定。
-		var flown_type: String = transfer_type()
-		if delivered() > 0 and not flown_type.is_empty() and not Bag.is_stateful(flown_type):
-			labor.head_bag.item_type = flown_type
-		return BT.Status.SUCCESS
+		return await_transfer()
 	var bb := get_blackboard()
 	# 无类型临时变量先判定有效再赋 typed,避免赋值瞬间遇已 freed 的 bag 即崩。
 	var raw_bag: Variant = bb.get_var(TransportTask.BB_SOURCE_BAG, null, false)
@@ -53,6 +44,13 @@ func _tick(_in_delta: float) -> int:
 	var dest: Bag = labor.hand_bag if stateful else labor.head_bag
 	if not is_instance_valid(dest):
 		return BT.Status.FAILURE
+	# 先把头顶仓的主要类型写上:搬运逐件交付,类型若等整批落地才写,头顶垛会在整批期间一直
+	# 按空类型隐藏,直到最后一件才"啪"地全冒出来 —— 与逐件飞行对不上。
+	# 头顶仓是多类型仓:主要类型(item_type)只跟着散料走 —— 工具那件不该让头顶携带垛改显示工具
+	# (工具由 %tool 那个 ItemStack 专门展示,见 entity_actor)。
+	# 解析结果为空时不写:否则会把头顶仓的主要类型抹成空、展示侧随之失去绑定。
+	if not stateful and not item_type.is_empty():
+		labor.head_bag.item_type = item_type
 	if not begin_transfer(bag, dest, item_type, wanted):
 		return BT.Status.FAILURE
 	return BT.Status.RUNNING
