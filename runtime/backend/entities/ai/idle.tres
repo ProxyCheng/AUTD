@@ -1,29 +1,23 @@
 [gd_resource type="BehaviorTree" format=3 uid="uid://cidle0deposit"]
 
-[ext_resource type="Script" uid="uid://councacsy8rrq" path="res://runtime/backend/entities/ai/tasks/find_deposit_bag_task.gd" id="1_find"]
-[ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="2_move"]
-[ext_resource type="Script" uid="uid://dsy356lnysjjb" path="res://runtime/backend/entities/ai/tasks/deposit_load_task.gd" id="3_deposit"]
+[ext_resource type="BehaviorTree" path="res://runtime/backend/entities/ai/shed_load.tres" id="1_shed"]
 [ext_resource type="Script" uid="uid://sv2nw47pglic" path="res://runtime/backend/entities/ai/tasks/wander_task.gd" id="4_wander"]
 
 [sub_resource type="BlackboardPlan" id="BlackboardPlan_idle"]
 
-[sub_resource type="BTAction" id="BTAction_find_deposit"]
-script = ExtResource("1_find")
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_kkr6p"]
 
-[sub_resource type="BTAction" id="BTAction_move_deposit"]
-script = ExtResource("2_move")
-target_var = &"deposit_access"
-
-[sub_resource type="BTAction" id="BTAction_deposit"]
-script = ExtResource("3_deposit")
+[sub_resource type="BTSubtree" id="BTSubtree_shed"]
+subtree = ExtResource("1_shed")
+blackboard_plan = SubResource("BlackboardPlan_kkr6p")
 
 [sub_resource type="BTAction" id="BTAction_wander"]
 script = ExtResource("4_wander")
 
 [sub_resource type="BTSequence" id="BTSequence_root"]
-children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit"), SubResource("BTAction_wander")]
+children = [SubResource("BTSubtree_shed"), SubResource("BTAction_wander")]
 
 [resource]
-description = "空闲树:先规划卸货(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品 —— 工具看\"持有太久没被用上\"、散料闲置即可卸 —— 找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断)→ 再原地游荡(WanderTask 跑满 duration 秒后让出,整棵树随之结束重建 —— 这样卸货判定会周期性重跑,工人不会把\"后来用不上\"的工具一直卡在手上;期间派活则整棵树被任务树替换)。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access / &wander_anchor。"
+description = "空闲树:先执行共享卸货子树(shed_load.tres:从随身仓里挑第一类现在用不上的物品 —— 工具看\"持有太久没被用上\"、散料闲置即可卸 —— 找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、由兜底的 BTAlwaysSucceed 当作已了事,不做任何动作继续往下走)→ 再原地游荡(WanderTask 跑满 duration 秒后让出,整棵树随之结束重建 —— 这样卸货判定会周期性重跑,工人不会把\"后来用不上\"的工具一直卡在手上;期间派活则整棵树被任务树替换)。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access / &wander_anchor。"
 blackboard_plan = SubResource("BlackboardPlan_idle")
 root_task = SubResource("BTSequence_root")

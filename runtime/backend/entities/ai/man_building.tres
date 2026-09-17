@@ -5,20 +5,15 @@
 [ext_resource type="Script" uid="uid://d1xjdd5ki1fkc" path="res://runtime/backend/entities/ai/tasks/take_from_bag_task.gd" id="3_take"]
 [ext_resource type="Script" uid="uid://cv2wc0blln0ug" path="res://runtime/backend/entities/ai/tasks/return_tool_task.gd" id="4_return"]
 [ext_resource type="Script" uid="uid://ci3xxpimayb0p" path="res://runtime/backend/entities/ai/tasks/plan_return_task.gd" id="5_plan"]
-[ext_resource type="Script" uid="uid://councacsy8rrq" path="res://runtime/backend/entities/ai/tasks/find_deposit_bag_task.gd" id="6_find"]
-[ext_resource type="Script" uid="uid://dsy356lnysjjb" path="res://runtime/backend/entities/ai/tasks/deposit_load_task.gd" id="7_deposit"]
+[ext_resource type="BehaviorTree" path="res://runtime/backend/entities/ai/shed_load.tres" id="6_shed"]
 
 [sub_resource type="BlackboardPlan" id="BlackboardPlan_21s5x"]
 
-[sub_resource type="BTAction" id="BTAction_find_deposit"]
-script = ExtResource("6_find")
+[sub_resource type="BlackboardPlan" id="BlackboardPlan_0nqv1"]
 
-[sub_resource type="BTAction" id="BTAction_move_deposit"]
-script = ExtResource("1_move")
-target_var = &"deposit_access"
-
-[sub_resource type="BTAction" id="BTAction_deposit"]
-script = ExtResource("7_deposit")
+[sub_resource type="BTSubtree" id="BTSubtree_shed"]
+subtree = ExtResource("6_shed")
+blackboard_plan = SubResource("BlackboardPlan_0nqv1")
 
 [sub_resource type="BTAction" id="BTAction_plan_return"]
 script = ExtResource("5_plan")
@@ -48,9 +43,9 @@ arrival_center_offset = Vector2(0.4, 0.4)
 script = ExtResource("2_work")
 
 [sub_resource type="BTSequence" id="BTSequence_root"]
-children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit"), SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool"), SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work")]
+children = [SubResource("BTSubtree_shed"), SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool"), SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work")]
 
 [resource]
-description = "顶岗任务:开工前先把随身用不上的东西就近卸掉(FindDepositBagTask 从头顶仓挑散料残留、手仓挑持有太久没被用上的工具 —— 刚用完的留着等机器再来派活,免得每件往返容器 —— 找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断)→ 再重判手上工具的去留(PlanReturnTask:手上那件不是本机当前配方要用的,就把归还目标改指最近收得下的仓;正是本机要用的则留在手上,免得每件往返容器)→ 走到归还点(return_access)把用不上的工具交回容器(ReturnToolTask,没有可还的仓就自己留着)→ 走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask,源仓缺失不视为失败,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag / &deposit_type / &deposit_bag / &deposit_access。"
+description = "顶岗任务:开工前先执行共享卸货子树(shed_load.tres:从头顶仓挑散料残留、手仓挑持有太久没被用上的工具 —— 刚用完的留着等机器再来派活,免得每件往返容器 —— 找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、由兜底的 BTAlwaysSucceed 当作已了事,不做任何动作继续往下走)→ 再重判手上工具的去留(PlanReturnTask:手上那件不是本机当前配方要用的,就把归还目标改指最近收得下的仓;正是本机要用的则留在手上,免得每件往返容器)→ 走到归还点(return_access)把用不上的工具交回容器(ReturnToolTask,没有可还的仓就自己留着)→ 走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask,源仓缺失不视为失败,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag / &deposit_type / &deposit_bag / &deposit_access。"
 blackboard_plan = SubResource("BlackboardPlan_21s5x")
 root_task = SubResource("BTSequence_root")
