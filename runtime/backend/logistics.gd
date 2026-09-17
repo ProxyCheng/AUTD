@@ -75,12 +75,22 @@ func _on_bag_count_changed(in_bag_id: int):
 # —— 供需匹配 ——
 
 func _schedule_transports():
+	# 先收集全部缺货需求,再按补货优先级降序排:高优先级建筑的需求先占用本帧有限的
+	# 派发名额(MAX_SPAWNS_PER_TICK)。同优先级按 bag.id 升序 —— id 按注册顺序发放,
+	# 故同档位仍是今天的 FIFO 行为,不改变既有调度公平性。
+	# 只排需求侧:源仓仍由 _find_source 按"离请求方最近"挑,不受影响。
+	var demands: Array[Bag] = []
+	for bag: Bag in bags.values():
+		if bag.is_understocked():
+			demands.append(bag)
+	demands.sort_custom(func(in_a: Bag, in_b: Bag) -> bool:
+		if in_a.transport_priority != in_b.transport_priority:
+			return in_a.transport_priority > in_b.transport_priority
+		return in_a.id < in_b.id)
 	var spawned: int = 0
-	for demand_entry: Bag in bags.values():
+	for demand_entry: Bag in demands:
 		if spawned >= MAX_SPAWNS_PER_TICK:
 			break
-		if not demand_entry.is_understocked():
-			continue
 		var available: int = demand_entry.preferred_max_count - demand_entry.count \
 				- int(_inbound_reserved.get(demand_entry.id, 0))
 		if available <= 0:

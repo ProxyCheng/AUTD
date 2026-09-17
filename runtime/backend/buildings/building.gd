@@ -1,6 +1,12 @@
 class_name Building
 extends Node
 
+# 调度优先级范围(1 最低 / 9 最高;缺省值 5 由数据类 BuildingData.priority 给出)。
+# 同一数值驱动两处:本建筑顶岗任务(Workshop.manning_priority)与需求仓补货
+# (Bag.transport_priority)——"重要建筑既优先派人、也优先补料"。
+const MIN_PRIORITY: int = 1
+const MAX_PRIORITY: int = 9
+
 var data: BuildingData
 var cell: Cell
 var axis: Vector2i:
@@ -33,6 +39,23 @@ var progress: float = 0:
 		progress = in_progress
 		progress_changed.emit()
 signal progress_changed()
+
+# 调度优先级(可观察属性,§5.4):派生自 data.priority,不存第二份。
+# 建筑先于 load_data 存在(见 Map.place_building 的 create→load_data→add_child 顺序),
+# 故 data 为空时按数据类默认值 5 回答;此时 setter 无处可写,直接忽略。
+var priority: int:
+	get:
+		return data.priority if data else 5
+	set(in_priority):
+		if not data:
+			return
+		# 先夹取再判同值:越界写入(如 12)夹回 9 后若与原值一致,不应发信号。
+		var clamped: int = clampi(in_priority, MIN_PRIORITY, MAX_PRIORITY)
+		if clamped == data.priority:
+			return
+		data.priority = clamped
+		priority_changed.emit()
+signal priority_changed()
 
 static func create(in_type: String) -> Building:
 	var building_class = load("res://runtime/backend/buildings/%s.gd" % in_type)

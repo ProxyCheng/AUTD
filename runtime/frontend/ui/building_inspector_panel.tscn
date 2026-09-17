@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/labor_content_component.tscn" id="6_laborc"]
 [ext_resource type="Script" path="res://runtime/frontend/ui/creature_content_component.gd" id="7_creature"]
 [ext_resource type="PackedScene" path="res://runtime/frontend/ui/creature_content_component.tscn" id="8_creaturec"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/ui/priority_component.tscn" id="9_priority"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
 bg_color = Color(0.07, 0.08, 0.11, 0.92)
@@ -139,6 +140,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
+
+[node name="Priority" parent="Components" instance=ExtResource("9_priority")]
 
 [node name="AttackPreference" parent="Components" instance=ExtResource("2_pref")]
 

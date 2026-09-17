@@ -119,6 +119,10 @@ func move_recipe(in_from: int, in_to: int):
 signal recipe_order_changed()
 
 func _ready():
+	# 优先级变化时需求仓补货档位要跟上(§5.4)。节点重入树时 _ready 会再跑一次,
+	# is_connected 守卫防重复连接。
+	if not priority_changed.is_connected(_on_priority_changed):
+		priority_changed.connect(_on_priority_changed)
 	_setup_bags()
 	_maintain_manning()
 
@@ -153,10 +157,11 @@ func _is_manned() -> bool:
 func work_entry_position() -> Vector2:
 	return Vector2(axis) + WORK_ENTRY_OFFSET
 
-# 该机器顶岗任务的调度优先级(子类可覆盖;攻击建筑如 Crossbow 设为更高档,
-# 保证驱动机器产出的任务不被普通物流挤占)。默认=生产 10。
+# 该机器顶岗任务的调度优先级 = 本建筑实例的 priority(1-9,默认 5)。
+# 普通搬运为 0,故最低档生产(1)仍优先于普通物流;攻击建筑(炮塔)覆写为
+# priority + TURRET_MANNING_EDGE,保持"同档位下炮塔优先有人值守"的既有意图。
 func manning_priority() -> int:
-	return 10
+	return priority
 
 # —— 配方查询:当前应执行的配方 ——
 
@@ -317,9 +322,13 @@ func get_capacity(in_item_type: String) -> int:
 # 输出仓。子类只需声明 recipes,无需手写建 input_bag/log_bag/stone_bag。
 # 弩炮这类即时效果机器(recipes 为空)完全覆写本方法自建弹药仓。
 func _setup_bags():
-	# 输入仓:收集全部配方所需的输入类型(去重),每种建一只纯需求方
+	# 输入仓:收集全部配方所需的输入类型(去重),每种建一只纯需求方。
+	# 第 5 参 in_transport_priority = 本建筑 priority:TransportTask 构造时读目标仓的
+	# transport_priority(见 TransportTask._init),故重要建筑的补料优先于普通物流。
+	# 输出仓是供给方(只出不进),永远不会成为搬运任务的目标,补货档位无意义 ——
+	# 保持默认 0,明确"它不参与需求调度"。
 	for item_type: String in _collect_input_types():
-		_make_bag("InputBag_%s" % item_type, item_type, output_capacity, true)
+		_make_bag("InputBag_%s" % item_type, item_type, output_capacity, true, priority)
 	# 输出仓:收集全部配方声明的产出类型(去重),每种建一只纯供给方
 	for item_type: String in _collect_output_types():
 		output_bags[item_type] = _make_bag("OutputBag_%s" % item_type, item_type, output_capacity, false)
@@ -430,6 +439,10 @@ func _get_logistics() -> Logistics:
 	return Level.current.logistics
 
 # 每帧按需维护:无人且机器需要工人、且没有在途请求时,注册一个顶岗任务。
+# 已注册任务的优先级与本机当前 manning_priority() 不一致时(建筑 priority 被改过),
+# 撤销旧任务让下面按新档位重新注册 —— LaborTask.priority 是构造时拷贝(见 LaborTask._init),
+# 不会自动跟随;仅在数值真的变了才重建,不无条件取消/重注册。撤销后若工人仍在岗
+# (_is_manned 为真),就等其离岗、下一帧走正常补员路径,避免打断在岗工人。
 func _maintain_manning():
 	if not is_inside_tree():
 		return
@@ -438,8 +451,11 @@ func _maintain_manning():
 		return
 	if _worker_requested:
 		if manning_task and is_instance_valid(manning_task):
-			return
-		_worker_requested = false
+			if manning_task.priority == manning_priority():
+				return
+			_cancel_worker_request()
+		else:
+			_worker_requested = false
 	if not _is_manned() and _needs_worker():
 		_worker_requested = true
 		manning_task = ManBuildingTask.new(self, work_entry_position(), 1, manning_priority())
@@ -451,3 +467,14 @@ func _cancel_worker_request():
 	if is_instance_valid(manager) and manning_task and is_instance_valid(manning_task):
 		manager.cancel_task(manning_task)
 	manning_task = null
+
+# 建筑 priority 变化(§5.4 信号):把新档位推给全部需求仓,此后新派发的补货任务即按新值
+# 调度(在途 TransportTask 的 priority 构造时已拷贝,不中途改写,完成/取消后 Logistics
+# 自然按新值重估)。需求仓 = 输入仓,由 _make_bag(..., true) 创建时 preferred_min_count =
+# capacity > 0;输出仓是供给方 preferred_min_count = 0,保持 0。
+# 值取 manning_priority() 而非 priority:需求仓补货与本机顶岗同源(都表达"本机多要紧"),
+# 弩炮的 +1 档位必须一并跟随,否则改一次优先级炮塔就失去对普通作坊的补货领先。
+func _on_priority_changed():
+	for bag: Bag in _bags:
+		if bag.preferred_min_count > 0:
+			bag.transport_priority = manning_priority()

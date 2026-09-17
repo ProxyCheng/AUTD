@@ -83,15 +83,21 @@ var load_timer: float = 0
 var input_bag: Bag
 var _shift_fired: bool = false  # 本班值岗是否已射出一发(完成一次生产)
 
+# 炮塔档位加成:顶岗与补货都比同等 priority 的普通作坊高一档(见 manning_priority/_setup_bags)。
+# 基准值取实例 priority(1-9,默认 5),故"同档位下炮塔始终优先有人值守、优先补弹"。
+const TURRET_MANNING_EDGE: int = 1
+
 # 无输出仓配方:只建弹药输入仓并指定其为展示镜像(不调用 super,基类默认会按
 # _produces() 建输出仓,而炮塔无配方产出)。
+# 弹药仓是纯需求方,补货优先级与顶岗同档(+TURRET_MANNING_EDGE):炮塔补弹优先于普通作坊补料。
 func _setup_bags():
-	input_bag = _make_bag("AmmoBag", ammo_type(), ammo_capacity(), true, 1)
+	input_bag = _make_bag("AmmoBag", ammo_type(), ammo_capacity(), true, priority + TURRET_MANNING_EDGE)
 	_bind_mirror(input_bag)
 
-# 攻击建筑:驱动它的顶岗任务优先级=11(生产 10 再 +1),保证炮塔始终优先有人值守
+# 攻击建筑:驱动它的顶岗任务优先级 = 本机 priority + TURRET_MANNING_EDGE(比普通作坊高一档),
+# 保证炮塔始终优先有人值守
 func manning_priority() -> int:
-	return 11
+	return priority + TURRET_MANNING_EDGE
 
 func is_work_done() -> bool:
 	return _shift_fired
