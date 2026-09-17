@@ -8,7 +8,11 @@ extends LaborTask
 # 树内的 TakeFromBagTask / PutToBagTask 在到达时实际 remove/add(自带上下限截断),
 # 故即使源被并发搬空或目标被占满,也不会出现负数或超容。
 
-const HAUL_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/transport_haul.tres")
+# 树路径刻意**不用 preload**:transport_haul.tres 引用 find_deposit_bag_task.gd,而该叶子依赖
+# Level/Logistics,Logistics 又依赖本脚本 —— 编译期 preload 会把这条链闭合成环,启动即报
+# "Could not preload resource file" 并连带 logistics/labor 一起编译失败。按需 load 绕开该环
+# (ResourceLoader 自带缓存,重复 load 不会重复解析)。
+const HAUL_TREE_PATH: String = "res://runtime/backend/entities/ai/transport_haul.tres"
 
 const BB_SOURCE_BAG: StringName = &"source_bag"
 const BB_DEST_BAG: StringName = &"dest_bag"
@@ -44,4 +48,4 @@ func make_tree(in_labor: Labor) -> BehaviorTree:
 	in_labor.blackboard.set_var(BB_ITEM_TYPE, item_type)
 	in_labor.blackboard.set_var(BB_TAKE_ACCESS, source_bag.access_position)
 	in_labor.blackboard.set_var(BB_PUT_ACCESS, dest_bag.access_position)
-	return HAUL_TREE
+	return load(HAUL_TREE_PATH) as BehaviorTree

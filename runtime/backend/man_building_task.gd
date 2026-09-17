@@ -18,7 +18,10 @@ extends LaborTask
 #   &return_access / &return_bag = 干完把工具还去哪(给 ReturnToolTask;无可还的仓则为岗位点)。
 # .tres 模板每次由 JobRunnerTask.instantiate 深拷贝,多工人共享安全。
 
-const JOB_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/man_building.tres")
+# 树路径刻意**不用 preload**:man_building.tres 引用 find_deposit_bag_task.gd,而该叶子依赖
+# Level/Logistics —— 与 transport_task.gd 同一处修正,编译期 preload 会闭合成环、启动即失败。
+# 按需 load 绕开该环(ResourceLoader 自带缓存,重复 load 不会重复解析)。
+const JOB_TREE_PATH: String = "res://runtime/backend/entities/ai/man_building.tres"
 
 # 工具取用/归还相关的黑板键(与 man_building.tres 的导出参数对应)。
 const BB_TOOL_ACCESS: StringName = &"tool_access"
@@ -46,7 +49,7 @@ func make_tree(in_labor: Labor) -> BehaviorTree:
 	in_labor.blackboard.set_var(ProvideWorkloadTask.BB_BUILDING, building)
 	_write_tool_plan(in_labor)
 	_write_return_plan(in_labor)
-	return JOB_TREE
+	return load(JOB_TREE_PATH) as BehaviorTree
 
 # 就近调度 + 工具优先:已经握着本机所需工具的工人优先被派到本机。
 # 工具是"按件"的、全图往往只有一两把,而默认 cost_for(LaborTask)只看距离 —— 于是会派一个
