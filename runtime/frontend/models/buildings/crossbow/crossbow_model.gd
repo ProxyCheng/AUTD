@@ -152,6 +152,10 @@ func _update_arrow_visibility():
 	# 例外:弹射(firing)阶段即使这已是最后一支(loaded_count 将随 removed_count 归零),
 	# 弦上这支也应可见——它正是正要被射出的那支。故 firing 恒可见(只要非 idle)。
 	_show_arrow = _state != "idle" and (_state == "firing" or _loaded_count > 0)
+	# 装填中若上弦起点还没定出来(见 _ensure_nock_from),箭的位置尚无意义:此时照常显示的话,
+	# 它会停在上一状态留下的位置上(通常正是弦位)闪一下。起点定下来再显示。
+	if _state == "loading" and not _nock_from_ready:
+		_show_arrow = false
 	%Arrow.visible = _show_arrow
 
 func _apply_pose(in_time: float):
@@ -225,14 +229,17 @@ func _apply_nock(in_progress: float):
 	var t := clampf(_ease_nock(in_progress), 0.0, 1.0)
 	%Arrow.transform = Trs.lerp(_nock_from, _arrow_rest_transform, t)
 
-# 上弦起点 TRS 只解析一次。暂时取不到(节点/垛还没就绪)就先让箭停在弦位、下一帧再试 ——
-# 起点定下来之前箭不动,不会先闪到别处。
+# 上弦起点 TRS 只解析一次。暂时取不到(节点/垛还没就绪)就先让箭停住并保持隐藏、下一帧再试:
+# 起点定下来之前位置无意义,显示出来只会闪在上一状态留下的位置上(见 _update_arrow_visibility)。
 func _ensure_nock_from():
 	if _nock_from_ready:
 		return
 	if _try_begin_nock():
+		# 起点定下来了,这时才允许弦上箭出现
+		_update_arrow_visibility()
 		return
 	_nock_from = _arrow_rest_transform
+	_update_arrow_visibility()
 
 # 上弦缓动:慢起快收,像被手端上去而非瞬移
 func _ease_nock(in_t: float) -> float:

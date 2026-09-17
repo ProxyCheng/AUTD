@@ -160,8 +160,11 @@ func _tick_machine(in_delta: float):
 		state = "ready"
 		progress = 1
 		return
-	state = "charging"
-	progress = fire_timer / charge_time()
+	# 蓄力只由 _begin_loading 起头(新一班值岗 / 空弦收到工作量)。空弦(idle)不在这里转
+	# charging —— 那会跳过上弦:前端把"武器里那发"当成已挂上弦而显示出来,之后真正装填时
+	# 看着就是"箭先在弦上闪一下,再飞上去"。
+	if state == "charging":
+		progress = fire_timer / charge_time()
 
 # worker 每帧注入劳动量(delta * efficiency),累积为蓄力进度。
 # 装填/开火期间注入的工作量被忽略(操作手在装填/开火,不注入蓄力);其余状态才累计。
@@ -170,6 +173,9 @@ func _apply_workload(in_workload: float):
 	if state == "firing" or state == "loading":
 		return
 	if state == "idle":
+		# 空弦收到工作量:先从垛上弦(loading);这一帧的工作量随装填一并被忽略。
+		if _begin_loading():
+			return
 		state = "charging"
 		progress = 0
 	fire_timer = minf(fire_timer + in_workload, charge_time())
@@ -186,13 +192,21 @@ func _reset_shift():
 	# 仅在"全新一发"(蓄力未开始累计)才进入装填;若是中断续力(0<fire_timer<charge_time(),
 	# 已装填且蓄力进行到一半),直接回 charging 继续,不重复装填(否则装填动作会重头再来)。
 	# 已蓄满(fire_timer>=charge_time())则直接维持备战。
-	if _has_ammo() and fire_timer <= 0.0:
-		# load_progress 先归零再换状态:前端在 set_state("loading") 那一帧就已拿到 0,
-		# 取弹起点与"垛少显示一支"同帧生效,不会先闪在弦位/膛口。
-		load_progress = 0.0
-		state = "loading"
-		load_timer = load_time()
-		progress = 0
+	_begin_loading()
+
+# 进入装填(端箭上弦 / 装弹上膛):空弦(未开始蓄力)且弹药仓有货时才需要。返回是否真的进入。
+# 空弦必须先走这一步再蓄力 —— 直接进 charging 会让前端把"武器里那发"当成已挂上弦显示出来,
+# 而垛又还没少显示那一支,于是同一支箭被画两次;随后真正装填时看着就是"先闪一下"。
+func _begin_loading() -> bool:
+	if not _has_ammo() or fire_timer > 0.0:
+		return false
+	# load_progress 先归零再换状态:前端在 set_state("loading") 那一帧就已拿到 0,
+	# 取弹起点与"垛少显示一支"同帧生效,不会先闪在弦位/膛口。
+	load_progress = 0.0
+	state = "loading"
+	load_timer = load_time()
+	progress = 0
+	return true
 
 func fire() -> bool:
 	if not target:
