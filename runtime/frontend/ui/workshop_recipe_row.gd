@@ -17,6 +17,9 @@ signal move_requested(from_index: int, to_index: int)
 # 本行开始被拖拽(from_index, 指针在行内的抓取偏移 Y):列表据此接管跟随/让位/落位
 signal drag_started(from_index: int, grab_offset_y: float)
 
+# 未执行配方的进度条填充色(灰),与执行中的工作量黄区分
+const COLOR_PENDING: Color = Color(0.3, 0.3, 0.3, 0.5)
+
 var _recipe: RecipeData = null
 var recipe_index: int = -1
 var _building: Workshop = null
@@ -25,6 +28,7 @@ var _is_active: bool = false
 # 每个物料项包含的控件引用(竖条 + 数量),供每帧刷新库存占比
 var _item_bars: Array = []   # 每个元素: { "bar": ProgressBar, "type": String, "num": Label }
 var _time_label: Label = null  # 耗时文本(箭头下方)
+var _progress_fill: StyleBoxFlat = null  # 本行私有的进度条填充样式(见 _ensure_progress_fill)
 
 func setup(in_recipe: RecipeData, in_index: int, in_building: Workshop,
 		in_is_active: bool = false):
@@ -164,7 +168,8 @@ func _add_item(in_item_type: String, in_num: int):
 	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	bar.fill_mode = ProgressBar.FILL_BOTTOM_TO_TOP
 	bar.add_theme_stylebox_override("background", _make_style(Color(0, 0, 0, 0.4)))
-	bar.add_theme_stylebox_override("fill", _make_style(Color(0.4, 0.8, 0.95, 0.9)))
+	# 物料竖条 = 该物料的库存/容量占比,与建筑头顶容量条同色
+	bar.add_theme_stylebox_override("fill", _make_style(BuildingCapacityBar.COLOR_CAPACITY))
 	bar_col.add_child(bar)
 	item.add_child(bar_col)
 	# 名称 + 数量列(bb / cc):垂直居中,与竖条中部对齐
@@ -226,6 +231,19 @@ func _make_style(in_color: Color) -> StyleBoxFlat:
 	s.set_corner_radius_all(2)
 	return s
 
+# 本行私有的进度条填充样式:场景里的 SubResource 被所有行共享,直接改色会互相覆盖,
+# 故首次使用时复制一份(保留圆角)并作为本行 override。
+func _ensure_progress_fill(in_bar: ProgressBar) -> StyleBoxFlat:
+	if _progress_fill:
+		return _progress_fill
+	var base := in_bar.get_theme_stylebox("fill")
+	if base is StyleBoxFlat:
+		_progress_fill = (base as StyleBoxFlat).duplicate(true) as StyleBoxFlat
+	else:
+		_progress_fill = _make_style(WorkProgressBar.COLOR_WORK)
+	in_bar.add_theme_stylebox_override("fill", _progress_fill)
+	return _progress_fill
+
 # —— 每帧刷新物料竖条与数量 ——
 
 func _refresh_items():
@@ -248,11 +266,9 @@ func _refresh_progress():
 	if _is_active and _building:
 		ratio = clampf(_building.progress, 0.0, 1.0)
 	_progress_bar.value = ratio * 100.0
-	var fill: StyleBoxFlat = _progress_bar.get_theme_stylebox("fill") as StyleBoxFlat
-	if fill == null:
-		fill = _make_style(Color(0.35, 0.85, 0.95, 0.9))
-		_progress_bar.add_theme_stylebox_override("fill", fill)
-	fill.bg_color = Color(0.35, 0.85, 0.95, 0.9) if _is_active else Color(0.3, 0.3, 0.3, 0.5)
+	# 执行中的配方用工作量条黄(与建筑头顶 WorkProgressBar 同色),未执行的行留灰
+	var fill := _ensure_progress_fill(_progress_bar)
+	fill.bg_color = WorkProgressBar.COLOR_WORK if _is_active else COLOR_PENDING
 	# 进度说明文字(旁边写明):仅当前执行的配方显示百分比,其余显示 Pending
 	var label := _progress_label()
 	if label:

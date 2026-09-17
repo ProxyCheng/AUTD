@@ -51,3 +51,15 @@ func _disconnect_signals():
 # 全量刷新一次(子类覆写:依据 target 当前状态重排 UI)。
 func refresh():
 	pass
+
+# 把 in_bar 的填充色设为 in_color,返回被改色的样式供调用方后续按状态更新。
+# 先复制场景里的 StyleBoxFlat:同一 .tscn 的所有实例共享该 SubResource,
+# 直接改 bg_color 会让一个实例的改色串到其它实例上。
+static func apply_bar_fill(in_bar: ProgressBar, in_color: Color) -> StyleBoxFlat:
+	var fill := StyleBoxFlat.new()
+	var base := in_bar.get_theme_stylebox("fill")
+	if base is StyleBoxFlat:
+		fill = (base as StyleBoxFlat).duplicate(true) as StyleBoxFlat
+	fill.bg_color = in_color
+	in_bar.add_theme_stylebox_override("fill", fill)
+	return fill

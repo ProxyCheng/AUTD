@@ -20,6 +20,7 @@ const STATUS_TEXT: Dictionary = {
 var _status_label: Label = null
 var _health_bar: ProgressBar = null
 var _health_label: Label = null
+var _health_fill: StyleBoxFlat = null
 
 func supports(in_target: Object) -> bool:
 	return in_target is Creature
@@ -28,6 +29,9 @@ func _ready():
 	_status_label = get_node_or_null("%StatusLabel") as Label
 	_health_bar = get_node_or_null("%HealthBar") as ProgressBar
 	_health_label = get_node_or_null("%HealthLabel") as Label
+	# 生命条与头顶 EntityHealthBar 同色:取本实例私有样式,具体阵营色在 refresh() 里定
+	if _health_bar:
+		_health_fill = apply_bar_fill(_health_bar, EntityHealthBar.COLOR_FRIENDLY)
 	# bind() 可能早于 _ready(组件节点先被面板绑定):此时补一次刷新
 	if target:
 		refresh()
@@ -58,5 +62,8 @@ func refresh():
 	if _health_bar:
 		_health_bar.max_value = max_health
 		_health_bar.value = clampf(creature.health / max_health, 0.0, 1.0) * max_health
+		if _health_fill:
+			# 与头顶血条同色:敌对红 / 友方绿
+			_health_fill.bg_color = EntityHealthBar.color_for(creature)
 	if _health_label:
 		_health_label.text = "%d / %d" % [roundi(creature.health), roundi(creature.max_health)]

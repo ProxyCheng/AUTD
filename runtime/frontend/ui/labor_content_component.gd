@@ -19,6 +19,9 @@ func _ready():
 	_bag_label = get_node_or_null("%BagLabel") as Label
 	_load_bar = get_node_or_null("%LoadBar") as ProgressBar
 	_load_label = get_node_or_null("%LoadLabel") as Label
+	# 装载条 = 仓占用率,与建筑头顶容量条(BuildingCapacityBar)同一语义、同一配色
+	if _load_bar:
+		apply_bar_fill(_load_bar, BuildingCapacityBar.COLOR_CAPACITY)
 	# bind() 可能早于 _ready(组件节点先被面板绑定):此时补一次刷新
 	if target:
 		refresh()
