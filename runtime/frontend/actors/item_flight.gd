@@ -1,27 +1,18 @@
 class_name ItemFlight
 extends Node3D
 
-# 一次性"物品飞行"表现:工人从建筑取/放物品时,让该件物品的模型从起点(工人头/手)
-# 飞到终点(建筑的料堆;建筑没有垛时给中心 + 缩放 0,读作"到地方就消失 / 从无到有")。
+# 一次性"物品飞行"表现:由**一次计时搬运**(ItemTransfer)的 progress 驱动 ——
+# 后端开趟当帧就扣货、到点才把货交给目标仓(见 ItemTransfer),本节点只是把这段过程
+# 画成"物品从起点飞到终点"。
 #
-# 两端各是一份完整的世界空间 TRS,飞行期间三样一起过渡:位置走直线并叠加倒 U 拱高,
-# 朝向与缩放整段交给 Trs.lerp —— 它有"缩放为 0"端点的处理,见该类注释。
+# 故本节点**不自带计时器**:进度是后端的事实,表现跟着它走(§5.4 的 progress 契约:
+# 数据层只出归一化进度,到动画时间轴的换算在表现层)。后端把整段拉长/缩短,飞行自动跟着变。
 #
-# 纯表现 + 自管生命周期:launch() 只造节点与道具模型,**不把它挂进场景树** ——
-# 调用方 add_child 后 _ready 才开始推进,播完即 queue_free(一次性表现无复用价值,
-# 同 CannonballBurst)。不用 Tween:两端姿态全是 Transform3D 输入,按归一化进度直接
-# 采样最直观,也不会出现节点被回收后 Tween 仍持有引用的问题。
+# 两端各是一份完整的世界空间 TRS,三样一起过渡:位置走直线并叠加倒 U 拱高,朝向与缩放
+# 整段交给 Trs.lerp(它有"缩放为 0"端点的处理,见该类注释)。
 #
 # 姿态契约:道具模型按 ItemStack 的归一化约定摆正(rotation=ZERO、scale=ONE),
 # 位置/朝向/缩放全部由本节点承担 —— 这样飞行中的道具与垛里那支看起来是同一个东西。
-
-# —— 时长参数(纯表现,可直接调) ——
-# 飞行速度(米/秒):时长 = 起终点直线距离 / 本值,再夹到下面的上下限。
-const SPEED: float = 6.0
-# 时长下限(秒):贴脸取放(同一格内)也要走完一小段,不能瞬移。
-const MIN_DURATION: float = 0.18
-# 时长上限(秒):长距离搬运不拖沓,节奏一眼跟得上。
-const MAX_DURATION: float = 0.9
 
 # —— 倒 U 轨迹参数 ——
 # 拱高系数:弧顶抬升 = 直线距离 × 本值(同 CannonModel.LOAD_BALL_ARC_RATIO 的几何思路)。
@@ -34,11 +25,10 @@ const ARC_MAX_HEIGHT: float = 2.5
 # 起点/终点姿态(世界空间 TRS),launch 时写死,飞行期间只读。
 var _from: Transform3D = Transform3D.IDENTITY
 var _to: Transform3D = Transform3D.IDENTITY
-# 已播时长与总时长(秒):总时长在 launch 时按距离算好并夹取。
-var _elapsed: float = 0.0
-var _duration: float = 0.0
 # 弧顶抬升量(米):按直线距离一次算好,避免每帧重复求。
 var _arc: float = 0.0
+# 驱动本表现的搬运(由 follow 绑定);终态即自毁。
+var _transfer: ItemTransfer = null
 
 # 工厂:按 item_type 查 ItemStack 的道具场景表,造出一个**尚未入树**的飞行节点。
 # 未知类型 / 场景加载失败 → 返回 null(未知类型是预期情况,调用方跳过动画即可,不报错)。
@@ -56,10 +46,8 @@ static func launch(in_type: String, in_from: Transform3D, in_to: Transform3D) ->
 	var flight := ItemFlight.new()
 	flight._from = in_from
 	flight._to = in_to
-	# 时长/拱高都只由直线距离推出:近处快而贴地,远处慢而抬高,但都被上下限兜住。
-	var distance: float = in_from.origin.distance_to(in_to.origin)
-	flight._duration = clampf(distance / SPEED, MIN_DURATION, MAX_DURATION)
-	flight._arc = clampf(distance * ARC_RATIO, ARC_MIN_HEIGHT, ARC_MAX_HEIGHT)
+	flight._arc = clampf(in_from.origin.distance_to(in_to.origin) * ARC_RATIO,
+			ARC_MIN_HEIGHT, ARC_MAX_HEIGHT)
 	flight.name = "ItemFlight_%s" % in_type
 	# 归一化同 ItemStack._build_props:模型只摆姿态,尺寸交给本节点 Transform 的缩放。
 	# 这里不置 visible —— 垛里置 false 是为了数量显隐,飞行中这件必须可见。
@@ -68,20 +56,21 @@ static func launch(in_type: String, in_from: Transform3D, in_to: Transform3D) ->
 	flight.add_child(prop)
 	return flight
 
-# 入树即启动:先把首帧姿态摆到起点,避免第一帧从原点/单位姿态闪过去。
-func _ready():
-	_apply(0.0)
+# 绑到驱动本表现的搬运:先按当前进度摆一次姿态(别等下一帧才从原点闪过来),
+# 之后跟着 progress 走,搬运一进终态就自毁。
+# 调用方须先把本节点 add_child 进树(挂 RoomActor —— 这样工人 actor 被回收也不影响它飞完)。
+func follow(in_transfer: ItemTransfer):
+	_transfer = in_transfer
+	in_transfer.progress_changed.connect(_on_progress_changed)
+	in_transfer.finished.connect(_on_transfer_finished)
+	_apply(in_transfer.progress)
 
-func _process(in_delta: float):
-	if _duration <= 0.0:
-		# 未经 launch 的裸实例(既无时长也无模型)直接回收,避免除零
-		queue_free()
-		return
-	# 进度夹在总时长上,故 k 恒不越过 1.0;播完立即自毁,不常驻场景树。
-	_elapsed = minf(_elapsed + in_delta, _duration)
-	_apply(_elapsed / _duration)
-	if _elapsed >= _duration:
-		queue_free()
+func _on_progress_changed():
+	if is_instance_valid(_transfer):
+		_apply(_transfer.progress)
+
+func _on_transfer_finished(_in_state: int):
+	queue_free()
 
 # 按归一化进度 in_k ∈ [0,1] 采样姿态:位置走直线并叠加倒 U 拱高(不穿地面/建筑),
 # 朝向与缩放整段交给 Trs.lerp。

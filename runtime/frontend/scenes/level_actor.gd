@@ -24,7 +24,7 @@ func bind(in_level: Level):
 	level.owner = owner
 	add_child(level)
 	%map.bind(level.map)
-	%room.bind(level.room)
+	%room.bind(level.room, level.logistics)
 	# 选中实体被移除(死亡/命中)时关闭检视面板:queue_free 延迟执行,回调期间实体仍有效,
 	# 读 .id 安全(Room.entities_changed 移除事件)。
 	level.room.entities_changed.connect(_on_room_entities_changed)

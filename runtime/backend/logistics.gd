@@ -20,6 +20,12 @@ extends Node
 const CARRY_CAPACITY: int = 5
 # 单帧最多新派发的搬运任务数(防批量缺货时一帧洪水式建任务)
 const MAX_SPAWNS_PER_TICK: int = 4
+# 一条搬运结束后仍留在登记表里的时长(秒):叶子是"下一 tick 才来问结果",必须留够;
+# 留太久白占内存,故到期即释放。
+const TRANSFER_LINGER: float = 5.0
+
+# 搬运开始(源侧此刻就扣货,见 ItemTransfer)。表现层据此起一段飞行表现并跟着 progress 走。
+signal transfer_started(transfer: ItemTransfer)
 
 # { bag_id: Bag } 已注册 bag
 var bags: Dictionary = {}
@@ -33,6 +39,11 @@ var _tasks: Dictionary = {}
 var _count_callbacks: Dictionary = {}
 # 是否已连接 LaborManager 完成/取消信号(懒连接,Logistics 早于 LaborManager 入树)
 var _signals_connected: bool = false
+# { transfer_id: ItemTransfer } 在途 / 刚结束仍在保留期的搬运
+var _transfers: Dictionary = {}
+# { transfer_id: 剩余保留秒数 } 已终态但仍可被叶子查到的搬运
+var _transfer_linger: Dictionary = {}
+var _next_transfer_id: int = 1
 
 func register_bag(in_bag: Bag):
 	if bags.has(in_bag.id):
@@ -44,8 +55,9 @@ func register_bag(in_bag: Bag):
 	changed_bags.set(in_bag.id, true)
 
 func unregister_bag(in_bag_id: int):
-	# 先取消涉该 bag 的在途任务(可能同步触发 _on_task_finished),再清账本
+	# 先取消涉该 bag 的在途任务与在途搬运(可能同步触发 _on_task_finished),再清账本
 	_cancel_tasks_for_bag(in_bag_id)
+	_cancel_transfers_for_bag(in_bag_id)
 	var bag: Bag = bags.get(in_bag_id)
 	if bag:
 		var callback: Callable = _count_callbacks.get(in_bag_id)
@@ -56,8 +68,9 @@ func unregister_bag(in_bag_id: int):
 	changed_bags.erase(in_bag_id)
 	_inbound_reserved.erase(in_bag_id)
 
-# 每帧:结算计数变化后重估供需(只有变化帧才干活;新缺货/新富余都会置 changed)。
-func tick(_in_delta: float):
+# 每帧:先推进在途搬运(与供需变化无关,故必须在下面的早退之前),再结算计数变化重估供需。
+func tick(in_delta: float):
+	_tick_transfers(in_delta)
 	if changed_bags.is_empty():
 		return
 	var manager := _get_manager()
@@ -66,6 +79,61 @@ func tick(_in_delta: float):
 	_connect_signals(manager)
 	changed_bags.clear()
 	_schedule_transports()
+
+# —— 计时搬运(ItemTransfer)——
+
+# 开一趟计时搬运:源仓此刻就扣货进托管仓("先扣"),之后每帧由 _tick_transfers 推进 progress,
+# 到点才把货交给目标仓。返回搬运 id 供叶子后续查询;源仓一件都没搬动(缺货/类型不符)→ -1。
+func begin_transfer(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -> int:
+	var transfer := ItemTransfer.new()
+	if not transfer.begin(in_source, in_dest, in_item_type, in_amount):
+		transfer.free()
+		return -1
+	var transfer_id: int = _next_transfer_id
+	_next_transfer_id += 1
+	add_child(transfer)
+	_transfers.set(transfer_id, transfer)
+	transfer.finished.connect(_on_transfer_finished.bind(transfer_id))
+	transfer_started.emit(transfer)
+	return transfer_id
+
+# 按 id 取搬运:在途的、以及已终态但仍在保留期内的都能取到(叶子下一 tick 才来问结果);
+# 保留期过后彻底释放,返回 null —— 叶子据此把"查不到"当失败处理。
+func get_transfer(in_transfer_id: int) -> ItemTransfer:
+	var transfer: ItemTransfer = _transfers.get(in_transfer_id)
+	return transfer
+
+func _on_transfer_finished(_in_state: int, in_transfer_id: int):
+	_transfer_linger.set(in_transfer_id, TRANSFER_LINGER)
+
+func _tick_transfers(in_delta: float):
+	# keys() 返回副本,故循环里 erase 安全。
+	for transfer_id: int in _transfers.keys():
+		var transfer: ItemTransfer = _transfers.get(transfer_id)
+		if not is_instance_valid(transfer):
+			_transfers.erase(transfer_id)
+			_transfer_linger.erase(transfer_id)
+			continue
+		transfer.tick(in_delta)
+		if not _transfer_linger.has(transfer_id):
+			continue
+		var left: float = float(_transfer_linger.get(transfer_id)) - in_delta
+		if left > 0.0:
+			_transfer_linger.set(transfer_id, left)
+			continue
+		_transfer_linger.erase(transfer_id)
+		_transfers.erase(transfer_id)
+		transfer.queue_free()
+
+# 有仓被销毁 → 涉它的在途搬运立刻收工并把货退还(见 ItemTransfer.cancel)。
+# 按 begin 时抄下的 bag id 比对,不去读可能已 freed 的引用。
+func _cancel_transfers_for_bag(in_bag_id: int):
+	for transfer_id: int in _transfers.keys():
+		var transfer: ItemTransfer = _transfers.get(transfer_id)
+		if not is_instance_valid(transfer) or transfer.state != ItemTransfer.State.Running:
+			continue
+		if transfer.source_bag_id == in_bag_id or transfer.dest_bag_id == in_bag_id:
+			transfer.cancel()
 
 func _on_bag_count_changed(in_bag_id: int):
 	if not bags.has(in_bag_id):

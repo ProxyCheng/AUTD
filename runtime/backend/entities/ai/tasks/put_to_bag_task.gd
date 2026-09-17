@@ -1,8 +1,11 @@
 class_name PutToBagTask
-extends BTAction
+extends BagTransferTask
 
-# 卸货叶子:到达目标装卸点后,把工人随身仓中属于目标类型的物品实际放入 dest_bag。
-# 走 Bag.move_to 逐件搬运(有状态单体搬实例本身、耐久不重置);目标仓装不下的部分留在随身仓,不丢件。
+# 卸货叶子:到达目标装卸点后,把工人随身仓中属于目标类型的物品放进 dest_bag。
+# 搬运是**计时**的(见 BagTransferTask):开趟当帧随身仓就扣货、货进托管仓飞着,跨若干 tick
+# 才落进目标仓,故本叶子会返回 RUNNING —— 表现层正是靠这段过程画"物品飞进料堆"。
+# 走的是 §5.8 唯一认可的搬运原语(有状态单体搬实例本身、耐久不重置);目标仓装不下的部分
+# 由托管仓退回随身仓,不丢件。
 # 物品类型取黑板 &item_type(搬运任务按需求方声明写入;通配仓的 item_type 为空,靠它才放得进),
 # 为空才回退目标仓 item_type(老路径不写该键)。
 # 货源按物品性质分流(与 TakeFromBagTask 的入库分流对称):
@@ -14,6 +17,12 @@ extends BTAction
 # 携带量为 0 时视为"卸完了",仍 SUCCESS(空跑不是失败)。
 
 func _tick(_in_delta: float) -> int:
+	# 已经在飞:等它落地。此刻货在托管仓里(随身仓已扣、目标仓还没进),别再去解析随身仓。
+	if _transfer_id >= 0:
+		if await_transfer() != BT.Status.SUCCESS:
+			return BT.Status.FAILURE
+		# 少放了(目标被并发占满,余量退回随身仓)就是本趟没完成,见文件头的失败约定。
+		return BT.Status.SUCCESS if delivered() >= moved() else BT.Status.FAILURE
 	var bb := get_blackboard()
 	# 无类型临时变量先判定有效再赋 typed,避免赋值瞬间遇已 freed 的 bag 即崩。
 	var raw_bag: Variant = bb.get_var(TransportTask.BB_DEST_BAG, null, false)
@@ -31,9 +40,10 @@ func _tick(_in_delta: float) -> int:
 		if is_instance_valid(source):
 			# 只卸解析出的那一类:随身仓是多类型仓,count 是各类型总和,
 			# 按它落库会把工具等其他类型也一并塞进单类型仓(且工具的实例会被丢弃重建)。
-			# 先记携带量,再与落库数比对 —— 少放了就是本趟没完成(见文件头的失败约定)。
 			var carried: int = source.count_of(item_type)
-			var deposited: int = source.move_to(bag, item_type, carried)
-			if deposited < carried:
+			if carried <= 0:
+				return BT.Status.SUCCESS
+			if not begin_transfer(source, bag, item_type, carried):
 				return BT.Status.FAILURE
+			return BT.Status.RUNNING
 	return BT.Status.SUCCESS

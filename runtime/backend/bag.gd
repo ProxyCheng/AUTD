@@ -87,10 +87,6 @@ var accepts_any_type: bool = false
 
 signal count_changed()
 signal item_type_changed()
-# 仓间搬运(move_to)成功后的领域事件:**源仓与目标仓各发一次**,故订阅任一端都能收到。
-# 只报"物品在两仓之间移动" —— 生产/消耗/开火/磨损等其它增删一律不发,订阅方据此即可
-# 与 count_changed 区分"这次变化是不是一次搬运"。两端都带上,订阅方不必自己去找对面那一仓。
-signal items_moved(source: Bag, dest: Bag, item_type: String, amount: int)
 
 func _init():
 	id = next_id
@@ -192,10 +188,6 @@ func move_to(in_dest: Bag, in_item_type: String, in_amount: int) -> int:
 			remove_count_of(in_item_type, amount)
 			in_dest.add_count_of(in_item_type, amount)
 			moved = amount
-	# 只在真的搬动了东西时广播:一件没搬(满仓/缺货)不是一次搬运,不该触发搬运表现。
-	if moved > 0:
-		items_moved.emit(self, in_dest, in_item_type, moved)
-		in_dest.items_moved.emit(self, in_dest, in_item_type, moved)
 	return moved
 
 # 入库/出库的简写:按本仓 item_type 操作(单类型仓的常用路径)。

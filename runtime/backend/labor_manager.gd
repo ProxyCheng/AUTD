@@ -15,7 +15,11 @@ extends Node
 
 
 # 空闲树(§5.3:行为链落 .tres,不代码组装):卸货 → 游荡。模板由 instantiate 深拷贝,多工人共用安全。
-const IDLE_TREE: BehaviorTree = preload("res://runtime/backend/entities/ai/idle.tres")
+# 用按需 load 而非 preload:取/放叶子要经 Logistics 开计时搬运(见 BagTransferTask),于是
+# Logistics → LaborManager → 本树 → 叶子 → Logistics 会闭合成编译期环,启动即报
+# "Could not preload resource file" 并连带 logistics/labor 一起编译失败。
+# 路径常量 + load(ResourceLoader 有缓存)与 transport_task / man_building_task 同一处理。
+const IDLE_TREE_PATH: String = "res://runtime/backend/entities/ai/idle.tres"
 
 
 class TaskRecord:
@@ -160,7 +164,7 @@ func _release_task(in_task: LaborTask):
 # 无活可派的待命树:先卸下随身仓里"现在用不上"的物品(见 idle.tres),再原地游荡;
 # 待派活时整棵树被任务树替换。in_labor 预留给按工人差异定制的空闲行为,当前全体共用同一模板。
 func _idle_tree(in_labor: Labor) -> BehaviorTree:
-	return IDLE_TREE
+	return load(IDLE_TREE_PATH) as BehaviorTree
 
 func _record_comes_first(in_a: TaskRecord, in_b: TaskRecord) -> bool:
 	if in_a.task.priority != in_b.task.priority:

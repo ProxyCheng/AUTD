@@ -147,6 +147,10 @@ func _init():
 	var ticks: int = 0
 	while ticks < 900 and st == BT.Status.RUNNING:
 		st = shed_inst.update(0.05)
+		# 取/放已改成"计时搬运":开趟当帧源仓就扣货、货进托管仓飞着,进度由 Logistics.tick 推进
+		# (见 ItemTransfer)。树单独跑不会自己走完,故这里必须连世界一起 tick —— 真实游戏里
+		# 这两件事本来就是 LevelActor._process → Level.tick 一起驱动的。
+		lvl.tick(0.05)
 		ticks += 1
 	print("SHED-BEHAVIOR status=", st, " ticks=", ticks, " target.count=", target.count, " labor_head=", labor.head_bag.count)
 	if target.count != 3 or labor.head_bag.count != 0:

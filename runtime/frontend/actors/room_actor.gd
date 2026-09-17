@@ -24,9 +24,13 @@ func _ready():
 	if la and not la.selected_changed.is_connected(_on_selected_changed):
 		la.selected_changed.connect(_on_selected_changed)
 
-func bind(in_room: Room):
+func bind(in_room: Room, in_logistics: Logistics):
 	room = in_room
 	room.entities_changed.connect(_on_entities_changed)
+	# 计时搬运开始 → 由本节点转给对应工人 actor 播飞行(见 _on_transfer_started)。
+	# 只连一次:bind 在组合根里只调一次,判重是防测试/重载场景重复接线。
+	if in_logistics and not in_logistics.transfer_started.is_connected(_on_transfer_started):
+		in_logistics.transfer_started.connect(_on_transfer_started)
 
 # 选中变化:缓存目标,并让全部在场 actor 重新判定高亮 —— 单一 selected_target 保证
 # 任意时刻至多一个高亮(选中工人时建筑环全灭,反之亦然)。
@@ -80,13 +84,30 @@ func _play_removal_fx(in_entity_id: int):
 	if sfx_id != &"":
 		AudioManager.sfx_at(sfx_id, position, randf_range(0.95, 1.05))
 
-# 物品搬运的飞行表现:世界空间一次性节点,由本节点托管 —— 不挂在工人 actor 下,
-# 这样工人走出可视区被回收时,已经在飞的这件仍能播完(同 _play_removal_fx 的托管方式)。
-# 起终点两端姿态由工人 actor 算好(见 EntityActor.item_flight_requested),这里只落地。
-func _on_item_flight_requested(in_type: String, in_from: Transform3D, in_to: Transform3D):
-	var flight: ItemFlight = ItemFlight.launch(in_type, in_from, in_to)
-	if flight:
-		add_child(flight)
+# 一次计时搬运开始 → 让涉及的工人 actor 播一段飞行(见 EntityActor.play_item_transfer)。
+# 后端只给两端仓与进度,世界锚点由 actor 侧解算(§1:backend 不持有视觉)。
+# 工人不在场(离屏已回收)就不播:起终点都在屏幕外,没有表现价值;搬运本身照常走完。
+func _on_transfer_started(in_transfer: ItemTransfer):
+	var labor: Labor = _labor_of(in_transfer)
+	if not labor:
+		return
+	var actor: EntityActor = entity_actors.get(labor.id)
+	if not actor:
+		return
+	actor.play_item_transfer(in_transfer, self)
+
+# 这次搬运涉及的工人:哪一端的仓挂在 Labor 下,那一端就是(两端都不是 → null)。
+func _labor_of(in_transfer: ItemTransfer) -> Labor:
+	var from_source: Labor = _labor_of_bag(in_transfer.source_bag)
+	if from_source:
+		return from_source
+	return _labor_of_bag(in_transfer.dest_bag)
+
+# 该仓所属的工人;仓挂在建筑下(或已销毁)→ null。先 is_instance_valid 再用,别碰 freed 实例。
+func _labor_of_bag(in_bag: Bag) -> Labor:
+	if not is_instance_valid(in_bag):
+		return null
+	return in_bag.get_parent() as Labor
 
 func _place_entity_actor(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)
@@ -104,10 +125,6 @@ func _place_entity_actor(in_entity_id: int):
 		entity_actor.owner = owner
 	entity_actor.bind(entity)
 	entity_actor.show()
-	# 接住工人 actor 的搬运飞行请求(见 EntityActor.item_flight_requested)。
-	# 池复用会重走这里,故先判重防重复连接。
-	if not entity_actor.item_flight_requested.is_connected(_on_item_flight_requested):
-		entity_actor.item_flight_requested.connect(_on_item_flight_requested)
 	# 恢复缓存选中:选中的工人走出可视区被回收、再次进入视野时,环要跟着回来。
 	entity_actor.set_selected(entity_actor.entity == _selected_target)
 	entity_actors.set(in_entity_id, entity_actor)
