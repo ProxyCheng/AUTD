@@ -5,21 +5,23 @@ extends BTAction
 # 每段随机目标 = 锚点 + 半径内随机偏移;到达后停歇一段随机时长再走。
 # 移动复用与 MoveToTargetTask 相同的直线 move_toward 语义(无寻路网格,固定短 tick)。
 #
-# 游荡 duration 秒后返回 SUCCESS,让整棵空闲树结束重建 —— 这是**必须**的:空闲树第一步的
-# 卸货判定(FindDepositBagTask)只跑一次,若本叶恒 RUNNING,树就永不结束,工人会带着
-# "当时还需要、后来用不上"的工具一直游荡下去(见 FindDepositBagTask 按 Tool.unused_time /
-# is_unused_too_long() 的判定)。重建后第一步重新判定,用不上的工具就会被卸进仓里。
-# 锚点经黑板跨重建保留,否则每次重建都以当前位置为锚,工人会随机游走越走越远;
+# 游荡 duration 秒后返回 SUCCESS,把控制权交还 idle.tres 外层的 BTRepeat —— 这是**必须**的:
+# 空闲树每轮的第一项是卸货判定(FindDepositBagTask),若本叶恒 RUNNING,BTRepeat 就永不迭代,
+# 工人会带着"当时还需要、后来用不上"的工具一直游荡下去(见 FindDepositBagTask 按
+# Tool.unused_time / is_unused_too_long() 的判定)。让出后下一轮重跑卸货判定,用不上的工具
+# 就会被卸进仓里。
+# 锚点存黑板而非实例字段:工人从任务树回到空闲树时,空闲树会被重新 instantiate,本叶是全新
+# 实例,锚点若只存实例字段,每次回到空闲都会以当前位置为锚,工人会随机游走越走越远;
 # 只有工人真的换了地方(离锚点超过 ANCHOR_KEEP_RANGE)才重取锚点。
 
 const BB_ANCHOR: StringName = &"wander_anchor"
-# 锚点保留阈值:离锚点超过它才认为工人换了地方(取约两倍游荡半径,避免原地重建时误判)。
+# 锚点保留阈值:离锚点超过它才认为工人换了地方(取约两倍游荡半径,避免在锚点附近误判)。
 const ANCHOR_KEEP_RANGE: float = 6.0
 
 @export_range(0.0, 10.0) var radius: float = 3.0
 @export_range(0.0, 5.0) var rest_min: float = 0.8
 @export_range(0.0, 5.0) var rest_max: float = 2.5
-# 一次游荡持续多久后让出(结束本树,由 LaborManager 重建空闲树以重跑卸货判定)。
+# 一次游荡持续多久后让出(返回 SUCCESS 交还外层 BTRepeat,让下一轮重跑卸货判定)。
 @export_range(1.0, 60.0) var duration: float = 6.0
 
 var _anchor: Vector2 = Vector2.ZERO
@@ -49,7 +51,7 @@ func _tick(in_delta: float) -> int:
 		return BT.Status.FAILURE
 	_elapsed += in_delta
 	if _elapsed >= duration:
-		# 让出:空闲树随之结束并重建,第一步的卸货判定重跑一次。
+		# 让出:SUCCESS 交还外层 BTRepeat,下一轮从头重跑卸货判定。
 		return BT.Status.SUCCESS
 	if _rest_timer > 0:
 		agent.state = "idle"
