@@ -34,6 +34,17 @@ func _ready():
 	bag.access_position = Vector2(axis)
 	add_child(bag)
 	bag.owner = owner
+	# 初始库存必须在 _register_bag() 之前入仓:基地是 WITHDRAW_FIRST + preferred_max_count = 0
+	# ("有货即供给"),Logistics 在注册那一刻就按仓内现状做撮合;注册后补货会让首轮撮合看到空基地。
+	# 必须走 add_count_of 而不是 add_count / 手工塞格:有状态物品(工具)在 Bag._store 里逐件造载体、
+	# 每件各占一格 —— 3 把斧头会成为 3 个各自带耐久的独立实例,而不是叠成一格;
+	# Bag.default_state_factory 按类型名探 res://runtime/backend/entities/<type>.gd 认出
+	# "axe"/"pickaxe",无需给本仓另配 state_factory。
+	if data:
+		for item_type: String in data.initial_items:
+			var amount: int = data.initial_items[item_type]
+			if amount > 0:
+				bag.add_count_of(item_type, amount)
 	# 主基地刻意不设 stored_count/capacity 镜像:Building.occupancy_fill 对两者做鸭子判定,
 	# 缺失时返回 -1 → 前端隐藏容量条(有限容量条对无限仓库无意义)。
 	_register_bag()
