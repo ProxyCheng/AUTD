@@ -154,6 +154,34 @@ func capacity() -> int:
 func long_axis() -> float:
 	return _long_axis
 
+# { item_type: 原始长轴 } 按类型缓存:同一模型只量一次。
+static var _long_axis_by_type: Dictionary = {}
+
+# 某类型道具的原始长轴(本地、未缩放)。**按类型**而不是按本垛当前状态 —— 供业务层在物品
+# 还没进垛时就知道它落地后该多大(搬运飞行要按终点尺寸收尾)。直接用本垛的 long_axis() 不行:
+# 垛此刻可能是空的、甚至是另一种类型,量出来的是别人的长轴。
+static func long_axis_of(in_item_type: String) -> float:
+	if in_item_type.is_empty():
+		return 1.0
+	if _long_axis_by_type.has(in_item_type):
+		return _long_axis_by_type[in_item_type]
+	var axis: float = 1.0
+	if ITEM_MODEL_SCENES.has(in_item_type):
+		var prop_scene: PackedScene = load(ITEM_MODEL_SCENES[in_item_type])
+		if prop_scene:
+			var probe: Node3D = prop_scene.instantiate()
+			var box: AABB = _measure_local_box(probe)
+			probe.free()
+			if box.size.z > 0.0:
+				axis = box.size.z
+	_long_axis_by_type.set(in_item_type, axis)
+	return axis
+
+# 把"期望长度"换算成本垛挂点该用的 scale —— 即该类型在本垛里**落地后**的实际大小。
+# 与 _build_props 的算法同一份(期望长轴 = 原始长轴 × 该 scale),故飞行收尾尺寸与垛里那支一致。
+func scale_for(in_item_type: String, in_expected_length: float) -> float:
+	return in_expected_length / maxf(long_axis_of(in_item_type), 0.0001)
+
 # 设置物品种类:重建对应道具池(未进树则等 _ready 后由 build 入口确保)。
 func _set_item_type(in_type: String):
 	if in_type == _item_type:
@@ -319,6 +347,8 @@ func _build_props(in_scene_path: String):
 	if box.size.z <= 0.0:
 		return
 	_long_axis = box.size.z
+	# 顺手把量到的长轴填进按类型的缓存,让 long_axis_of 与实例读数永远是同一份。
+	_long_axis_by_type.set(_item_type, _long_axis)
 	# 道具保持原生尺寸;整垛大小交给挂载节点 Transform 的 Scale 控制。
 	var width: float = box.size.x
 	var thickness: float = box.size.y
@@ -345,7 +375,8 @@ func _build_props(in_scene_path: String):
 
 # 离树探针:返回道具本地空间合并 AABB(position=min, size)。用节点链式变换
 # 求本地 AABB,不依赖 global_transform,规避实例化当帧传播未生效的时序问题。
-func _measure_local_box(in_probe: Node3D) -> AABB:
+# static:供 long_axis_of 在"本垛还没有这个类型"时也能量出它的长轴。
+static func _measure_local_box(in_probe: Node3D) -> AABB:
 	var min_p := Vector3.INF
 	var max_p := -Vector3.INF
 	for visual: VisualInstance3D in _collect_visuals(in_probe):
@@ -368,7 +399,7 @@ func _measure_local_box(in_probe: Node3D) -> AABB:
 	return AABB(min_p, max_p - min_p)
 
 # 逐级父链变换:返回把 in_node 本地坐标变换到 in_probe 本地坐标的 Transform3D
-func _chain_to(in_node: Node3D, in_probe: Node3D) -> Transform3D:
+static func _chain_to(in_node: Node3D, in_probe: Node3D) -> Transform3D:
 	var acc := Transform3D.IDENTITY
 	var current: Node3D = in_node
 	while current != in_probe:
@@ -378,7 +409,7 @@ func _chain_to(in_node: Node3D, in_probe: Node3D) -> Transform3D:
 			break
 	return acc
 
-func _collect_visuals(in_node: Node) -> Array[VisualInstance3D]:
+static func _collect_visuals(in_node: Node) -> Array[VisualInstance3D]:
 	var visuals: Array[VisualInstance3D] = []
 	for child in in_node.get_children():
 		if child is VisualInstance3D:

@@ -243,9 +243,7 @@ func _sync_carried():
 	# 携带物垛底面贴住该锚点 + 抬升间隙。
 	var top_center: Vector3 = _model_local_box.get_center()
 	_carried_stack.position = Vector3(top_center.x, _model_local_box.end.y + CARRY_HEAD_GAP, top_center.z)
-	# 目标长度随模型身高缩放(约身高 2/3,下限保证醒目);按物品原始长轴换算成节点 scale。
-	var target_len: float = _carried_target_length()
-	_carried_stack.scale = Vector3.ONE * (target_len / maxf(_carried_stack.long_axis(), 0.0001))
+	_carried_stack.scale = Vector3.ONE * _carried_scale_for(_head_bag.item_type)
 	if not _carried_stack.visible:
 		_carried_stack.show()
 
@@ -256,6 +254,14 @@ func _hide_carried():
 # 携带物目标长度(横躺长轴),约模型身高 2/3,下限保证足够醒目
 func _carried_target_length() -> float:
 	return maxf(model_height * 0.6, 0.25)
+
+# 头顶携带物该用的节点 scale:**按类型**换算(期望长度 ÷ 该类型原始长轴),不看本垛此刻的读数。
+# 这样"还没进垛的那件"也能算出落地后多大 —— 搬运飞行的终点尺寸正是靠它,否则垛空着时
+# 只能读到上一次类型甚至场景默认的 scale,飞行会按错尺寸收尾、到位才被 _sync_carried 改回来。
+func _carried_scale_for(in_item_type: String) -> float:
+	if not _carried_stack:
+		return 1.0
+	return _carried_stack.scale_for(in_item_type, _carried_target_length())
 
 # —— 手持工具(Labor.hand_bag) ——
 
@@ -316,10 +322,8 @@ func _sync_tool():
 	# 展示类型由 ItemStack 自己解析(手仓没有 item_type,它回退到载体类型,见 _bind_tool 注释),这里只管姿态。
 	# 挂点 → actor 的变换链(挂点是模型子树,含模型的缩放/朝向)
 	var chain: Transform3D = HeadBar.chain_to(_tool_mount if _tool_mount else self, self)
-	var mount_scale: float = maxf(chain.basis.get_scale().x, 0.0001)
-	# 期望长度(actor 空间)→ ItemStack 节点 scale(挂点本地空间)
-	var target_len: float = maxf(model_height * TOOL_LENGTH_RATIO, TOOL_MIN_LENGTH)
-	var node_scale: float = target_len / maxf(_tool_stack.long_axis(), 0.0001) / mount_scale
+	# 期望长度(actor 空间)→ ItemStack 节点 scale(挂点本地空间),按类型换算(见 _tool_scale_for)
+	var node_scale: float = _tool_scale_for(tool.type)
 	# 先绕 X 转 −90° 把工具立起来:ItemStack 局部空间里长轴沿 +Z、刀头在 +Z 端(实测:转 +90° 会朝下),
 	# 转后刀头朝上(actor 局部 +Y)。
 	# 再绕工具自身长轴(Z)转 −90°:局部 −X 是刀头指向(ItemStack 约定"宽=X"、§8 约定"刀头朝 −X"),
@@ -338,6 +342,15 @@ func _sync_tool():
 	_tool_local_transform = local
 	_tool_stack.transform = chain * local
 	_tool_stack.show()
+
+# 手上工具该用的节点 scale:期望长度 ÷ 该类型原始长轴 ÷ 挂点自身缩放(挂点带模型缩放,长度要除掉它)。
+# 与头顶同理,按类型算而不是读本垛此刻的读数 —— 工具还在飞的时候手仓是空的。
+func _tool_scale_for(in_tool_type: String) -> float:
+	if not _tool_stack:
+		return 1.0
+	var mount_scale: float = maxf(HeadBar.chain_to(_tool_mount if _tool_mount else self, self).basis.get_scale().x, 0.0001)
+	var target_len: float = maxf(model_height * TOOL_LENGTH_RATIO, TOOL_MIN_LENGTH)
+	return _tool_stack.scale_for(in_tool_type, target_len) / mount_scale
 
 # 每帧把挂点(随劳作动画晃动的身体节点)的当前变换套到工具上 —— 身体晃,工具跟着晃。
 func _sync_tool_transform():
@@ -378,7 +391,7 @@ func play_item_transfer(in_transfer: ItemTransfer, in_host: Node):
 		building_anchor = pile.global_transform
 	else:
 		building_anchor = Trs.zero_scale(building_actor.get_center_position())
-	var worker_anchor: Transform3D = _worker_bag_anchor(worker_bag)
+	var worker_anchor: Transform3D = _worker_bag_anchor(worker_bag, in_transfer.item_type)
 	var outgoing: bool = worker_bag == in_transfer.source_bag
 	var from_pose: Transform3D = worker_anchor if outgoing else building_anchor
 	var to_pose: Transform3D = building_anchor if outgoing else worker_anchor
@@ -413,10 +426,19 @@ func _building_actor_of(in_bag: Bag) -> BuildingActor:
 
 # 工人侧锚点:头顶仓 → 头顶携带物垛,手仓 → 手持工具垛。两者都是 ItemStack,其原点即
 # "垛底中心",正是搬运的起/落点(与 _sync_carried/_sync_tool 维护的是同一姿态)。
-# 垛刚被清空时它虽已隐藏,姿态仍是最后一次算出的位置,故取到的锚点依然正确。
-func _worker_bag_anchor(in_bag: Bag) -> Transform3D:
+# 位置/朝向取自垛,但**尺寸按 in_item_type 单独算**:搬运开始时目标垛往往是空的
+# (取货时货还在托管仓里飞),它的 scale 停在上一次的类型、甚至场景默认值上 ——
+# 直接拿它当终点尺寸,飞行就会按错尺寸收尾、到位才被 _sync_carried 改回来(实测差过 3 倍)。
+func _worker_bag_anchor(in_bag: Bag, in_item_type: String) -> Transform3D:
+	var anchor: Transform3D = global_transform
+	var expected_scale: float = 1.0
 	if in_bag == _hand_bag and _tool_stack:
-		return _tool_stack.global_transform
-	if _carried_stack:
-		return _carried_stack.global_transform
-	return global_transform
+		anchor = _tool_stack.global_transform
+		expected_scale = _tool_scale_for(in_item_type)
+	elif _carried_stack:
+		anchor = _carried_stack.global_transform
+		expected_scale = _carried_scale_for(in_item_type)
+	# 只换缩放、保留朝向。垛自身缩放正常非零,但万一为 0,orthonormalized() 会出 NaN。
+	var rotation: Basis = anchor.basis.orthonormalized() if Trs.is_pose_valid(anchor) else Basis.IDENTITY
+	anchor.basis = rotation.scaled(Vector3.ONE * expected_scale)
+	return anchor
