@@ -119,6 +119,8 @@ var _bag: Bag = null
 var _nock_t: float = -1.0
 # 弹射动画进行中的时间进度 0..1;-1 表示未在弹射
 var _release_t: float = -1.0
+# 最近一次 backend progress([0,1]):非装填/弹射阶段的弦上箭位置由它推算(见 _process)
+var _progress: float = 0.0
 # 弦上箭静止姿态(skin 局部 TRS);上弦动画的终点
 var _arrow_rest_transform: Transform3D = Transform3D.IDENTITY
 # 上弦动画起点 TRS(skin 局部)= 备垛最后一支箭的姿态;进入装填后懒计算一次
@@ -167,6 +169,7 @@ func _apply_pose(in_time: float):
 
 # 归一化 progress → 动画时间:0=松弛(末尾)、1=满弦(起点);并同步箭位与转轮。
 func _on_progress(in_progress: float):
+	_progress = in_progress
 	var length: float = %AnimationPlayer.current_animation_length
 	_apply_pose((1 - in_progress) * length)
 	_update_arrow_position(in_progress)
@@ -222,6 +225,14 @@ func _process(in_delta: float):
 		%Arrow.position = _string_draw_local.lerp(_muzzle_exit_local, t)
 		if _release_t >= 1.0:
 			_release_t = -1.0
+		return
+	# 其余阶段(idle/charging/ready):弦上箭恒按最近一次 progress 贴回弦位。
+	# 必须每帧补写,不能只依赖 set_progress —— progress 只在数值变化时才发信号,而
+	# "弹射结束 → idle/charging"这类状态切换可能没有随之而来的 progress 信号;此时箭会
+	# 滞留在弹射终点(弩口外约 0.26 skin 单位 = 世界约 10 米)且可见,看起来就是
+	# "仓里明明有箭,却一支都看不见"。每帧由 progress 重算也让本条与 %wheel 一样
+	# 纯采样、不累积状态,重绑/回放自洽。
+	_update_arrow_position(_progress)
 
 # 上弦缓动:慢起快收,像被手端上去而非瞬移
 func _ease_nock(in_t: float) -> float:
