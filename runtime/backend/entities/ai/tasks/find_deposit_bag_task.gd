@@ -1,8 +1,9 @@
 class_name FindDepositBagTask
 extends BTAction
 
-# 空闲卸货·规划叶子:工人闲置时,从随身仓里挑一类"现在用不上"的物品,找一只最近且
-# 收得下的已注册仓,把卸货计划写进黑板(供后续 MoveToTargetTask / DepositLoadTask 执行)。
+# 空闲卸货·规划叶子:工人闲置时,从**两只随身仓**里挑一类"现在用不上"的物品 —— 头顶仓
+# (head_bag)的散料残留、手仓(hand_bag)那件工具都算 —— 找一只最近且收得下的已注册仓,
+# 把卸货计划写进黑板(供后续 MoveToTargetTask / DepositLoadTask 执行)。
 #
 # "用不上"的判定:
 #   有状态工具 —— 看**持有期间有没有被用上**(Tool.unused_time):刚用完的留着(机器多半马上
@@ -27,17 +28,10 @@ const BB_DEPOSIT_ACCESS: StringName = &"deposit_access"
 func _tick(_in_delta: float) -> int:
 	var agent := get_agent() as Entity
 	var labor := agent as Labor
-	# 无类型临时变量先判定有效再赋 typed,避免赋值瞬间遇已 freed 的 bag 即崩。
-	var raw_carried: Variant = labor.carried_bag if labor else null
-	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
-	if not is_instance_valid(raw_carried) or not (raw_carried is Bag):
+	if labor == null:
 		_plan_nothing(agent)
 		return BT.Status.SUCCESS
-	var carried: Bag = raw_carried
-	if carried.count <= 0:
-		_plan_nothing(agent)
-		return BT.Status.SUCCESS
-	var shed_type: String = _pick_shed_type(carried)
+	var shed_type: String = _pick_shed_type(labor)
 	if shed_type.is_empty():
 		_plan_nothing(agent)
 		return BT.Status.SUCCESS
@@ -49,10 +43,20 @@ func _tick(_in_delta: float) -> int:
 	_plan(agent, shed_type, target)
 	return BT.Status.SUCCESS
 
-# 挑随身仓里第一类"现在用不上"的物品:有状态工具看"持有太久没被用上",散料闲置即可卸(见文件头)。
-func _pick_shed_type(in_carried: Bag) -> String:
-	for item_type: String in in_carried.types():
-		var carrier: Object = in_carried.peek_state(item_type)
+# 挑工人身上第一类"现在用不上"的物品(见文件头):先看头顶仓的散料(闲置即可卸,没有留存理由),
+# 再看手仓那件工具(按"持有太久没被用上"判定,刚用过的留着等机器再来派活)。
+func _pick_shed_type(in_labor: Labor) -> String:
+	var head_type: String = _pick_from_bag(in_labor.head_bag)
+	if not head_type.is_empty():
+		return head_type
+	return _pick_from_bag(in_labor.hand_bag)
+
+# 从一只仓里挑第一类"现在用不上"的物品:有状态工具看"持有太久没被用上",散料闲置即可卸。
+func _pick_from_bag(in_bag: Bag) -> String:
+	if not is_instance_valid(in_bag):
+		return ""
+	for item_type: String in in_bag.types():
+		var carrier: Object = in_bag.peek_state(item_type)
 		# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 		if is_instance_valid(carrier) and carrier is Tool:
 			var tool: Tool = carrier

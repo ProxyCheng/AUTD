@@ -31,7 +31,7 @@ var _footstep_timer: float = 0.0
 
 # 头顶条组:血条 + 手持工具耐久条竖排(组统一做 billboard 定位,子条自身不定位)。
 @onready var head_bars: HeadBarGroup = %head_bars
-# 手持工具的堆叠表现(绑工人手持仓 tool_bag,场景配置成只显示 1 件)。
+# 手持工具的堆叠表现(绑工人手上仓 hand_bag,场景配置成只显示 1 件)。
 @onready var _tool_stack: ItemStack = %tool
 
 func bind(in_entity: Entity):
@@ -204,30 +204,30 @@ func _tick_footstep(in_delta: float):
 	# 脚步高频且低优先级:池满时丢弃,不抢占弩机/受击等关键音。
 	AudioManager.sfx_at(&"footstep", global_position, randf_range(0.92, 1.08), FOOTSTEP_VOLUME_DB, true)
 
-# —— 头顶携带物(Labor.carried_bag) ——
+# —— 头顶携带物(Labor.head_bag) ——
 
 # 头顶携带物通用组件:场景节点 %carried(几何在 entity_actor.tscn 里配),业务层只需给锚点。
 @onready var _carried_stack: ItemStack = %carried
-# 绑定的随身仓(Labor.carried_bag);类型/数量变化由 ItemStack.bind 跟随。
-var _carried_bag: Bag = null
+# 绑定的头顶货仓(Labor.head_bag,装载的散料);类型/数量变化由 ItemStack.bind 跟随。
+var _head_bag: Bag = null
 
-# 绑定工人的随身仓(Labor.carried_bag)到头顶 ItemStack,并跟随其数量变化(先断旧仓连接,防重绑重复回调)。
+# 绑定工人的头顶货仓(Labor.head_bag)到头顶 ItemStack,并跟随其数量变化(先断旧仓连接,防重绑重复回调)。
 func _bind_carried():
-	if is_instance_valid(_carried_bag) and _carried_bag.count_changed.is_connected(_sync_carried):
-		_carried_bag.count_changed.disconnect(_sync_carried)
+	if is_instance_valid(_head_bag) and _head_bag.count_changed.is_connected(_sync_carried):
+		_head_bag.count_changed.disconnect(_sync_carried)
 	var labor := entity as Labor
-	_carried_bag = labor.carried_bag if labor and is_instance_valid(labor.carried_bag) else null
+	_head_bag = labor.head_bag if labor and is_instance_valid(labor.head_bag) else null
 	if _carried_stack:
-		_carried_stack.bind(_carried_bag)
-	if is_instance_valid(_carried_bag) and not _carried_bag.count_changed.is_connected(_sync_carried):
-		_carried_bag.count_changed.connect(_sync_carried)
+		_carried_stack.bind(_head_bag)
+	if is_instance_valid(_head_bag) and not _head_bag.count_changed.is_connected(_sync_carried):
+		_head_bag.count_changed.connect(_sync_carried)
 	_sync_carried()
 
 func _sync_carried():
-	if not entity or entity is not Labor or not is_instance_valid(_carried_bag):
+	if not entity or entity is not Labor or not is_instance_valid(_head_bag):
 		_hide_carried()
 		return
-	if _carried_bag.count_of(_carried_bag.item_type) <= 0 or _carried_bag.item_type.is_empty():
+	if _head_bag.count_of(_head_bag.item_type) <= 0 or _head_bag.item_type.is_empty():
 		_hide_carried()
 		return
 	# 头顶锚点 = 模型本地合并 AABB 的顶面中心(actor 局部坐标,随 yaw 一起转);
@@ -248,7 +248,7 @@ func _hide_carried():
 func _carried_target_length() -> float:
 	return maxf(model_height * 0.6, 0.25)
 
-# —— 手持工具(Labor.tool_bag) ——
+# —— 手持工具(Labor.hand_bag) ——
 
 # 手持工具挂点:模型无手部骨骼(labor 的 fbx 是静态网格),故把工具挂在**身体右缘之外**
 # 近似"手持"。挂点必须由模型包围盒外推得出 —— 用身高比例给固定偏移会把工具埋进身体里
@@ -257,6 +257,9 @@ const TOOL_HOLD_GAP_RATIO: float = 0.06
 # 工具显示长度(横躺长轴),约模型身高四成,下限保证足够醒目。
 const TOOL_LENGTH_RATIO: float = 0.4
 const TOOL_MIN_LENGTH: float = 0.12
+
+# 绑定的手上仓(Labor.hand_bag,容量 1,工具是里面唯一那件);工具那格由 ItemStack.bind 跟随。
+var _hand_bag: Bag = null
 
 # 工具挂点:模型可提供 tool_mount()(返回会随劳作动画晃动的节点,如 LaborModel 的 $labor);
 # 没有该方法时退回 actor 根(工具不随身体动画,但也不会出错)。
@@ -273,15 +276,20 @@ func _bind_tool_mount():
 		if mount is Node3D:
 			_tool_mount = mount
 
-# 把 %tool 堆叠绑到随身仓里"工具那一格"(工具是随身仓里的有状态单体,见 Bag/Labor);
+# 把 %tool 堆叠绑到手上仓(Labor.hand_bag)那件工具上(有状态单体,容量 1,见 Bag/Labor);
 # 先断旧仓连接,防重绑重复回调。
 func _bind_tool():
-	if is_instance_valid(_carried_bag) and _carried_bag.count_changed.is_connected(_sync_tool):
-		_carried_bag.count_changed.disconnect(_sync_tool)
+	if is_instance_valid(_hand_bag) and _hand_bag.count_changed.is_connected(_sync_tool):
+		_hand_bag.count_changed.disconnect(_sync_tool)
+	var labor := entity as Labor
+	_hand_bag = labor.hand_bag if labor and is_instance_valid(labor.hand_bag) else null
+	# 不带类型参数:手仓只装手上这一件,让 ItemStack 跟随 bag.item_type 即可 ——
+	# 它同时监听 count_changed 与 item_type_changed,换工具(斧↔镐,件数不变)时模型自己会切,
+	# 无需外部重绑;反过来说,这里若传了类型,bind_type 就恒非空、外部再无从察觉类型变化。
 	if _tool_stack:
-		_tool_stack.bind(_carried_bag, _tool_type())
-	if is_instance_valid(_carried_bag) and not _carried_bag.count_changed.is_connected(_sync_tool):
-		_carried_bag.count_changed.connect(_sync_tool)
+		_tool_stack.bind(_hand_bag)
+	if is_instance_valid(_hand_bag) and not _hand_bag.count_changed.is_connected(_sync_tool):
+		_hand_bag.count_changed.connect(_sync_tool)
 	_sync_tool()
 
 # 算出工具在挂点本地空间的固定姿态(挂点自带模型缩放,故长度要除掉该缩放);无工具则隐藏。
@@ -289,16 +297,14 @@ func _bind_tool():
 func _sync_tool():
 	if not _tool_stack:
 		return
-	if not entity or entity is not Labor or not is_instance_valid(_carried_bag):
+	if not entity or entity is not Labor or not is_instance_valid(_hand_bag):
 		_tool_stack.hide()
 		return
 	var tool := _held_tool()
 	if tool == null:
 		_tool_stack.hide()
 		return
-	# 工具类型可能刚变(取/还工具),绑定的展示格跟着切
-	if _tool_stack.bind_type != tool.type:
-		_tool_stack.bind(_carried_bag, tool.type)
+	# 展示类型由 ItemStack 自己跟随手仓的 item_type(见 _bind_tool 注释),这里只管姿态。
 	# 挂点 → actor 的变换链(挂点是模型子树,含模型的缩放/朝向)
 	var chain: Transform3D = HeadBar.chain_to(_tool_mount if _tool_mount else self, self)
 	var mount_scale: float = maxf(chain.basis.get_scale().x, 0.0001)
@@ -332,18 +338,11 @@ func _sync_tool_transform():
 		return
 	_tool_stack.transform = HeadBar.chain_to(_tool_mount, self) * _tool_local_transform
 
-# 随身仓里那件工具(有状态单体);无 / 已 freed / 非 Tool 时返回 null。
+# 手上仓里那件工具(有状态单体);无 / 已 freed / 非 Tool 时返回 null。
 func _held_tool() -> Tool:
-	var carrier: Object = _carried_bag.peek_state() if is_instance_valid(_carried_bag) else null
+	var carrier: Object = _hand_bag.peek_state() if is_instance_valid(_hand_bag) else null
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 	if not is_instance_valid(carrier) or not (carrier is Tool):
 		return null
 	var tool: Tool = carrier
 	return tool
-
-# 随身仓里那件工具的类型;无工具时返回 ""。
-func _tool_type() -> String:
-	var tool := _held_tool()
-	if tool == null:
-		return ""
-	return tool.type

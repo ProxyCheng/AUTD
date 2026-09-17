@@ -4,8 +4,8 @@ extends BTAction
 # 顶岗归还·规划叶子:任务开头(取工具、干活之前)先决定"手上这件工具还回容器,还是继续留在手上"。
 #
 # 为什么必须在开工之前定:工人可能带着上一个岗位的工具过来 —— 伐木场握着的斧头被派到石矿,
-# 而本机配方要的是镐子。那件工具对本机毫无用处:举着它干活既白占一格,看着也不对(前端按随身仓里
-# 第一件工具显示,于是会出现"工人举着斧头采石")。所以先把它放下,再走下一步去取本机要用的工具。
+# 而本机配方要的是镐子。那件工具对本机毫无用处:举着它干活既白占一格,看着也不对(前端按手仓
+# 里那件工具显示,于是会出现"工人举着斧头采石")。所以先把它放下,再走下一步去取本机要用的工具。
 # 反过来,手上正是本机要用的那件就留着 —— 本工程一次顶岗只产一件(Workshop._produced_this_shift),
 # 若每件都"还了再领",工人得往返容器数格,工具省下的时间还不够走路。
 #
@@ -14,7 +14,7 @@ extends BTAction
 # 按同一判定把不再需要的工具就近卸进仓里,故不会留在手上。
 #
 # 判定:
-#   手上无工具 / 工人或随身仓失效 → "留着"计划(无物可还);
+#   手上无工具 / 工人或手仓失效 → "留着"计划(无物可还);
 #   机器仍是 Workshop 且 active_recipe != null 且其 tool_bonuses 表含该工具类型 → "留着":
 #     工人留岗继续干活,还回去就得每件都往返容器数格,斧头省下的时间还不够走路;
 #   否则找一只最近的、收得下这件工具的已注册仓(Logistics.find_nearest_bag):
@@ -31,13 +31,13 @@ func _tick(_in_delta: float) -> int:
 	var agent := get_agent() as Entity
 	var labor := agent as Labor
 	# 无类型临时变量先判定有效再赋 typed,避免赋值瞬间遇已 freed 的 bag 即崩。
-	var raw_carried: Variant = labor.carried_bag if labor else null
+	var raw_hand: Variant = labor.hand_bag if labor else null
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
-	if not is_instance_valid(raw_carried) or not (raw_carried is Bag):
+	if not is_instance_valid(raw_hand) or not (raw_hand is Bag):
 		_plan_keep(agent)
 		return BT.Status.SUCCESS
-	var carried: Bag = raw_carried
-	var tool := _held_tool(carried)
+	var hand: Bag = raw_hand
+	var tool := _held_tool(hand)
 	# 无工具可还,或机器仍要这件工具:留在手上(见文件头)。
 	if tool == null or _still_needed(tool.type):
 		_plan_keep(agent)
@@ -50,9 +50,9 @@ func _tick(_in_delta: float) -> int:
 	_plan(agent, target)
 	return BT.Status.SUCCESS
 
-# 随身仓里那件工具;无 / 已 freed / 非 Tool 时返回 null。
-func _held_tool(in_carried: Bag) -> Tool:
-	var carrier: Object = in_carried.peek_state()
+# 手仓里那件工具;无 / 已 freed / 非 Tool 时返回 null。
+func _held_tool(in_hand: Bag) -> Tool:
+	var carrier: Object = in_hand.peek_state()
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 	if not is_instance_valid(carrier) or not (carrier is Tool):
 		return null

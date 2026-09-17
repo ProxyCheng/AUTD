@@ -182,7 +182,7 @@ func tick(in_delta: float):                      # void → 不写 -> void
 - **一棵树 = 一次任务,跑完重建**:`Creature` 持 `current_tree + bt_instance`,每帧 `bt_instance.update(in_delta)`(固定短 tick,无时间溢出/剩余时间语义);树返回非 RUNNING 即本任务结束,下帧经虚方法 `create_tree() -> BehaviorTree` 请求新树(`begin_tree(in_tree)` 供外部直接换活,如 LaborManager 派发)。`instantiate(agent, blackboard, owner, scene_root)` 需提供非空 scene root。
 - **运行时数据走黑板**(每实体一个 `Blackboard`):目标点、派发的活等用 `set_var/get_var` 传递;instantiate 会深拷贝 task 树,故共享 `.tres` 模板安全,实体差异放黑板。
 - 树内叶子只消费 `in_delta` 计时(不用墙钟),与固定 tick 一致;dizzy 等打断只是暂停喂树,实例状态原样保留(勿在恢复时重建实例)。
-- **移动一律取 `Entity.get_move_speed()`**(不要直接读 `entity.move_speed`):基础值即 `move_speed`,子类可覆写表达派生减速(如 `Labor` 按 `carried_bag` 装载比例负重减速,满载为 `LOADED_SPEED_FACTOR` 倍);派生量从数据源推算,不缓存第二份。
+- **移动一律取 `Entity.get_move_speed()`**(不要直接读 `entity.move_speed`):基础值即 `move_speed`,子类可覆写表达派生减速(如 `Labor` 按 `head_bag` 装载比例负重减速,满载为 `LOADED_SPEED_FACTOR` 倍);派生量从数据源推算,不缓存第二份。
 - **frontend state 契约**:叶子输出的 `state` 取值与 model 动画约定一致(`"idle"`/`"walk"`…,参考 §5.4),由叶子 `_enter/_tick` 里设实体可观察属性。
 - **LaborManager 派活**:每工人一棵 `JobRunnerTask` 包装树,运行数据(`job_tree`/`active_task`)写进该工人黑板;JobRunnerTask 每 tick 查 `active_task.is_cancelled`,取消即 FAILURE,工人经 `request_work` 归还调度池。
 
@@ -237,7 +237,7 @@ signal position_changed()
 - **无状态散料**(原木/石头/箭/炮弹…):只记 `item_type` + `count`,同类型**恒合并成一格**;
 - **有状态物品**(工具耐久、未来的保鲜度…):`count` 恒 1,`state` 指向该件自己的状态载体,**每件各占一格**。
 
-**单类型 vs 多类型**:仓结构上支持多类型,但**默认每只仓只装一种**(`item_type` 声明,Logistics 按它做单类型供需撮合)。**多类型目前只用在工人随身仓**(`Labor.carried_bag`)—— 它不注册 Logistics,故供需撮合不受影响;多类型仓按类型读写走 `*_of` 系列(`count_of` / `add_count_of` / `remove_count_of`),展示侧用 `ItemStack.bind(bag, type)` 绑到指定类型。
+**单类型 vs 多类型**:仓结构上支持多类型,但**默认每只仓只装一种**(`item_type` 声明,Logistics 按它做单类型供需撮合)。**多类型目前只用在工人头顶仓**(`Labor.head_bag`,头顶携带的散料)—— 它不注册 Logistics,故供需撮合不受影响(工人手上另有一只容量 1 的 `Labor.hand_bag`,只放那件手持物品,同样不注册 Logistics);多类型仓按类型读写走 `*_of` 系列(`count_of` / `add_count_of` / `remove_count_of`),展示侧用 `ItemStack.bind(bag, type)` 绑到指定类型。
 
 **状态载体**:入库时按类型取载体 —— 本仓的 `state_factory` 优先,否则走 `Bag.default_state_factory`(按类型名探 `backend/entities/<type>.gd`,是 `Tool` 就实例化并写 `type`)。故**任意仓都能自动保住工具的按件状态**(如接收工人归还工具的 Stockpile),不必逐仓配置;`Bag.is_stateful(type)` 带缓存地回答"该类型是否按件保存"。
 
@@ -278,13 +278,13 @@ signal position_changed()
 2. `runtime/frontend/models/buildings/foo/foo.tscn` + `foo_model.gd`(`class_name FooModel`;含模型/动画,脚本 `set_state`/`set_progress` 等可选);
 3. 数据层字段 `BuildingData.type = "foo"`;`Building.create("foo")` 自动生效,无需改工厂。
 
-**新增显示袋子的建筑:** 建筑脚本须覆写 `get_display_bag() -> Bag`(决定展示哪个 bag),对应模型脚本须实现 `bind_bag(in_bag: Bag)`(`BuildingActor` 负责转发,内部走 `ItemStack` 镜像,见 §5.5);工人随身库存是挂在 `Labor` 上的 `Bag`(`Labor.carried_bag`),不是 `Creature` 的字段。
+**新增显示袋子的建筑:** 建筑脚本须覆写 `get_display_bag() -> Bag`(决定展示哪个 bag),对应模型脚本须实现 `bind_bag(in_bag: Bag)`(`BuildingActor` 负责转发,内部走 `ItemStack` 镜像,见 §5.5);工人随身库存是挂在 `Labor` 上的两只 `Bag`(`Labor.head_bag` 头顶多类型仓 + `Labor.hand_bag` 容量 1 的手仓),不是 `Creature` 的字段。
 
 **新增实体类型 `bar`:** 同构 —— `runtime/backend/entities/bar.gd`(按需 `extends Creature`/`Entity`)+ `models/entities/bar/bar.tscn` + `bar_model.gd`(`class_name BarModel`)。
 
 **新增可检视类型 / 给检视面板加内容:** 检视面板是**一套通用面板**,不要按类型复制一份。面板(`building_inspector_panel.gd`)收集 `%Components` 下全部 `InspectorComponent`,对 `supports(target)` 为真的逐个 `bind(target)`;目标类型是 `Object`,建筑与生物(`Creature`,含 `Labor`/`Enemy`/`Slime`)共用同一面板,当前选中由 `LevelActor.selected_target` 持有。因此**加内容 = 只加一个组件**:`runtime/frontend/ui/<name>_component.gd`(`class_name <Name>Component extends InspectorComponent`,实现 `supports(in_target) -> in_target is <类型>`、`_connect_signals`/`_disconnect_signals`(先断旧再连)、`refresh()`(全量重读、不缓存),并在 `_ready()` 里 `if target: refresh()` 补一次)+ 同目录 `.tscn`(根 `VBoxContainer`、`mouse_filter = 2`、内部节点用 `%Name`),再在 `building_inspector_panel.tscn` 的 `%Components` 下加一个实例 —— **面板与宿主零改动**。标题由 `TITLES` 决定(未列出的类型回退 `type.capitalize()`,故敌人无需登记)。选中高亮:建筑走 `BuildingActor.set_selected`,实体走 `EntityActor.set_selected`(环尺寸由模型包围盒推出、`bind()` 里复位防池复用残留)。拾取:建筑与生物共用 `ActorPick.hit_distance`(射线 vs 模型本地 AABB,唯一实现),`LevelActor.pick_target` 对两类候选取**最近命中**(故遮挡正确:站在建筑后面的生物不会被误选);`EntityActor`/`BuildingActor` 各自缓存 `_model_local_box`,后者测量失败时退回格子脚印盒保证仍可点。**backend 不记录选中态**(§1)。
 
-**新增工具/道具类型 `foo`:** 美术源 `runtime/frontend/models/tools/foo/foo.fbx` + `foo.blend`(源,§9)。网格约定:手柄沿 +Z、工具平面落在 XZ 平面(刀头朝 −X)、原点在握把(手柄末端)、平直着色;材质按部位拆成无贴图纯色(`wood`/`metal`/`edge`),不引贴图。若它要作为道具在仓里/工人手上显示,再建 `runtime/frontend/models/entities/foo/foo.tscn`(+ `foo_model.gd`)并登记进 `ItemStack.ITEM_MODEL_SCENES` —— 该场景须**把美术实例放平使长轴落在 +Z**(ItemStack 约定,见 §5.5)。带耐久这类**按件状态**的物品,再写一个状态载体类即可(默认工厂会按类型名认出来,§5.8);工具即 `extends Tool` 的实体类。工人持工具走 `Labor.carried_bag` 那格有状态单体:配方还要用的工具一直握着(每件都"还了再领"会白走数格,见 `ManBuildingTask._write_return_plan`);工人空闲时由空闲树 `idle.tres` 把不再需要的物品就近放进收得下的仓,全图无处可收才留在手上(§5.8)。**工具加速的契约**:配方用 `RecipeData.tool_bonuses` 声明 { 工具类型: 注入倍率 }(空表 = 无需工具);`ProvideWorkloadTask` 取工人随身仓里**表内倍率最高**的那件工具放大注入量并按注入量磨损它 —— 配方要求工具而工人空手时降到 `Tool.EMPTY_HANDED_EFFICIENCY`(0.1),不需要工具的配方恒 1.0。故**新增一种工具 = 一个 `Tool` 子类(声明 `WEAR_PER_WORKLOAD`)+ 配方表加一行 + 前端模型场景,AI 侧零改动**(取/还/留着/报废全按 `tool_bonuses` 泛化);要加更强的变体(如铁斧)只改倍率数据,不加 AI 逻辑。
+**新增工具/道具类型 `foo`:** 美术源 `runtime/frontend/models/tools/foo/foo.fbx` + `foo.blend`(源,§9)。网格约定:手柄沿 +Z、工具平面落在 XZ 平面(刀头朝 −X)、原点在握把(手柄末端)、平直着色;材质按部位拆成无贴图纯色(`wood`/`metal`/`edge`),不引贴图。若它要作为道具在仓里/工人手上显示,再建 `runtime/frontend/models/entities/foo/foo.tscn`(+ `foo_model.gd`)并登记进 `ItemStack.ITEM_MODEL_SCENES` —— 该场景须**把美术实例放平使长轴落在 +Z**(ItemStack 约定,见 §5.5)。带耐久这类**按件状态**的物品,再写一个状态载体类即可(默认工厂会按类型名认出来,§5.8);工具即 `extends Tool` 的实体类。工人持工具走 `Labor.hand_bag` 那格有状态单体(手仓容量 1):配方还要用的工具一直握着(每件都"还了再领"会白走数格,见 `ManBuildingTask._write_return_plan`);工人空闲时由空闲树 `idle.tres` 把不再需要的物品就近放进收得下的仓,全图无处可收才留在手上(§5.8)。**工具加速的契约**:配方用 `RecipeData.tool_bonuses` 声明 { 工具类型: 注入倍率 }(空表 = 无需工具);`ProvideWorkloadTask` 取工人随身仓里**表内倍率最高**的那件工具放大注入量并按注入量磨损它 —— 配方要求工具而工人空手时降到 `Tool.EMPTY_HANDED_EFFICIENCY`(0.1),不需要工具的配方恒 1.0。故**新增一种工具 = 一个 `Tool` 子类(声明 `WEAR_PER_WORKLOAD`)+ 配方表加一行 + 前端模型场景,AI 侧零改动**(取/还/留着/报废全按 `tool_bonuses` 泛化);要加更强的变体(如铁斧)只改倍率数据,不加 AI 逻辑。
 
 **新增 AI 叶子任务/行为树:** 叶子脚本 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,如 `MoveToTargetTask`/`EnemyAttackTask`);固定行为树以 `.tres` 落 `runtime/backend/entities/ai/`(优先 `.tres`,不代码组装,约定见 §5.3),`BT.Status.*` 常量与 `get_agent()/get_blackboard()` 用法见 §5.3。
 

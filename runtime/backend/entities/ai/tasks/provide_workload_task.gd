@@ -7,8 +7,8 @@ extends BTAction
 # 驱动期间把实体置为 "work" 状态(前端据此播劳作动画);任务结束由 IdleTask 归 "idle"。
 # 建筑无效时 FAILURE,由外层 JobRunnerTask 统一处理归还。
 #
-# 手持工具(可选):配方经 tool_bonuses 声明接受的工具类型 → 注入倍率;工人随身仓里持有
-# 其中任意一件时,取**表内倍率最高**的那件放大注入量,并按注入量磨损它;工具因此报废则摘格
+# 手持工具(可选):配方经 tool_bonuses 声明接受的工具类型 → 注入倍率;工人手仓(hand_bag)里
+# 持有其中任意一件时,取**表内倍率最高**的那件放大注入量,并按注入量磨损它;工具因此报废则摘格
 # 丢弃并 FAILURE —— 本次顶岗中止,工人下一轮重新去领工具(见 ManBuildingTask._write_tool_plan)。
 # 配方需要工具而工人空手时,注入量降到 Tool.EMPTY_HANDED_EFFICIENCY(0.1 倍):空手仍能
 # 干活,只是极慢;配方本就不需要工具(表为空)时不受影响(恒 1.0)。
@@ -41,17 +41,17 @@ func _tick(in_delta: float) -> int:
 		# 这件工具真的派上用场了:清零"未使用计时"(见 Tool.unused_time)。
 		tool.mark_used()
 		if tool.wear_for_workload(injected):
-			# 工具报废:从随身仓摘格丢弃(remove_count 对状态格是丢弃语义)
-			labor.carried_bag.remove_count_of(tool.type, 1)
+			# 工具报废:从手仓摘格丢弃(remove_count 对状态格是丢弃语义)
+			labor.hand_bag.remove_count_of(tool.type, 1)
 			return BT.Status.FAILURE
 	if building.is_work_done():
 		return BT.Status.SUCCESS
 	return BT.Status.RUNNING
 
-# 随身仓里持有的**本配方接受的工具**中加成最高的一件;无 / 已 freed / 非 Tool 时返回 null。
+# 手仓(hand_bag)里持有的**本配方接受的工具**中加成最高的一件;无 / 已 freed / 非 Tool 时返回 null。
 # 配方表为空(无需工具)时恒 null —— 空手即正常,不必找工具。
 func _held_tool(in_labor: Labor, in_building: Workshop) -> Tool:
-	if in_labor == null or not is_instance_valid(in_labor.carried_bag):
+	if in_labor == null or not is_instance_valid(in_labor.hand_bag):
 		return null
 	var recipe: RecipeData = in_building.active_recipe
 	if recipe == null or recipe.tool_bonuses.is_empty():
@@ -59,7 +59,7 @@ func _held_tool(in_labor: Labor, in_building: Workshop) -> Tool:
 	var best: Tool = null
 	var best_bonus: float = 0.0
 	for tool_type: String in recipe.tool_bonuses:
-		var carrier: Object = in_labor.carried_bag.peek_state(tool_type)
+		var carrier: Object = in_labor.hand_bag.peek_state(tool_type)
 		# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 		if not is_instance_valid(carrier) or not (carrier is Tool):
 			continue

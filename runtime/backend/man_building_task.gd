@@ -120,7 +120,7 @@ func _accepted_tools() -> Array[String]:
 		return bonuses[in_a] > bonuses[in_b])
 	return types
 
-# 工人随身仓里是否已持有**本配方接受的任意一种**工具(工具是"按件"的,取件前先看手上有没有)。
+# 工人手仓(hand_bag)里是否已持有**本配方接受的任意一种**工具(工具是"按件"的,取件前先看手上有没有)。
 # 直接遍历配方表,不走 _accepted_tools():本判定只要"有没有",不需要按倍率排序,而它被
 # cost_for 调用、cost_for 又被调度比较器反复调用。
 func _holds_accepted_tool(in_labor: Labor) -> bool:
@@ -137,22 +137,22 @@ func _is_accepted(in_tool_type: String) -> bool:
 	var recipe: RecipeData = building.active_recipe
 	return recipe != null and recipe.tool_bonuses.has(in_tool_type)
 
-# 工人随身仓里是否已有该类型的工具(工具是"按件"的,取件前先看手上有没有)。
+# 工人手仓里是否已有该类型的工具(工具是"按件"的,取件前先看手上有没有)。
 func _already_holds(in_labor: Labor, in_tool_type: String) -> bool:
-	if not is_instance_valid(in_labor.carried_bag):
+	if not is_instance_valid(in_labor.hand_bag):
 		return false
-	var carrier: Object = in_labor.carried_bag.peek_state(in_tool_type)
+	var carrier: Object = in_labor.hand_bag.peek_state(in_tool_type)
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 	if not is_instance_valid(carrier) or not (carrier is Tool):
 		return false
 	var tool: Tool = carrier
 	return tool.type == in_tool_type
 
-# 工人随身仓里那件工具(任意类型);无 / 已 freed / 非 Tool 时返回 null。
+# 工人手仓里那件工具(任意类型);无 / 已 freed / 非 Tool 时返回 null。
 func _held_tool(in_labor: Labor) -> Tool:
-	if not is_instance_valid(in_labor.carried_bag):
+	if not is_instance_valid(in_labor.hand_bag):
 		return null
-	var carrier: Object = in_labor.carried_bag.peek_state()
+	var carrier: Object = in_labor.hand_bag.peek_state()
 	# 顺序:is_instance_valid(对 freed 安全)→ 才 `is`;freed 上做 `is` 会崩。
 	if not is_instance_valid(carrier) or not (carrier is Tool):
 		return null
