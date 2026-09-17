@@ -58,9 +58,11 @@ func configure(in_target: Object) -> bool:
 		return false
 	if _title_label:
 		_title_label.text = make_title(target)
-	# 删除按钮仅建筑可用:实体(工人)检视不提供删除
+	# 删除按钮仅建筑可用:实体(工人)检视不提供删除;部分建筑(如主基地)覆写
+	# is_removable() 为 false,同样不提供删除。
 	if _delete_button:
-		_delete_button.visible = target is Building
+		var building: Building = target as Building
+		_delete_button.visible = building != null and building.is_removable()
 	show()
 	return true
 
