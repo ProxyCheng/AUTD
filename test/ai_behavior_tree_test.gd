@@ -159,6 +159,57 @@ func _init():
 	Level.current = null      # 静态指针不置空会留到退出,报一堆 ObjectDB 泄漏
 	lvl.free()
 
+	# —— A5. 搬运整趟真跑(transport_haul):取 → 走 → 放,且"放"必须等搬运飞完才收工 ——
+	# 回归背景:PutToBagTask 曾把 await_transfer() 的 RUNNING 当成"非 SUCCESS"直接判 FAILURE,
+	# 于是叶子开趟后第一 tick 就失败、工人当场走人,而搬运仍由 Logistics 跑完(货照飞)——
+	# 看着就是"货还没卸完工人就开始移动"。本项锁住:在途期间整棵树必须仍是 RUNNING,
+	# 收工那一刻目标仓必须已经收满。
+	var lvl2 := Level.new()
+	if lvl2.logistics == null:
+		lvl2.logistics = Logistics.new()
+	Level.current = lvl2
+	var src := Bag.new()
+	src.item_type = "log"
+	src.max_count = 50
+	src.access_position = Vector2(1, 1)
+	src.add_count_of("log", 3)
+	var dst := Bag.new()
+	dst.item_type = "log"
+	dst.max_count = 50
+	dst.access_position = Vector2(1, 1)
+	lvl2.logistics.register_bag(src)
+	lvl2.logistics.register_bag(dst)
+	var hauler := Labor.new()
+	hauler.head_bag = Bag.new()
+	hauler.head_bag.max_count = 5
+	hauler.hand_bag = Bag.new()
+	hauler.hand_bag.max_count = 1
+	hauler.position = Vector2(1, 1)
+	hauler.blackboard.set_var(TransportTask.BB_SOURCE_BAG, src)
+	hauler.blackboard.set_var(TransportTask.BB_DEST_BAG, dst)
+	hauler.blackboard.set_var(TransportTask.BB_CARRY_AMOUNT, 3)
+	hauler.blackboard.set_var(TransportTask.BB_ITEM_TYPE, "log")
+	hauler.blackboard.set_var(TransportTask.BB_TAKE_ACCESS, Vector2(1, 1))
+	hauler.blackboard.set_var(TransportTask.BB_PUT_ACCESS, Vector2(1, 1))
+	var haul: BehaviorTree = _load_tree(HAUL)
+	var haul_inst: BTInstance = haul.instantiate(hauler, hauler.blackboard, hauler, hauler)
+	var hst: int = BT.Status.RUNNING
+	var hticks: int = 0
+	var early_exit: bool = false
+	while hticks < 900 and hst == BT.Status.RUNNING:
+		hst = haul_inst.update(0.05)
+		lvl2.tick(0.05)
+		hticks += 1
+		# 树收工时货还没到齐 ⇒ 就是"没等搬运飞完"
+		if hst != BT.Status.RUNNING and dst.count < 3:
+			early_exit = true
+	print("HAUL-BEHAVIOR status=", hst, " ticks=", hticks, " src=", src.count, " dst=", dst.count, " early_exit=", early_exit)
+	if hst != BT.Status.SUCCESS or dst.count != 3 or src.count != 0 or early_exit:
+		failed += 1
+	hauler.free()
+	Level.current = null
+	lvl2.free()
+
 	# —— D. 回归:Bag / Logistics 核心语义 ——
 	var logi := Logistics.new()
 	var near := Bag.new()

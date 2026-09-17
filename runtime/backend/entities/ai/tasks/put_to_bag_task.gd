@@ -18,8 +18,14 @@ extends BagTransferTask
 
 func _tick(_in_delta: float) -> int:
 	# 已经在飞:等它落地。此刻货在托管仓里(随身仓已扣、目标仓还没进),别再去解析随身仓。
+	# 注意先把 RUNNING 放行 —— await_transfer() 在途时返回的正是 RUNNING,
+	# 若写成"非 SUCCESS 即 FAILURE",叶子会在开趟后第一 tick 就失败,工人当场走人、
+	# 而搬运仍由 Logistics 跑完(货照飞),看着就是"货没卸完就移动"。
 	if _transfer_id >= 0:
-		if await_transfer() != BT.Status.SUCCESS:
+		var status: int = await_transfer()
+		if status == BT.Status.RUNNING:
+			return BT.Status.RUNNING
+		if status != BT.Status.SUCCESS:
 			return BT.Status.FAILURE
 		# 少放了(目标被并发占满,余量退回随身仓)就是本趟没完成,见文件头的失败约定。
 		return BT.Status.SUCCESS if delivered() >= moved() else BT.Status.FAILURE
