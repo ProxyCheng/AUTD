@@ -3,8 +3,20 @@
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
 [ext_resource type="Script" uid="uid://d1xjdd5ki1fkc" path="res://runtime/backend/entities/ai/tasks/take_from_bag_task.gd" id="2_take"]
 [ext_resource type="Script" uid="uid://dwd3s7ioirohf" path="res://runtime/backend/entities/ai/tasks/put_to_bag_task.gd" id="3_put"]
+[ext_resource type="Script" uid="uid://councacsy8rrq" path="res://runtime/backend/entities/ai/tasks/find_deposit_bag_task.gd" id="4_find"]
+[ext_resource type="Script" uid="uid://dsy356lnysjjb" path="res://runtime/backend/entities/ai/tasks/deposit_load_task.gd" id="5_deposit"]
 
 [sub_resource type="BlackboardPlan" id="BlackboardPlan_o9b1"]
+
+[sub_resource type="BTAction" id="BTAction_find_deposit"]
+script = ExtResource("4_find")
+
+[sub_resource type="BTAction" id="BTAction_move_deposit"]
+script = ExtResource("1_move")
+target_var = &"deposit_access"
+
+[sub_resource type="BTAction" id="BTAction_deposit"]
+script = ExtResource("5_deposit")
 
 [sub_resource type="BTAction" id="BTAction_move_take"]
 script = ExtResource("1_move")
@@ -23,9 +35,9 @@ arrival_distance = 0.5
 script = ExtResource("3_put")
 
 [sub_resource type="BTSequence" id="BTSequence_root"]
-children = [SubResource("BTAction_move_take"), SubResource("BTAction_take"), SubResource("BTAction_move_put"), SubResource("BTAction_put")]
+children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit"), SubResource("BTAction_move_take"), SubResource("BTAction_take"), SubResource("BTAction_move_put"), SubResource("BTAction_put")]
 
 [resource]
-description = "搬运一趟:先走到源装卸点(take_access)取 carry_amount 件,再走到目标装卸点(put_access)卸货。参数经工人黑板传:&source_bag / &dest_bag / &carry_amount / &take_access / &put_access。"
+description = "搬运一趟:开工前先把随身用不上的东西就近卸掉(FindDepositBagTask 从头顶仓挑散料残留、手仓挑持有太久没被用上的工具,找最近且收得下的已注册仓,把计划写进黑板;无可卸/无处可收时 deposit_type 为空、行走点落回原地)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断)→ 再走到源装卸点(take_access)取 carry_amount 件,走到目标装卸点(put_access)卸货。参数经工人黑板传:&source_bag / &dest_bag / &carry_amount / &take_access / &put_access / &deposit_type / &deposit_bag / &deposit_access。"
 blackboard_plan = SubResource("BlackboardPlan_o9b1")
 root_task = SubResource("BTSequence_root")

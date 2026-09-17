@@ -7,8 +7,8 @@ extends BTAction
 #
 # 游荡 duration 秒后返回 SUCCESS,让整棵空闲树结束重建 —— 这是**必须**的:空闲树第一步的
 # 卸货判定(FindDepositBagTask)只跑一次,若本叶恒 RUNNING,树就永不结束,工人会带着
-# "当时还需要、后来用不上"的工具一直游荡下去(见 FindDepositBagTask 的 &work_building 闸)。
-# 重建后第一步重新判定,用不上的工具就会被卸进仓里。
+# "当时还需要、后来用不上"的工具一直游荡下去(见 FindDepositBagTask 按 Tool.unused_time /
+# is_unused_too_long() 的判定)。重建后第一步重新判定,用不上的工具就会被卸进仓里。
 # 锚点经黑板跨重建保留,否则每次重建都以当前位置为锚,工人会随机游走越走越远;
 # 只有工人真的换了地方(离锚点超过 ANCHOR_KEEP_RANGE)才重取锚点。
 
