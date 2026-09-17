@@ -77,6 +77,18 @@ var fire_timer: float = 0
 var fire_anim_timer: float = 0
 # 装填计时:工人到位进入 loading 后倒计时;归零转为 charging(开始蓄力),再累计蓄力。
 var load_timer: float = 0
+# 上弦/装弹进度([0,1],契约同 progress):loading 期间由 load_timer 折算,供前端驱动
+# "从备弹垛取一发"的表现(弩:端箭上弦;炮:炮弹入膛)。与 progress 分开 —— progress 表示
+# 蓄力工作量(还要喂头顶工作量条与配方行),本值只描述端箭/装弹准备这一段,不计入配方进度。
+var load_progress: float = 0:
+	get:
+		return load_progress
+	set(in_progress):
+		if is_equal_approx(in_progress, load_progress):
+			return
+		load_progress = in_progress
+		load_progress_changed.emit()
+signal load_progress_changed()
 
 # 弹药输入仓(弹种由子类钩子给出,纯需求方)。基类 _ready → _setup_bags 创建并注册;作展示镜像
 # (stored_count 镜像 input_bag.count)。前端展示时会再扣掉"已在武器内的一发"。
@@ -126,11 +138,14 @@ func _tick_machine(in_delta: float):
 		return
 	if not _is_manned():
 		return
-	# 装填态:弹药未就位(progress=0),倒计时结束转入 charging 开始蓄力。
+	# 装填态:弹药未就位(progress 保持 0),取弹进度走 load_progress;倒计时结束转入 charging。
+	# load_progress 先落到 1 再换状态,前端得以把取弹动画收在终点。
 	if state == "loading":
 		load_timer -= in_delta
+		load_progress = clampf(1.0 - load_timer / maxf(load_time(), 0.0001), 0.0, 1.0)
 		if load_timer <= 0:
 			load_timer = 0
+			load_progress = 1.0
 			state = "charging"
 			progress = clampf(fire_timer / charge_time(), 0, 1)
 		return
@@ -172,6 +187,9 @@ func _reset_shift():
 	# 已装填且蓄力进行到一半),直接回 charging 继续,不重复装填(否则装填动作会重头再来)。
 	# 已蓄满(fire_timer>=charge_time())则直接维持备战。
 	if _has_ammo() and fire_timer <= 0.0:
+		# load_progress 先归零再换状态:前端在 set_state("loading") 那一帧就已拿到 0,
+		# 取弹起点与"垛少显示一支"同帧生效,不会先闪在弦位/膛口。
+		load_progress = 0.0
 		state = "loading"
 		load_timer = load_time()
 		progress = 0

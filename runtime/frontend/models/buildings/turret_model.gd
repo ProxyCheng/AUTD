@@ -25,6 +25,8 @@ var _current_yaw: float = 0.0
 var _aim_dir: Vector3 = Vector3.FORWARD
 # 当前后端阶段(idle/loading/charging/ready/firing),由 set_state 记录。初值取 backend 的初始态。
 var _state: String = "idle"
+# 最近一次 backend 上弦/装弹进度([0,1],见 set_load_progress):loading 阶段的表现按它采样。
+var _load_progress: float = 0.0
 
 # —— 水平转向 ——
 
@@ -91,6 +93,13 @@ func _apply_ammo_delta():
 # 蓄力进度变化:backend 保证 [0,1] 归一化(见 AGENTS.md §5.4 progress 契约)。
 func set_progress(in_progress: float):
 	_on_progress(in_progress)
+
+# 上弦/装弹进度([0,1]):loading 阶段"从备弹垛取一发"的表现由它驱动(弩:端箭上弦;
+# 炮:炮弹入膛)。与 set_progress(蓄力)分开 —— 两段进度由 backend Turret 分别给出,
+# 故取弹时长以 backend 的 load_time() 为单一事实来源,前端不再自带一份时长常量。
+# 子类在各自的 loading 处理里按本值采样,不累积状态(重绑/回放自洽)。
+func set_load_progress(in_progress: float):
+	_load_progress = clampf(in_progress, 0.0, 1.0)
 
 # 进入装填(loading):把发射机构复位到"能再装一发"的姿态。
 @abstract

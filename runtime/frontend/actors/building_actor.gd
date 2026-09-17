@@ -155,6 +155,8 @@ func bind(in_building: Building):
 	if building:
 		building.state_changed.disconnect(_on_building_state_changed)
 		building.progress_changed.disconnect(_on_building_progress_changed)
+		if building.has_signal(&"load_progress_changed"):
+			building.load_progress_changed.disconnect(_on_building_load_progress_changed)
 		if building.has_signal(&"aim_direction_changed"):
 			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
 	building = in_building
@@ -179,6 +181,9 @@ func bind(in_building: Building):
 		_on_direction_changed()
 	building.state_changed.connect(_on_building_state_changed)
 	building.progress_changed.connect(_on_building_progress_changed)
+	# 上弦/装弹进度只有炮塔类建筑有(见 Turret.load_progress)
+	if building.has_signal(&"load_progress_changed"):
+		building.load_progress_changed.connect(_on_building_load_progress_changed)
 	if building.has_signal(&"aim_direction_changed"):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
 	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
@@ -187,6 +192,8 @@ func bind(in_building: Building):
 	_last_state = building.state
 	_on_building_state_changed()
 	_on_building_progress_changed()
+	if building.has_signal(&"load_progress_changed"):
+		_on_building_load_progress_changed()
 	_on_building_aim_direction_changed()
 	_bind_display_bag()
 	_update_direction()
@@ -325,6 +332,15 @@ func _on_building_progress_changed():
 	if not building_model.has_method(&"set_progress"):
 		return
 	building_model.set_progress(building.progress)
+
+# 上弦/装弹进度:仅炮塔类建筑有(见 Turret.load_progress),模型按需实现 set_load_progress
+# (弩:端箭上弦;炮:炮弹入膛)。非炮塔建筑没有该信号,故只在信号存在时读取。
+func _on_building_load_progress_changed():
+	if not building or not building_model:
+		return
+	if not building_model.has_method(&"set_load_progress"):
+		return
+	building_model.set_load_progress(building.load_progress)
 
 # 把 backend 展示仓转发给 model,由其绑定到 ItemStack(见 ItemStack.bind;解绑时 bag 传 null)。
 func _bind_display_bag():

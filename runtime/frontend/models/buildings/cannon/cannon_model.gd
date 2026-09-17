@@ -21,9 +21,8 @@ const RECOIL_SQUASH: float = 0.12
 const RECOIL_TIME: float = 0.2
 
 # —— 装填动画参数(纯表现,可直接调)——
-# 整段装填动画时长(秒),与 backend Cannon.CANNON_LOAD_TIME 同步(loading 态持续时长)。
-const LOAD_ANIM_TIME: float = 1.2
-# 三段时长占比(0..1,累加为 1):抬炮筒 → 炮弹飞入 → 炮筒回摆。
+# (整段时长不在这里:由 backend 的 load_progress 驱动,见 _apply_loading。)
+# 三段占比(0..1,累加为 1):抬炮筒 → 炮弹飞入 → 炮筒回摆。
 const LOAD_ROTATE_UP_END: float = 0.30
 const LOAD_BALL_FLIGHT_END: float = 0.75
 # 炮口竖直时的 body.rotation.x:炮口仰角 = -body.rotation.x,竖直向上即仰角 +90°。
@@ -36,8 +35,6 @@ const LOAD_BALL_SCENE: String = "res://runtime/frontend/models/entities/cannonba
 # 炮管形变进度:1=刚开火(形变最大),0=已复原;负值表示当前未在形变。
 var _recoil_t: float = -1.0
 
-# 装填动画进度 0..1;-1 表示未在装填。
-var _load_t: float = -1.0
 # 进入装填时炮筒的 body.rotation.x,作为回摆终点(装填结束后交还瞄准驱动)。
 var _load_start_pitch: float = 0.0
 # 飞入炮口的炮弹表现节点(常驻、按需显隐),与备弹垛同款同尺寸。
@@ -85,7 +82,6 @@ func _on_loading():
 	_reset_barrel()
 	# 从当前俯仰起摆,回摆时回到同一角度,避免装填前后姿态跳变。
 	_load_start_pitch = %body.rotation.x
-	_load_t = 0.0
 	_load_ball_from_ready = false
 	_show_load_ball(false)
 
@@ -93,12 +89,10 @@ func _on_firing():
 	# 引信烧到底(重绑进入开火态时也自洽,不依赖 progress 是否变化过)
 	%fuse.rotation_degrees.x = FUSE_TURN_DEGREES
 	_recoil_t = 1.0
-	_load_t = -1.0
 	_show_load_ball(false)
 
 func _on_resting():
 	_reset_barrel()
-	_load_t = -1.0
 	_show_load_ball(false)
 
 # 蓄力进度驱动引信烧短。开火/装填阶段的引信由状态钩子管理,这里不跟(避免"回卷")。
@@ -109,7 +103,9 @@ func _on_progress(in_progress: float):
 
 func _process(in_delta: float):
 	_tick_recoil(in_delta)
-	_tick_loading(in_delta)
+	# 装填期间炮筒由装填动画独占:整段按 backend load_progress 采样(见 _apply_loading)。
+	if _state == "loading":
+		_apply_loading(_load_progress)
 
 # —— 开火形变 ——
 
@@ -135,11 +131,9 @@ func _reset_barrel():
 # —— 装填动画 ——
 
 # 三段推进:炮筒抬到竖直 → 炮弹倒 U 飞入 → 炮筒回摆到进入时的俯仰。
-func _tick_loading(in_delta: float):
-	if _state != "loading" or _load_t < 0.0:
-		return
-	_load_t = minf(_load_t + in_delta / LOAD_ANIM_TIME, 1.0)
-	var t: float = _load_t
+# 参数即 backend 的 load_progress([0,1]):纯采样、不累积状态,重绑/回放自洽。
+func _apply_loading(in_progress: float):
+	var t: float = clampf(in_progress, 0.0, 1.0)
 	if t < LOAD_ROTATE_UP_END:
 		%body.rotation.x = lerpf(_load_start_pitch, VERTICAL_PITCH, _ease(t / LOAD_ROTATE_UP_END))
 		_show_load_ball(false)
@@ -151,7 +145,6 @@ func _tick_loading(in_delta: float):
 		_show_load_ball(false)
 		%body.rotation.x = lerpf(VERTICAL_PITCH, _load_start_pitch, _ease((t - LOAD_BALL_FLIGHT_END) / (1.0 - LOAD_BALL_FLIGHT_END)))
 	if t >= 1.0:
-		_load_t = -1.0
 		%body.rotation.x = _load_start_pitch
 
 # 炮弹位置:起点(垛顶)与终点(炮口)都换算到模型根局部系插值;局部 y 即世界竖直方向
@@ -179,19 +172,14 @@ func _muzzle_world() -> Vector3:
 	var box: AABB = mesh.get_aabb()
 	return mesh.to_global(Vector3(0.0, box.position.y, 0.0))
 
-# 装填炮弹的起飞点(世界坐标):垛在进入装填时已按"武器内一发"少显示一支,
-# 故优先取 ItemStack 记录的"刚被取走那支"的当前世界 TRS(实时换算,垛转向后仍正确);
-# 无记录(如模型刚绑定)时退回垛顶可见的那支。
+# 装填炮弹的起飞点(世界坐标):垛在进入装填时已按"武器内一发"少显示一支,那一发就落在
+# 垛未显示的第一格上,故直接取它的当前世界 TRS(实时换算,垛转向后仍正确;取位见
+# ItemStack.taken_prop_transform,不依赖"可见→隐藏"这次转变)。垛不可用时退回垛原点。
 func _ammo_top_world() -> Vector3:
 	if _ammo_stack:
-		var taken: Variant = _ammo_stack.last_removed_transform()
+		var taken: Variant = _ammo_stack.taken_prop_transform()
 		if taken is Transform3D:
 			return (taken as Transform3D).origin
-		var count: int = _ammo_stack.visible_count()
-		if count > 0:
-			var tr: Variant = _ammo_stack.get_prop_transform(count - 1)
-			if tr is Transform3D:
-				return (tr as Transform3D).origin
 		return _ammo_stack.global_position
 	return global_position
 
