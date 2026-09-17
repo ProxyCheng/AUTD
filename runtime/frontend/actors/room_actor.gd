@@ -27,10 +27,27 @@ func _ready():
 func bind(in_room: Room, in_logistics: Logistics):
 	room = in_room
 	room.entities_changed.connect(_on_entities_changed)
+	# 相机可见格变化 → 补判一次实体可见性。实体的显隐目前只在它自己 position_changed 时结算,
+	# 而静止不动的实体(走出视野后停下的工人、在视野外生成后一直没动的实体)等不到那次信号,
+	# 相机再移回来也永远不显示。建筑/地表由 map_actor 在同一信号里结算(§5.5 可见性策略)。
+	var camera: CameraController = get_viewport().get_camera_3d() as CameraController
+	if camera and not camera.viewing_axis_changed.is_connected(_on_viewing_axis_changed):
+		camera.viewing_axis_changed.connect(_on_viewing_axis_changed)
 	# 计时搬运开始 → 由本节点转给对应工人 actor 播飞行(见 _on_transfer_started)。
 	# 只连一次:bind 在组合根里只调一次,判重是防测试/重载场景重复接线。
 	if in_logistics and not in_logistics.transfer_started.is_connected(_on_transfer_started):
 		in_logistics.transfer_started.connect(_on_transfer_started)
+
+# 相机可见格变化:逐实体按当前可见性同步 actor。相机只在可见格集合真的变化时才发这个信号
+# (见 CameraController._update_viewing_axis),故不是每帧全扫。
+func _on_viewing_axis_changed(_in_new_axis: Dictionary, _in_old_axis: Dictionary):
+	var camera: CameraController = get_viewport().get_camera_3d() as CameraController
+	if not camera or not room:
+		return
+	for entity_id in room.entities:
+		var entity: Entity = room.get_entity(entity_id)
+		if entity:
+			_sync_entity_actor(entity, camera.is_position_visible(entity.position))
 
 # 选中变化:缓存目标,并让全部在场 actor 重新判定高亮 —— 单一 selected_target 保证
 # 任意时刻至多一个高亮(选中工人时建筑环全灭,反之亦然)。
@@ -64,8 +81,7 @@ func _on_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids: Arr
 		if not entity:
 			continue
 		entity.position_changed.connect(_on_entity_position_changed.bind(entity.id))
-		if camera.is_position_visible(entity.position):
-			_place_entity_actor(entity_id)
+		_sync_entity_actor(entity, camera.is_position_visible(entity.position))
 
 # 实体被移除时,在 actor 最后的世界位置播一次消失表现(爆裂粒子 + 定位音)。
 # 仅当该类型登记了表现、且 actor 仍在场时(炮弹在屏幕外被回收则无需表现)。
@@ -151,10 +167,16 @@ func _on_entity_position_changed(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)
 	if not entity:
 		return
-	var camera: CameraController = get_viewport().get_camera_3d()
-	if camera and camera.is_position_visible(entity.position):
-		if not entity_actors.has(in_entity_id):
-			_place_entity_actor(in_entity_id)
-	else:
-		if entity_actors.has(in_entity_id):
-			_recycle_entity_actor(in_entity_id)
+	var camera: CameraController = get_viewport().get_camera_3d() as CameraController
+	if not camera:
+		return
+	_sync_entity_actor(entity, camera.is_position_visible(entity.position))
+
+# 按可见性放置/回收实体 actor —— 显隐结算的唯一实现:
+# 实体自己移动(_on_entity_position_changed)与相机移动(_on_viewing_axis_changed)共用它。
+func _sync_entity_actor(in_entity: Entity, in_visible: bool):
+	if in_visible:
+		if not entity_actors.has(in_entity.id):
+			_place_entity_actor(in_entity.id)
+	elif entity_actors.has(in_entity.id):
+		_recycle_entity_actor(in_entity.id)
