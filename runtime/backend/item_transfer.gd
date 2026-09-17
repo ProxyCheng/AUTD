@@ -17,8 +17,10 @@ extends Node
 
 enum State { Running, Done, Cancelled }
 
-# 一趟搬运的耗时(秒):固定值,与距离无关 —— 距离是表现层的事,这里只管"这趟要多久"。
-const DURATION: float = 0.45
+# 单件物品的飞行时长(秒):一趟搬 N 件的总时长 = N × 本值。
+# 逐件飞,不整批一次飞 —— 进度被等分成 N 段,第 i 件在进度 i/N 处落地(见 _release_due),
+# 表现层按同一把尺子把 N 件排成一串(见 ItemFlight),于是"目标区域多出来"与"那件飞到"同拍。
+const PER_ITEM_DURATION: float = 0.25
 # 收尾兜底(秒):到点后若目标与源长期都收不下,退主基地后即收工,免得一条搬运永远占着在途账。
 const SETTLE_TIMEOUT: float = 3.0
 
@@ -38,6 +40,8 @@ var state: State = State.Running
 # 已扣出源仓 / 已交付目标仓的件数;两者之差即此刻还在飞的件数。
 var moved: int = 0
 var delivered: int = 0
+# 本趟总时长(秒):按实际搬走的件数算(见 PER_ITEM_DURATION),故一件一件都看得清。
+var duration: float = PER_ITEM_DURATION
 
 # 归一化进度 [0,1](§5.4 契约:数据层只出归一化值,到动画时间轴的换算一律在表现层)。
 var progress: float = 0.0:
@@ -76,6 +80,8 @@ func begin(in_source: Bag, in_dest: Bag, in_item_type: String, in_amount: int) -
 	escrow.max_count = Bag.UNLIMITED
 	add_child(escrow)
 	moved = source_bag.move_to(escrow, item_type, amount)
+	# 总时长随件数走:每件各占一段进度,故件件都看得清(表现层把 N 件按同一把尺子排成一串)。
+	duration = maxf(PER_ITEM_DURATION, float(moved) * PER_ITEM_DURATION)
 	return moved > 0
 
 func tick(in_delta: float):
@@ -83,7 +89,9 @@ func tick(in_delta: float):
 		return
 	if progress < 1.0:
 		_elapsed += in_delta
-		progress = _elapsed / DURATION
+		progress = _elapsed / duration
+		# 按进度逐件交付:第 i 件在进度 i/moved 处落进目标仓(与表现层那件的落地时刻同拍)。
+		_release_due()
 		if progress < 1.0:
 			return
 	# 到点后每帧都试着把托管仓清空:目标仓可能正好这一帧才腾出位置。
@@ -97,6 +105,18 @@ func cancel():
 		return
 	_settle_elapsed = SETTLE_TIMEOUT
 	_settle(true)
+
+# 把"按当前进度该已交付的件数"补齐:进度 i/moved 处交付第 i 件,一次一件。
+# 整批一次塞给目标仓会让"目标区域"在动画刚开始就整批跳出来,与逐件飞行对不上。
+# 目标仓此刻收不下就停在这(下帧进度再涨一点会继续试),余下的由到点后的 _settle 兜底。
+func _release_due():
+	if not is_instance_valid(escrow) or not is_instance_valid(dest_bag) or moved <= 0:
+		return
+	var due: int = int(floor(progress * float(moved)))
+	while delivered < due:
+		if escrow.move_to(dest_bag, item_type, 1) <= 0:
+			break
+		delivered += 1
 
 # 收尾:按 in_prefer_source 决定先给哪一端,收不下的再给另一端,再不行退主基地,三者都放不下就
 # 留在托管仓里下帧再试(见 _finish 的失物仓说明)。正常到点先给目标;取消则先还源侧。

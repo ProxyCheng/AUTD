@@ -403,11 +403,16 @@ func play_item_transfer(in_transfer: ItemTransfer, in_host: Node):
 	var outgoing: bool = worker_bag == in_transfer.source_bag
 	var from_pose: Transform3D = worker_anchor if outgoing else building_anchor
 	var to_pose: Transform3D = building_anchor if outgoing else worker_anchor
-	var flight: ItemFlight = ItemFlight.launch(in_transfer.item_type, from_pose, to_pose)
-	if not flight:
-		return
-	in_host.add_child(flight)
-	flight.follow(in_transfer)
+	# 一件一段飞行:后端按进度逐件交付(见 ItemTransfer._release_due),这里按同一个件数把
+	# N 件排成一串 —— 每件只在自己那一段里可见,于是"工人带多件"看到的是接连飞过去,
+	# 而不是并成一件一次性飞过。
+	var count: int = maxi(in_transfer.moved, 1)
+	for index: int in count:
+		var flight: ItemFlight = ItemFlight.launch(in_transfer.item_type, from_pose, to_pose)
+		if not flight:
+			return
+		in_host.add_child(flight)
+		flight.follow(in_transfer, index, count)
 
 # 这次搬运里属于本工人的那只仓(头顶仓 / 手仓);两端都不是本人的 → null。
 # 先 is_instance_valid 再比:搬运期间任一端仓可能已被销毁,拿 freed 实例做 `==` 会崩。
