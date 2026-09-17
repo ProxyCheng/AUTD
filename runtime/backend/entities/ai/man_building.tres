@@ -33,7 +33,14 @@ arrival_distance = 0.5
 
 [sub_resource type="BTAction" id="BTAction_take_tool"]
 script = ExtResource("3_take")
-optional = true
+
+[sub_resource type="BTSequence" id="BTSequence_take_tool"]
+children = [SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool")]
+
+[sub_resource type="BTAlwaysSucceed" id="BTAlwaysSucceed_no_tool"]
+
+[sub_resource type="BTSelector" id="BTSelector_take_tool"]
+children = [SubResource("BTSequence_take_tool"), SubResource("BTAlwaysSucceed_no_tool")]
 
 [sub_resource type="BTAction" id="BTAction_move_work"]
 script = ExtResource("1_move")
@@ -43,9 +50,9 @@ arrival_center_offset = Vector2(0.4, 0.4)
 script = ExtResource("2_work")
 
 [sub_resource type="BTSequence" id="BTSequence_root"]
-children = [SubResource("BTSubtree_shed"), SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool"), SubResource("BTAction_move_tool"), SubResource("BTAction_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work")]
+children = [SubResource("BTSubtree_shed"), SubResource("BTAction_plan_return"), SubResource("BTAction_move_return"), SubResource("BTAction_return_tool"), SubResource("BTSelector_take_tool"), SubResource("BTAction_move_work"), SubResource("BTAction_work")]
 
 [resource]
-description = "顶岗任务:开工前先执行共享卸货子树(shed_load.tres:从头顶仓挑散料残留、手仓挑持有太久没被用上的工具 —— 刚用完的留着等机器再来派活,免得每件往返容器 —— 找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、由兜底的 BTAlwaysSucceed 当作已了事,不做任何动作继续往下走)→ 再重判手上工具的去留(PlanReturnTask:手上那件不是本机当前配方要用的,就把归还目标改指最近收得下的仓;正是本机要用的则留在手上,免得每件往返容器)→ 走到归还点(return_access)把用不上的工具交回容器(ReturnToolTask,没有可还的仓就自己留着)→ 走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask,源仓缺失不视为失败,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag / &deposit_type / &deposit_bag / &deposit_access。"
+description = "顶岗任务:开工前先执行共享卸货子树(shed_load.tres:从头顶仓挑散料残留、手仓挑持有太久没被用上的工具 —— 刚用完的留着等机器再来派活,免得每件往返容器 —— 找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、由兜底的 BTAlwaysSucceed 当作已了事,不做任何动作继续往下走)→ 再重判手上工具的去留(PlanReturnTask:手上那件不是本机当前配方要用的,就把归还目标改指最近收得下的仓;正是本机要用的则留在手上,免得每件往返容器)→ 走到归还点(return_access)把用不上的工具交回容器(ReturnToolTask,没有可还的仓就自己留着)→ 走到工具容器装卸点(tool_access,由 ManBuildingTask 按当前配方备好;配方不需要工具或全图没工具时该点即岗位点)→ 把工具取进工人随身仓(TakeFromBagTask;它与上一步的走位整对包在 BTSelector 里,源仓缺失或已空时取工具叶返回 FAILURE、由兜底的 BTAlwaysSucceed 跳过整对,即空手开工)→ 走到岗位点(target_position + 岗位角偏移)→ 为 work_building 注入 workload,直到该建筑完成一次生产(is_work_done)。参数经工人黑板传:&target_position / &work_building / &tool_access / &source_bag / &carry_amount / &return_access / &return_bag / &deposit_type / &deposit_bag / &deposit_access。"
 blackboard_plan = SubResource("BlackboardPlan_21s5x")
 root_task = SubResource("BTSequence_root")

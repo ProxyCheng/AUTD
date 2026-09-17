@@ -64,7 +64,8 @@ func cost_for(in_labor: Labor) -> float:
 	return cost
 
 # 备好"要不要取工具、去哪取":工人已持有配方接受的工具 / 配方不接受工具 / 全图没有该工具的
-# 容器 → 源仓置 null 且行走目标落到岗位点,等价直接空手开工(TakeFromBagTask.optional = true)。
+# 容器 → 源仓置 null 且行走目标落到岗位点,等价直接空手开工(取工具那一对由 man_building.tres
+# 的 BTSelector 兜底:取不到即整对跳过、空手开工)。
 func _write_tool_plan(in_labor: Labor):
 	var source := _find_tool_bag(in_labor)
 	in_labor.blackboard.set_var(TransportTask.BB_SOURCE_BAG, source)
