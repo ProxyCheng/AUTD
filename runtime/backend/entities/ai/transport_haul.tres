@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="1_move"]
 [ext_resource type="Script" uid="uid://d1xjdd5ki1fkc" path="res://runtime/backend/entities/ai/tasks/take_from_bag_task.gd" id="2_take"]
 [ext_resource type="Script" uid="uid://dwd3s7ioirohf" path="res://runtime/backend/entities/ai/tasks/put_to_bag_task.gd" id="3_put"]
-[ext_resource type="BehaviorTree" path="res://runtime/backend/entities/ai/shed_load.tres" id="4_shed"]
+[ext_resource type="BehaviorTree" uid="uid://blu1yawwyggvq" path="res://runtime/backend/entities/ai/shed_load.tres" id="4_shed"]
 
 [sub_resource type="BlackboardPlan" id="BlackboardPlan_o9b1"]
 
@@ -33,6 +33,6 @@ script = ExtResource("3_put")
 children = [SubResource("BTSubtree_shed"), SubResource("BTAction_move_take"), SubResource("BTAction_take"), SubResource("BTAction_move_put"), SubResource("BTAction_put")]
 
 [resource]
-description = "搬运一趟:开工前先执行共享卸货子树(shed_load.tres:从头顶仓挑散料残留、手仓挑持有太久没被用上的工具,找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、由兜底的 BTAlwaysSucceed 当作已了事,不做任何动作继续往下走)→ 再走到源装卸点(take_access)取 carry_amount 件,走到目标装卸点(put_access)卸货。参数经工人黑板传:&source_bag / &dest_bag / &carry_amount / &take_access / &put_access / &deposit_type / &deposit_bag / &deposit_access。"
+description = "搬运一趟:开工前先执行共享卸货子树(shed_load.tres:从头顶仓挑散料残留、手仓挑持有太久没被用上的工具,找最近且收得下的已注册仓,走到装卸点(deposit_access,不设到达半径,精确站上容器)搬进去;能卸就卸,无可卸或全图无处可收时整条卸货链失败、被 BTAlwaysSucceed 装饰器吞掉,不做任何动作继续往下走)→ 再走到源装卸点(take_access)取 carry_amount 件,走到目标装卸点(put_access)卸货。参数经工人黑板传:&source_bag / &dest_bag / &carry_amount / &take_access / &put_access / &deposit_type / &deposit_bag / &deposit_access。"
 blackboard_plan = SubResource("BlackboardPlan_o9b1")
 root_task = SubResource("BTSequence_root")

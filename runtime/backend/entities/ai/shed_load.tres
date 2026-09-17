@@ -1,4 +1,4 @@
-[gd_resource type="BehaviorTree" format=3]
+[gd_resource type="BehaviorTree" format=3 uid="uid://blu1yawwyggvq"]
 
 [ext_resource type="Script" uid="uid://councacsy8rrq" path="res://runtime/backend/entities/ai/tasks/find_deposit_bag_task.gd" id="1_find"]
 [ext_resource type="Script" uid="uid://cey258wacbmuj" path="res://runtime/backend/entities/ai/tasks/move_to_target_task.gd" id="2_move"]
@@ -19,12 +19,10 @@ script = ExtResource("3_deposit")
 [sub_resource type="BTSequence" id="BTSequence_shed"]
 children = [SubResource("BTAction_find_deposit"), SubResource("BTAction_move_deposit"), SubResource("BTAction_deposit")]
 
-[sub_resource type="BTAlwaysSucceed" id="BTAlwaysSucceed_none"]
-
-[sub_resource type="BTSelector" id="BTSelector_root"]
-children = [SubResource("BTSequence_shed"), SubResource("BTAlwaysSucceed_none")]
+[sub_resource type="BTAlwaysSucceed" id="BTAlwaysSucceed_shed"]
+children = [SubResource("BTSequence_shed")]
 
 [resource]
-description = "共享卸货子树:能卸就卸 —— 先规划(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品 —— 工具看\"持有太久没被用上\"、散料闲置即可卸 —— 找最近且收得下的已注册仓,把计划写进黑板)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断);无可卸或全图无处可收时规划叶返回 FAILURE,由外层 BTSelector 落到兜底的 BTAlwaysSucceed —— 当作已了事,主序列继续往下走。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access。"
+description = "共享卸货子树:能卸就卸 —— 先规划(FindDepositBagTask 从随身仓里挑第一类现在用不上的物品 —— 工具看\"持有太久没被用上\"、散料闲置即可卸 —— 找最近且收得下的已注册仓,把计划写进黑板)→ 走到该仓装卸点(deposit_access,不设到达半径,精确站上容器)→ 实际搬进该仓(DepositLoadTask;一律走 Bag.move_to,有状态物品搬实例本身、耐久不重置,散料按目标余量截断);无可卸或全图无处可收时规划叶返回 FAILURE,被外层的 BTAlwaysSucceed 装饰器吞掉 —— 整段当作已了事,主序列继续往下走。参数经工人黑板传:&deposit_type / &deposit_bag / &deposit_access。"
 blackboard_plan = SubResource("BlackboardPlan_shed")
-root_task = SubResource("BTSelector_root")
+root_task = SubResource("BTAlwaysSucceed_shed")
