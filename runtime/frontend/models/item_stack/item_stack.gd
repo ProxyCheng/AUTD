@@ -151,33 +151,78 @@ func capacity() -> int:
 func long_axis() -> float:
 	return _long_axis
 
-# { item_type: 原始长轴 } 按类型缓存:同一模型只量一次。
-static var _long_axis_by_type: Dictionary = {}
+# { item_type: 原始本地 AABB } 按类型缓存:同一模型只量一次。槽位几何与长轴换算都从它取尺寸。
+static var _box_by_type: Dictionary = {}
+
+# 某类型道具的原始本地 AABB(未缩放)。未知类型 / 模型加载失败 / 退化网格 → 空盒。
+# 与 _build_props 用的是同一把尺子(_measure_local_box),故按它算出的槽位与垛里实际摆放一致。
+static func _box_of(in_item_type: String) -> AABB:
+	if in_item_type.is_empty() or not ITEM_MODEL_SCENES.has(in_item_type):
+		return AABB()
+	if _box_by_type.has(in_item_type):
+		return _box_by_type[in_item_type]
+	var box := AABB()
+	var prop_scene: PackedScene = load(ITEM_MODEL_SCENES[in_item_type])
+	if prop_scene:
+		var probe: Node3D = prop_scene.instantiate()
+		box = _measure_local_box(probe)
+		probe.free()
+	_box_by_type.set(in_item_type, box)
+	return box
 
 # 某类型道具的原始长轴(本地、未缩放)。**按类型**而不是按本垛当前状态 —— 供业务层在物品
 # 还没进垛时就知道它落地后该多大(搬运飞行要按终点尺寸收尾)。直接用本垛的 long_axis() 不行:
 # 垛此刻可能是空的、甚至是另一种类型,量出来的是别人的长轴。
 static func long_axis_of(in_item_type: String) -> float:
-	if in_item_type.is_empty():
-		return 1.0
-	if _long_axis_by_type.has(in_item_type):
-		return _long_axis_by_type[in_item_type]
-	var axis: float = 1.0
-	if ITEM_MODEL_SCENES.has(in_item_type):
-		var prop_scene: PackedScene = load(ITEM_MODEL_SCENES[in_item_type])
-		if prop_scene:
-			var probe: Node3D = prop_scene.instantiate()
-			var box: AABB = _measure_local_box(probe)
-			probe.free()
-			if box.size.z > 0.0:
-				axis = box.size.z
-	_long_axis_by_type.set(in_item_type, axis)
-	return axis
+	var box: AABB = _box_of(in_item_type)
+	return box.size.z if box.size.z > 0.0 else 1.0
 
 # 把"期望长度"换算成本垛挂点该用的 scale —— 即该类型在本垛里**落地后**的实际大小。
 # 与 _build_props 的算法同一份(期望长轴 = 原始长轴 × 该 scale),故飞行收尾尺寸与垛里那支一致。
 func scale_for(in_item_type: String, in_expected_length: float) -> float:
 	return in_expected_length / maxf(long_axis_of(in_item_type), 0.0001)
+
+# 第 in_index 件(0 起)在挂点本地空间的槽位坐标。几何算法唯一实现:_build_props(按实测 box)
+# 与 slot_transform(按类型缓存的 box)共用它,保证"垛里摆在哪"与"业务层算出的落点"是同一处。
+func slot_local_position_for(in_box: AABB, in_index: int) -> Vector3:
+	var per: int = maxi(per_row, 1)
+	var row: int = in_index % per
+	var layer: int = in_index / per
+	var row_x: float = in_box.size.x * row_spacing
+	var layer_y: float = in_box.size.y * layer_spacing
+	# 网格可能不沿长轴居中(arrow 本地 z 从 0 起伸),按中心平移让垛居中于原点
+	var center_z: float = in_box.position.z + in_box.size.z * 0.5
+	var x: float = (float(row) - float(per_row - 1) * 0.5) * row_x
+	var y: float = -in_box.position.y + float(layer) * layer_y
+	return Vector3(x, y, -center_z)
+
+# 第 in_index 件按 in_item_type 的尺寸算出的槽位坐标(挂点本地空间)。类型未知 → 零偏移。
+func slot_local_position(in_item_type: String, in_index: int) -> Vector3:
+	var box: AABB = _box_of(in_item_type)
+	if box.size.z <= 0.0:
+		return Vector3.ZERO
+	return slot_local_position_for(box, in_index)
+
+# 第 in_index 件落地后应有的世界 TRS:挂点基(含缩放/朝向)套上该槽位偏移。
+# 道具自身的 rotation/scale 恒为 ZERO/ONE(见 _build_props),故只需换位置。
+func slot_transform(in_item_type: String, in_index: int) -> Transform3D:
+	var base: Transform3D = global_transform
+	var offset: Vector3 = slot_local_position(in_item_type, in_index)
+	if offset == Vector3.ZERO:
+		return base
+	return Transform3D(base.basis, base * offset)
+
+# 下一件 in_item_type 的槽位世界 TRS —— 搬运的两端都用它(见 ItemFlight):
+#   落货(目标仓)= Bag+1 后新出现那支所在的格;
+#   取货(源仓)  = 刚消失那支所在的格。
+# 索引取"垛上该类型的下一格":垛正展示这个类型时用当前显示数(它已含 count_delta 这类偏移);
+# 展示的是别的类型(多类型仓换货)时,那件到货后整垛会按新类型重建,索引就是该类型现有件数。
+func next_slot_transform(in_item_type: String = "") -> Transform3D:
+	var type: String = in_item_type if not in_item_type.is_empty() else _display_type()
+	var index: int = _shown_count
+	if type != _display_type() and is_instance_valid(bag):
+		index = bag.count_of(type)
+	return slot_transform(type, index)
 
 # 设置物品种类:重建对应道具池(未进树则等 _ready 后由 build 入口确保)。
 func _set_item_type(in_type: String):
@@ -222,22 +267,6 @@ func get_prop_transform(in_index: int) -> Variant:
 	if in_index >= vis.size():
 		return null
 	return vis[in_index].global_transform
-
-# 垛里"正被取走那支"的**当前**世界空间 TRS;垛内无道具时返回 null。
-# 取位是确定性的:垛只显示前 _shown_count 支(见 _apply_visibility),故被取走的那支永远落在
-# 垛未显示的第一格上(index = _shown_count)。不能改按"最近一次可见→隐藏"来记 —— 物品晚于
-# count_delta 变化才进仓时(如炮塔在蓄力途中才收到补弹,shown 一直是 0)那次转变根本没发生过,
-# 记录会漏,取弹动画就没了起点。实时换算,故垛随后转向/移动也仍然正确。
-# 用于"从垛里取出 → 目标姿态"的动画起点(炮塔端箭上弦 / 炮弹入膛)。
-func taken_prop_transform() -> Variant:
-	if _props.is_empty():
-		return null
-	# _shown_count 可能超出道具池(仓容量大于表现预算 per_row × layer_count),按末位兜底
-	var index: int = clampi(_shown_count, 0, _props.size() - 1)
-	var prop: Node3D = _props[index]
-	if not is_instance_valid(prop):
-		return null
-	return prop.global_transform
 
 # 绑定 backend Bag:断开旧仓 → 连接新仓的 count/item_type 信号 → 全量刷新一次。
 # in_item_type 非空时固定展示该类型(多类型仓里挑一格);留空则跟随 bag.item_type。
@@ -335,33 +364,19 @@ func _build_props(in_scene_path: String):
 	var prop_scene: PackedScene = load(in_scene_path)
 	if not prop_scene:
 		return
-	var probe: Node3D = prop_scene.instantiate()
-	var box := _measure_local_box(probe)
-	probe.free()
+	# 尺寸走按类型缓存(与 slot_transform 同一份),保证"摆在哪"与"算出的落点"永远一致。
+	var box: AABB = _box_of(_item_type)
 	if box.size.z <= 0.0:
 		return
 	_long_axis = box.size.z
-	# 顺手把量到的长轴填进按类型的缓存,让 long_axis_of 与实例读数永远是同一份。
-	_long_axis_by_type.set(_item_type, _long_axis)
 	# 道具保持原生尺寸;整垛大小交给挂载节点 Transform 的 Scale 控制。
-	var width: float = box.size.x
-	var thickness: float = box.size.y
-	var bottom_offset: float = box.position.y
-	# 网格可能不沿长轴居中(arrow 本地 z 从 0 起伸),按中心平移让垛居中于原点
-	var center_z: float = box.position.z + box.size.z * 0.5
-	var row_x := width * row_spacing
-	var layer_y := thickness * layer_spacing
 	for i in range(capacity()):
-		var row: int = i % per_row
-		var layer: int = i / per_row
 		var prop: Node3D = prop_scene.instantiate()
 		# 先置隐藏:首次 _apply_visibility 才按数量显示,避免"可见→隐藏"被误记为一次取出。
 		prop.visible = false
 		prop.rotation = Vector3.ZERO
 		prop.scale = Vector3.ONE
-		var x: float = (float(row) - float(per_row - 1) * 0.5) * row_x
-		var y: float = -bottom_offset + float(layer) * layer_y
-		prop.position = Vector3(x, y, -center_z)
+		prop.position = slot_local_position_for(box, i)
 		_content.add_child(prop)
 		_props.append(prop)
 	# build 完成后应用可见性(count 可能先于 build 设置,已记在 _shown_count)

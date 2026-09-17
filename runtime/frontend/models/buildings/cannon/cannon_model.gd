@@ -173,14 +173,11 @@ func _muzzle_world() -> Vector3:
 	return mesh.to_global(Vector3(0.0, box.position.y, 0.0))
 
 # 装填炮弹的起飞点(世界坐标):垛在进入装填时已按"武器内一发"少显示一支,那一发就落在
-# 垛未显示的第一格上,故直接取它的当前世界 TRS(实时换算,垛转向后仍正确;取位见
-# ItemStack.taken_prop_transform,不依赖"可见→隐藏"这次转变)。垛不可用时退回垛原点。
+# 垛未显示的第一格上,故直接取那一格的槽位(见 ItemStack.next_slot_transform;实时换算,
+# 垛转向后仍正确)。垛不可用时退回模型原点。
 func _ammo_top_world() -> Vector3:
 	if _ammo_stack:
-		var taken: Variant = _ammo_stack.taken_prop_transform()
-		if taken is Transform3D:
-			return (taken as Transform3D).origin
-		return _ammo_stack.global_position
+		return _ammo_stack.next_slot_transform().origin
 	return global_position
 
 func _show_load_ball(in_visible: bool):

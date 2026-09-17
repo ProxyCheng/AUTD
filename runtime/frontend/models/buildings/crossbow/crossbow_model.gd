@@ -265,19 +265,16 @@ func _try_begin_nock() -> bool:
 
 # 上弦起点需要补的模型翻转:垛里的箭来自 arrow.tscn——它用一层子节点把 FBX 绕 Y 转 180°
 # (arrow_model.gd 注释:"箭尖已摆成 -Z"),而 %Arrow 在 crossbow.tscn 里直接实例化 arrow.fbx、
-# 没有那层包装。taken_prop_transform 给的是 arrow.tscn 根节点的变换(不含子节点的翻转),
+# 没有那层包装。next_slot_transform 给的是 arrow.tscn 根节点的变换(不含子节点的翻转),
 # 直接套到裸 FBX 上会让飞行中的箭尖反向 → 起点与终点箭尖实测差约 154°,看着就是"转一大圈"。
 # 故起点先绕本地 Y 补回这 180°,与终点同基准后,Trs.lerp 只剩箭尖那点真实转向。
 const NOCK_SOURCE_FLIP: float = PI
 
-# 待上弦那支箭的世界 TRS = 垛里"正被取走那支"的当前位姿(见 ItemStack.taken_prop_transform):
+# 待上弦那支箭的世界 TRS = 垛里"正被取走那支"的槽位(见 ItemStack.next_slot_transform):
 # 装填时垛已按"武器内一发"少显示一支,那支就落在垛未显示的第一格上,取位确定性成立,
 # 不依赖"可见→隐藏"这次转变是否发生过(箭晚于 count_delta 补进仓时那次转变根本没发生)。
 func _nock_source_transform() -> Variant:
-	var taken: Variant = _ammo_stack.taken_prop_transform()
-	if not (taken is Transform3D):
-		return null
-	return (taken as Transform3D).rotated_local(Vector3.UP, NOCK_SOURCE_FLIP)
+	return _ammo_stack.next_slot_transform().rotated_local(Vector3.UP, NOCK_SOURCE_FLIP)
 
 # 出膛俯仰:用发射器几何(转轴 P + 起点偏移 S,取自 Turret)经 Trajectory 求解,
 # 保证弩口朝向与箭的抛物线切线一致。

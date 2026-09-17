@@ -395,7 +395,9 @@ func spawn_transfer_flight(in_transfer: ItemTransfer, in_index: int, in_host: No
 		return
 	var pile: ItemStack = building_actor.get_stack_for_bag(other_bag)
 	if pile:
-		building_anchor = pile.global_transform
+		# 落点取"那一件落地后应有的槽位"(见 ItemStack.next_slot_transform),不是垛节点原点:
+		# 垛里每件按格摆放,原点只是整垛底心,直接用会让飞行收尾与垛里新出现那支错开一格。
+		building_anchor = pile.next_slot_transform(in_transfer.item_type)
 	else:
 		building_anchor = Trs.zero_scale(building_actor.get_center_position())
 	var worker_anchor: Transform3D = _worker_bag_anchor(worker_bag, in_transfer.item_type)
@@ -432,20 +434,24 @@ func _building_actor_of(in_bag: Bag) -> BuildingActor:
 		return null
 	return level_actor.get_building_actor(building)
 
-# 工人侧锚点:头顶仓 → 头顶携带物垛,手仓 → 手持工具垛。两者都是 ItemStack,其原点即
-# "垛底中心",正是搬运的起/落点(与 _sync_carried/_sync_tool 维护的是同一姿态)。
-# 位置/朝向取自垛,但**尺寸按 in_item_type 单独算**:搬运开始时目标垛往往是空的
+# 工人侧锚点:头顶仓 → 头顶携带物垛,手仓 → 手持工具垛。两者都是 ItemStack,起/落点取
+# "那一件在垛里的槽位"(见 ItemStack.next_slot_transform),与 _sync_carried/_sync_tool
+# 维护的是同一姿态。
+# 位置/朝向取自槽位,但**尺寸按 in_item_type 单独算**:搬运开始时目标垛往往是空的
 # (取货时货还在托管仓里飞),它的 scale 停在上一次的类型、甚至场景默认值上 ——
 # 直接拿它当终点尺寸,飞行就会按错尺寸收尾、到位才被 _sync_carried 改回来(实测差过 3 倍)。
 func _worker_bag_anchor(in_bag: Bag, in_item_type: String) -> Transform3D:
-	var anchor: Transform3D = global_transform
+	var stack: ItemStack = null
 	var expected_scale: float = 1.0
 	if in_bag == _hand_bag and _tool_stack:
-		anchor = _tool_stack.global_transform
+		stack = _tool_stack
 		expected_scale = _tool_world_scale_for(in_item_type)
 	elif _carried_stack:
-		anchor = _carried_stack.global_transform
+		stack = _carried_stack
 		expected_scale = _carried_scale_for(in_item_type)
+	if not stack:
+		return global_transform
+	var anchor: Transform3D = stack.next_slot_transform(in_item_type)
 	# 只换缩放、保留朝向。垛自身缩放正常非零,但万一为 0,orthonormalized() 会出 NaN。
 	var rotation: Basis = anchor.basis.orthonormalized() if Trs.is_pose_valid(anchor) else Basis.IDENTITY
 	anchor.basis = rotation.scaled(Vector3.ONE * expected_scale)
