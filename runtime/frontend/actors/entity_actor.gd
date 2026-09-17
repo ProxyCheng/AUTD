@@ -211,16 +211,25 @@ func _tick_footstep(in_delta: float):
 # 绑定的头顶货仓(Labor.head_bag,装载的散料);类型/数量变化由 ItemStack.bind 跟随。
 var _head_bag: Bag = null
 
-# 绑定工人的头顶货仓(Labor.head_bag)到头顶 ItemStack,并跟随其数量变化(先断旧仓连接,防重绑重复回调)。
+# 绑定工人的头顶货仓(Labor.head_bag)到头顶 ItemStack,并跟随其数量/类型变化(先断旧仓连接,防重绑重复回调)。
+# 两个信号都要接:头顶垛的显隐与姿态读的是 (件数, 类型) 两者 —— 只接 count_changed 的话,
+# 类型晚于件数到达时(计时搬运"到点才入仓",而主要类型由取货叶子在搬运落地后才写)会先按空类型
+# 判成"没货"而隐藏,之后类型补上也再没人来显示它。
 func _bind_carried():
-	if is_instance_valid(_head_bag) and _head_bag.count_changed.is_connected(_sync_carried):
-		_head_bag.count_changed.disconnect(_sync_carried)
+	if is_instance_valid(_head_bag):
+		if _head_bag.count_changed.is_connected(_sync_carried):
+			_head_bag.count_changed.disconnect(_sync_carried)
+		if _head_bag.item_type_changed.is_connected(_sync_carried):
+			_head_bag.item_type_changed.disconnect(_sync_carried)
 	var labor := entity as Labor
 	_head_bag = labor.head_bag if labor and is_instance_valid(labor.head_bag) else null
 	if _carried_stack:
 		_carried_stack.bind(_head_bag)
-	if is_instance_valid(_head_bag) and not _head_bag.count_changed.is_connected(_sync_carried):
-		_head_bag.count_changed.connect(_sync_carried)
+	if is_instance_valid(_head_bag):
+		if not _head_bag.count_changed.is_connected(_sync_carried):
+			_head_bag.count_changed.connect(_sync_carried)
+		if not _head_bag.item_type_changed.is_connected(_sync_carried):
+			_head_bag.item_type_changed.connect(_sync_carried)
 	_sync_carried()
 
 func _sync_carried():

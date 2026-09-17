@@ -243,8 +243,11 @@ func _refresh():
 func _on_bag_count_changed():
 	_refresh()
 
+# 展示类型变化:整刷 —— 不能只换类型。可见件数是"按展示类型取数"(见 _display_count),
+# 类型换了可数的对象就换了,只 _set_item_type 会留着上一类型算出的 _shown_count,
+# 于是新类型的道具建出来了却按旧数目显隐(实测:件数先到、类型后到 ⇒ 永远显示 0 件)。
 func _on_bag_item_type_changed():
-	_set_item_type(_display_type())
+	_refresh()
 
 # 本垛展示的类型:显式 bind_type 优先,否则跟随仓的 item_type;单类型声明为空时
 # 退回按件状态载体的类型 —— 有状态单体(如手仓那件工具)的类型存在载体上,
