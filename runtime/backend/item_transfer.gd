@@ -101,17 +101,18 @@ func tick(in_delta: float):
 		_advance()
 		if progress < 1.0:
 			return
-	# 到点后每帧都试着把托管仓清空:目标仓可能正好这一帧才腾出位置。
+# 到点后每帧都试着把托管仓清空:目标仓可能正好这一帧才腾出位置。
 	_settle_elapsed += in_delta
-	_settle(false)
+	_settle(false, State.Done)
 
-# 立刻收工并把在途件退回源侧(源仓失效则退目标/主基地)。仓被销毁、任务被取消、兜底超时都走这里 ——
-# 任何时刻收工都不丢件。
+# 立刻收工并把在途件退回源侧(源仓失效则退目标/主基地)。仓被销毁、任务被取消、工人换活都走这里 ——
+# 任何时刻收工都不丢件。终态记 Cancelled:即便货全退回来了,这趟也**没搬成**,
+# 叶子据此判 FAILURE(见 BagTransferTask.await_transfer),不会把"什么都没搬"当成功。
 func cancel():
 	if state != State.Running:
 		return
 	_settle_elapsed = SETTLE_TIMEOUT
-	_settle(true)
+	_settle(true, State.Cancelled)
 
 # 按进度推进"逐件"循环:到第 i 件的起跑点就从源仓取它(源 → 托管仓),到它的终点就交付(托管仓 → 目标)。
 # 于是同一时刻源仓只少一件、目标仓只多一件 —— 飞行与两端库存始终同拍,
@@ -148,9 +149,10 @@ func _deliver_one() -> bool:
 
 # 收尾:按 in_prefer_source 决定先给哪一端,收不下的再给另一端,再不行退主基地,三者都放不下就
 # 留在托管仓里下帧再试(见 _finish 的失物仓说明)。正常到点先给目标;取消则先还源侧。
-func _settle(in_prefer_source: bool):
+# 货安置好即收工,终态用 in_terminal —— "退回来了"与"搬成了"是两件事,不能都记 Done。
+func _settle(in_prefer_source: bool, in_terminal: State):
 	if not is_instance_valid(escrow):
-		_finish(State.Done)
+		_finish(in_terminal)
 		return
 	if not in_prefer_source and is_instance_valid(dest_bag):
 		delivered += escrow.move_to(dest_bag, item_type, escrow.count_of(item_type))
@@ -158,11 +160,11 @@ func _settle(in_prefer_source: bool):
 	if not in_prefer_source:
 		_move_rest_to(dest_bag)
 	if escrow.count_of(item_type) <= 0:
-		_finish(State.Done)
+		_finish(in_terminal)
 		return
 	_emergency_home()
 	if escrow.count_of(item_type) <= 0:
-		_finish(State.Done)
+		_finish(in_terminal)
 		return
 	if _settle_elapsed >= SETTLE_TIMEOUT:
 		_finish(State.Cancelled)

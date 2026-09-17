@@ -132,6 +132,12 @@ func _tick_transfers(in_delta: float):
 		_transfers.erase(transfer_id)
 		transfer.queue_free()
 
+# 把涉某仓的在途搬运全部立刻结算掉(见 ItemTransfer.cancel)。供"这件活到此为止"的场景调用
+# (工人换任务、仓被销毁)。货退回仍收得下的那一端,绝不丢件。
+func cancel_transfers_for(in_bag: Bag):
+	if is_instance_valid(in_bag):
+		_cancel_transfers_for_bag(in_bag.id)
+
 # 有仓被销毁 → 涉它的在途搬运立刻收工并把货退还(见 ItemTransfer.cancel)。
 # 按 begin 时抄下的 bag id 比对,不去读可能已 freed 的引用。
 func _cancel_transfers_for_bag(in_bag_id: int):

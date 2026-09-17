@@ -74,7 +74,24 @@ func held_tool() -> Tool:
 	var tool: Tool = carrier
 	return tool
 
+# 换任务 = 上一件活到此为止:还在飞的那趟立刻收工退货,免得"工人已经去干别的了,货还在往老目标飞"。
+# §5.3 前端是后端的体现 —— 后端这件活停了,那段飞行表现也必须跟着停;而搬运登记在 Logistics 名下、
+# 不会随树一起消失(见 ItemTransfer),所以必须在"换任务"这个唯一可靠的时机主动收掉。
+# 正常路径走不到这里:叶子会一直等到搬运飞完才收工(见 BagTransferTask),故此刻在途的
+# 只可能是被打断/被取消的活。换任务的两个入口是 create_tree(自己要活)与 begin_tree(被派活)。
+func _cancel_in_flight_transfers():
+	var logistics: Logistics = Level.current.logistics if Level.current else null
+	if not logistics:
+		return
+	logistics.cancel_transfers_for(head_bag)
+	logistics.cancel_transfers_for(hand_bag)
+
+func begin_tree(in_tree: BehaviorTree):
+	_cancel_in_flight_transfers()
+	super(in_tree)
+
 func create_tree() -> BehaviorTree:
+	_cancel_in_flight_transfers()
 	var manager := _get_manager()
 	if manager:
 		return manager.request_work(self)
