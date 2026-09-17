@@ -64,6 +64,7 @@ autd/
 │     │  └─ tools/<type>/<type>.fbx + <type>.blend(纯表现道具,无 backend 类)
 │     └─ textures/        # land_<type>.png 等地形贴图
 ├─ editor/                # @tool 编辑器场景:cell_editor / map_editor / level_editor(.gd + .tscn)
+├─ test/                  # headless 测试:ai_behavior_tree_test.gd(行为树结构/行为 + 装饰器守卫)
 └─ addons/                # 第三方插件(不得手改)
 ```
 

@@ -176,13 +176,13 @@ for c: String in ClassDB.get_class_list():
 ## 6. 怎么验证一次改动
 
 **结构与行为一起验,别只看结构** —— 一个"不 tick 子节点、直接返回 SUCCESS"的装饰器写法能骗过纯结构检查。
-做法:写一个继承 `SceneTree` 的脚本,用 headless 跑:
+仓库里有一份现成的:`test/ai_behavior_tree_test.gd`(改完任何 `.tres` / 叶子任务后跑一次;**退出码 = 失败项数**,0 为全过):
 
 ```
-<godot.exe> --path <项目> --headless --script <临时目录>/verify_ai.gd
+<godot.exe> --path <项目> --headless --script res://test/ai_behavior_tree_test.gd
 ```
 
-脚本在 `_init()` 里做三件事,最后打 `RESULT failed=N` 并 `quit()`:
+它做三件事:
 
 1. **读结构** —— `ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as BehaviorTree`,检查 `root_task` 的类型与 `get_child_count()`。
 2. **真跑行为** —— `tree.instantiate(agent, agent.blackboard, agent, agent)`(需非空 scene root),然后循环 `update(0.05)` 直到非 RUNNING,断言副作用(如"3 件原木真的进了仓")。
