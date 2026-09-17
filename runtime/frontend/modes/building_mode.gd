@@ -1,6 +1,9 @@
 class_name BuildingMode
 extends Mode
 
+# 预览模型整体半透的比例(0 = 不透明,1 = 全透明)。
+const PREVIEW_TRANSPARENCY: float = 0.5
+
 var building_data: BuildingData = null
 var building_model: Node3D = null
 
@@ -79,4 +82,14 @@ func _on_card_clicked(in_building_type: String):
 	building_model = building_scene.instantiate()
 	add_child(building_model)
 	building_model.owner = owner
+	_apply_preview_transparency(building_model)
 	building_model.hide()
+
+# 预览模型整体半透:逐个几何实例设 instance transparency(Forward+ 实例级透明度,
+# 会把不透明材质也送进透明通道),不改模型自身材质资源,故不影响正式放置后的外观。
+# 半透模型不该投实心影,一并关掉阴影投射。
+func _apply_preview_transparency(in_root: Node):
+	for child: Node in in_root.find_children("*", "GeometryInstance3D", true, false):
+		var geometry: GeometryInstance3D = child
+		geometry.transparency = PREVIEW_TRANSPARENCY
+		geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
