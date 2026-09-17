@@ -238,18 +238,29 @@ func _refresh():
 	_set_item_type(_display_type())
 	_apply_display_count()
 
+# 件数变化是有状态仓里"工具到达 / 被换走"的**唯一**信号 —— 其类型记在载体上,不发 item_type_changed,
+# 所以这里必须整刷重解析展示类型,只刷数量会漏掉换件。_set_item_type 有同值 guard,类型没变时不会重建。
 func _on_bag_count_changed():
-	_apply_display_count()
+	_refresh()
 
 func _on_bag_item_type_changed():
 	_set_item_type(_display_type())
 
-# 本垛展示的类型:显式 bind_type 优先,否则跟随仓的 item_type。
+# 本垛展示的类型:显式 bind_type 优先,否则跟随仓的 item_type;单类型声明为空时
+# 退回按件状态载体的类型 —— 有状态单体(如手仓那件工具)的类型存在载体上,
+# bag.item_type 对它恒为空,不这样兜底则整垛无模型可建(§5.8)。
 func _display_type() -> String:
 	if not bind_type.is_empty():
 		return bind_type
 	if is_instance_valid(bag):
-		return bag.item_type
+		if not bag.item_type.is_empty():
+			return bag.item_type
+		# get() 鸭子访问:载体类型(工具即 Tool.type)是 backend 的注册表主键(§5.2)
+		var carrier: Object = bag.peek_state()
+		if is_instance_valid(carrier):
+			var carrier_type: Variant = carrier.get(&"type")
+			if carrier_type is String:
+				return str(carrier_type)
 	return ""
 
 # 按 count_mode/count_delta 把 bag.count 折算为可见道具数并应用显隐。

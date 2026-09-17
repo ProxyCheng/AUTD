@@ -283,9 +283,9 @@ func _bind_tool():
 		_hand_bag.count_changed.disconnect(_sync_tool)
 	var labor := entity as Labor
 	_hand_bag = labor.hand_bag if labor and is_instance_valid(labor.hand_bag) else null
-	# 不带类型参数:手仓只装手上这一件,让 ItemStack 跟随 bag.item_type 即可 ——
-	# 它同时监听 count_changed 与 item_type_changed,换工具(斧↔镐,件数不变)时模型自己会切,
-	# 无需外部重绑;反过来说,这里若传了类型,bind_type 就恒非空、外部再无从察觉类型变化。
+	# 不带类型参数:手仓只装手上这一件**有状态单体**,其类型记在载体(Tool)上、不在 bag.item_type 上,
+	# 由 ItemStack 自行解析(见 _display_type);手仓容量 1,来件/换件都表现为 count_changed,
+	# 故换工具(斧↔镐)也能被察觉,无需外部重绑。这里若传了类型,bind_type 就恒非空、外部再无从察觉换件。
 	if _tool_stack:
 		_tool_stack.bind(_hand_bag)
 	if is_instance_valid(_hand_bag) and not _hand_bag.count_changed.is_connected(_sync_tool):
@@ -304,7 +304,7 @@ func _sync_tool():
 	if tool == null:
 		_tool_stack.hide()
 		return
-	# 展示类型由 ItemStack 自己跟随手仓的 item_type(见 _bind_tool 注释),这里只管姿态。
+	# 展示类型由 ItemStack 自己解析(手仓没有 item_type,它回退到载体类型,见 _bind_tool 注释),这里只管姿态。
 	# 挂点 → actor 的变换链(挂点是模型子树,含模型的缩放/朝向)
 	var chain: Transform3D = HeadBar.chain_to(_tool_mount if _tool_mount else self, self)
 	var mount_scale: float = maxf(chain.basis.get_scale().x, 0.0001)
