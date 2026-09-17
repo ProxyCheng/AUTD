@@ -334,3 +334,21 @@ func _bind_display_bag():
 	if building and building.has_method(&"get_display_bag"):
 		display_bag = building.get_display_bag()
 	building_model.bind_bag(display_bag)
+
+# 本建筑展示料堆的 ItemStack(模型实现了 bind_bag 才有,如 stockpile/工坊/炮塔);
+# 无料堆的建筑返回 null —— 注意 backend 有展示仓 ≠ 前端有料堆:main_base 的模型没实现
+# bind_bag,故它虽有仓却不显示料堆。判据与 _bind_display_bag 保持一致,不写死节点路径。
+func get_pile_stack() -> ItemStack:
+	if not building_model or not building_model.has_method(&"bind_bag"):
+		return null
+	# 按全局类名找,料堆节点叫什么、挂在哪一层都不影响(炮塔挂在 %AmmoStack,工坊挂 content_stack)。
+	for child: Node in building_model.find_children("*", "ItemStack", true, false):
+		return child as ItemStack
+	return null
+
+# 建筑中心(世界空间):模型本地合并 AABB 的中心经 actor 变换;模型未就绪时退回 actor 原点(格中心)。
+# 无料堆建筑的物品搬运落点用它(表现读作"飞到建筑中心并缩小到 0")。
+func get_center_position() -> Vector3:
+	if not building_model or _model_local_box.size == Vector3.ZERO:
+		return global_position
+	return global_transform * _model_local_box.get_center()

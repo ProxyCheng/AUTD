@@ -80,6 +80,14 @@ func _play_removal_fx(in_entity_id: int):
 	if sfx_id != &"":
 		AudioManager.sfx_at(sfx_id, position, randf_range(0.95, 1.05))
 
+# 物品搬运的飞行表现:世界空间一次性节点,由本节点托管 —— 不挂在工人 actor 下,
+# 这样工人走出可视区被回收时,已经在飞的这件仍能播完(同 _play_removal_fx 的托管方式)。
+# 起终点两端姿态由工人 actor 算好(见 EntityActor.item_flight_requested),这里只落地。
+func _on_item_flight_requested(in_type: String, in_from: Transform3D, in_to: Transform3D):
+	var flight: ItemFlight = ItemFlight.launch(in_type, in_from, in_to)
+	if flight:
+		add_child(flight)
+
 func _place_entity_actor(in_entity_id: int):
 	var entity: Entity = room.get_entity(in_entity_id)
 	if not entity:
@@ -96,6 +104,10 @@ func _place_entity_actor(in_entity_id: int):
 		entity_actor.owner = owner
 	entity_actor.bind(entity)
 	entity_actor.show()
+	# 接住工人 actor 的搬运飞行请求(见 EntityActor.item_flight_requested)。
+	# 池复用会重走这里,故先判重防重复连接。
+	if not entity_actor.item_flight_requested.is_connected(_on_item_flight_requested):
+		entity_actor.item_flight_requested.connect(_on_item_flight_requested)
 	# 恢复缓存选中:选中的工人走出可视区被回收、再次进入视野时,环要跟着回来。
 	entity_actor.set_selected(entity_actor.entity == _selected_target)
 	entity_actors.set(in_entity_id, entity_actor)

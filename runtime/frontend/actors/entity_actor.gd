@@ -213,14 +213,20 @@ var _head_bag: Bag = null
 
 # 绑定工人的头顶货仓(Labor.head_bag)到头顶 ItemStack,并跟随其数量变化(先断旧仓连接,防重绑重复回调)。
 func _bind_carried():
-	if is_instance_valid(_head_bag) and _head_bag.count_changed.is_connected(_sync_carried):
-		_head_bag.count_changed.disconnect(_sync_carried)
+	if is_instance_valid(_head_bag):
+		if _head_bag.count_changed.is_connected(_sync_carried):
+			_head_bag.count_changed.disconnect(_sync_carried)
+		if _head_bag.items_moved.is_connected(_on_bag_items_moved):
+			_head_bag.items_moved.disconnect(_on_bag_items_moved)
 	var labor := entity as Labor
 	_head_bag = labor.head_bag if labor and is_instance_valid(labor.head_bag) else null
 	if _carried_stack:
 		_carried_stack.bind(_head_bag)
-	if is_instance_valid(_head_bag) and not _head_bag.count_changed.is_connected(_sync_carried):
-		_head_bag.count_changed.connect(_sync_carried)
+	if is_instance_valid(_head_bag):
+		if not _head_bag.count_changed.is_connected(_sync_carried):
+			_head_bag.count_changed.connect(_sync_carried)
+		if not _head_bag.items_moved.is_connected(_on_bag_items_moved):
+			_head_bag.items_moved.connect(_on_bag_items_moved)
 	_sync_carried()
 
 func _sync_carried():
@@ -279,8 +285,11 @@ func _bind_tool_mount():
 # 把 %tool 堆叠绑到手上仓(Labor.hand_bag)那件工具上(有状态单体,容量 1,见 Bag/Labor);
 # 先断旧仓连接,防重绑重复回调。
 func _bind_tool():
-	if is_instance_valid(_hand_bag) and _hand_bag.count_changed.is_connected(_sync_tool):
-		_hand_bag.count_changed.disconnect(_sync_tool)
+	if is_instance_valid(_hand_bag):
+		if _hand_bag.count_changed.is_connected(_sync_tool):
+			_hand_bag.count_changed.disconnect(_sync_tool)
+		if _hand_bag.items_moved.is_connected(_on_bag_items_moved):
+			_hand_bag.items_moved.disconnect(_on_bag_items_moved)
 	var labor := entity as Labor
 	_hand_bag = labor.hand_bag if labor and is_instance_valid(labor.hand_bag) else null
 	# 不带类型参数:手仓只装手上这一件**有状态单体**,其类型记在载体(Tool)上、不在 bag.item_type 上,
@@ -288,8 +297,11 @@ func _bind_tool():
 	# 故换工具(斧↔镐)也能被察觉,无需外部重绑。这里若传了类型,bind_type 就恒非空、外部再无从察觉换件。
 	if _tool_stack:
 		_tool_stack.bind(_hand_bag)
-	if is_instance_valid(_hand_bag) and not _hand_bag.count_changed.is_connected(_sync_tool):
-		_hand_bag.count_changed.connect(_sync_tool)
+	if is_instance_valid(_hand_bag):
+		if not _hand_bag.count_changed.is_connected(_sync_tool):
+			_hand_bag.count_changed.connect(_sync_tool)
+		if not _hand_bag.items_moved.is_connected(_on_bag_items_moved):
+			_hand_bag.items_moved.connect(_on_bag_items_moved)
 	_sync_tool()
 
 # 算出工具在挂点本地空间的固定姿态(挂点自带模型缩放,故长度要除掉该缩放);无工具则隐藏。
@@ -346,3 +358,59 @@ func _held_tool() -> Tool:
 		return null
 	var tool: Tool = carrier
 	return tool
+
+# —— 物品搬运表现(随身仓 ⇄ 建筑仓) ——
+
+# 请求播一次物品搬运飞行。本 actor 只负责"算清起终点两端的完整姿态",怎么播、挂在哪,
+# 交给世界空间表现宿主(RoomActor 监听本信号;见其 _on_item_flight_requested)。
+# 不直接调用 RoomActor 是有意的:那会让 entity_actor.gd → room_actor.gd →
+# preload(entity_actor.tscn) 闭合成编译期环,启动即报 "referenced non-existent resource"。
+signal item_flight_requested(type: String, from: Transform3D, to: Transform3D)
+
+# 本工人参与的仓间搬运 → 放一件代表物品从起点飞到终点。
+# Bag.items_moved 由源仓与目标仓各发一次,而本 actor 只订阅自己这两只仓,故一次搬运恰好
+# 收到一次、不会重复播;两端同为本人随身仓的搬运当前不存在,仍按 outgoing == incoming 跳过,
+# 免得将来出现这种搬运时同一事件被算两次。
+# _in_amount 不参与表现:一次搬运只飞一件代表物,整垛一起飞反而糊成一片。
+func _on_bag_items_moved(in_source: Bag, in_dest: Bag, in_item_type: String, _in_amount: int):
+	var outgoing: bool = in_source == _head_bag or in_source == _hand_bag
+	var incoming: bool = in_dest == _head_bag or in_dest == _hand_bag
+	if outgoing == incoming:
+		return
+	var worker_bag: Bag = in_source if outgoing else in_dest
+	var other_bag: Bag = in_dest if outgoing else in_source
+	# 对面那一仓挂在建筑下(随身仓挂在 Labor 下),故其父节点就是本次搬运的建筑。
+	var building: Building = other_bag.get_parent() as Building
+	if not building:
+		return
+	# 工人或建筑任一不在场(离屏已回收)就不播:起终点都在屏幕外,没有表现价值。
+	var level_actor := owner as LevelActor
+	if not level_actor:
+		return
+	var building_actor: BuildingActor = level_actor.get_building_actor(building)
+	if not building_actor:
+		return
+	var worker_anchor: Transform3D = _worker_bag_anchor(worker_bag)
+	# 建筑端姿态:有料堆 → 料堆垛底的完整姿态(位置/朝向/尺寸全取自它);
+	# 无料堆(如 main_base)→ 模型中心 + 缩放 0,表现读作"飞到中心就消失"
+	# (取货时反过来,从中心 0 长出来再飞向工人)。缩放 0 的端点由 Trs.lerp 兜住。
+	var pile: ItemStack = building_actor.get_pile_stack()
+	var building_anchor: Transform3D = Transform3D.IDENTITY
+	if pile:
+		building_anchor = pile.global_transform
+	else:
+		building_anchor = Trs.zero_scale(building_actor.get_center_position())
+	if outgoing:
+		item_flight_requested.emit(in_item_type, worker_anchor, building_anchor)
+	else:
+		item_flight_requested.emit(in_item_type, building_anchor, worker_anchor)
+
+# 工人侧锚点:头顶仓 → 头顶携带物垛,手仓 → 手持工具垛。两者都是 ItemStack,其原点即
+# "垛底中心",正是搬运的起/落点(与 _sync_carried/_sync_tool 维护的是同一姿态)。
+# 垛刚被清空时它虽已隐藏,姿态仍是最后一次算出的位置,故取到的锚点依然正确。
+func _worker_bag_anchor(in_bag: Bag) -> Transform3D:
+	if in_bag == _hand_bag and _tool_stack:
+		return _tool_stack.global_transform
+	if _carried_stack:
+		return _carried_stack.global_transform
+	return global_transform

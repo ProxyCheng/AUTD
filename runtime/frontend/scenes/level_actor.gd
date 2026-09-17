@@ -40,6 +40,11 @@ func _on_room_entities_changed(in_added_entity_ids: Array, in_removed_entity_ids
 func get_camera() -> CameraController:
 	return %camera
 
+# 跨 actor 的世界空间表现(如物品搬运飞行)按 backend 建筑取当前 actor;
+# 建筑不可见/未放置 → null。收敛在此,免得各 actor 自己去摸 %map。
+func get_building_actor(in_building: Building) -> BuildingActor:
+	return %map.get_building_actor(in_building)
+
 # 相机的"点击世界"事件转发给当前模式(触屏与鼠标统一入口)。
 func _on_camera_tapped(in_screen_position: Vector2):
 	if mode:

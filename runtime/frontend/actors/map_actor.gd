@@ -110,4 +110,12 @@ func _place_building_actor(in_axis: Vector2i):
 	var building: Building = cell.get_building()
 	var building_actor_scene: PackedScene = preload("res://runtime/frontend/actors/building_actor.tscn")
 	return _place_actor(in_axis, building, building_actor_scene, building_actors, building_actors_pool)
+
+# 按 backend 建筑取当前在场的 actor(不可见/未放置 → null);供跨 actor 的世界空间表现定位
+# (如物品搬运飞行的落点)。本表只存已放置 actor、回收时先 erase,故命中的 actor 必有效。
+func get_building_actor(in_building: Building) -> BuildingActor:
+	if not in_building:
+		return null
+	var actor: BuildingActor = building_actors.get(in_building.axis)
+	return actor
 	

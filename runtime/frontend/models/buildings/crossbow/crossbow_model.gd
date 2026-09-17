@@ -208,7 +208,7 @@ func _process(in_delta: float):
 				_nock_from_ready = true
 		_nock_t += in_delta / NOCK_TIME
 		var t := clampf(_ease_nock(_nock_t), 0.0, 1.0)
-		%Arrow.transform = _nock_from.interpolate_with(_arrow_rest_transform, t)
+		%Arrow.transform = Trs.lerp(_nock_from, _arrow_rest_transform, t)
 		if _nock_t >= 1.0:
 			_nock_t = -1.0
 			%Arrow.transform = _arrow_rest_transform
@@ -249,7 +249,7 @@ func _try_begin_nock() -> bool:
 # (arrow_model.gd 注释:"箭尖已摆成 -Z"),而 %Arrow 在 crossbow.tscn 里直接实例化 arrow.fbx、
 # 没有那层包装。get_prop_transform 给的是 arrow.tscn 根节点的变换(不含子节点的翻转),
 # 直接套到裸 FBX 上会让飞行中的箭尖反向 → 起点与终点箭尖实测差约 154°,看着就是"转一大圈"。
-# 故起点先绕本地 Y 补回这 180°,与终点同基准后,interpolate_with 只剩箭尖那点真实转向。
+# 故起点先绕本地 Y 补回这 180°,与终点同基准后,Trs.lerp 只剩箭尖那点真实转向。
 const NOCK_SOURCE_FLIP: float = PI
 
 # 待上弦那支箭的世界 TRS。优先"刚被垛取走的那支"(ItemStack.last_removed_transform):
