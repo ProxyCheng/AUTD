@@ -7,7 +7,7 @@ extends TurretModel
 # 全部由本脚本按 backend 的 state/progress 采样驱动:
 #   * 蓄力(charging):引信 %fuse 绕自身 X 轴 0→FUSE_TURN_DEGREES,看起来像引信逐渐烧短;
 #   * 开火(firing)  :炮管 %body 沿轴缩短、截面变粗,再弹回,读作把炮弹使劲挤出去;
-#   * 装填(loading) :炮筒先俯仰到竖直,炮弹从备弹垛沿倒 U 轨迹飞入炮口,再俯仰回瞄准角。
+#   * 装填(loading) :炮弹先在备弹垛上那格就位,炮筒俯仰到竖直,再沿倒 U 轨迹飞入炮口,最后俯仰回瞄准角。
 # 蓄力数值本身仍由建筑头顶的 work_progress 条呈现。
 #
 # 本模型特有节点:cog_top → deck/bracket/body(俯仰),body → fuse(引信)。
@@ -136,12 +136,15 @@ func _apply_loading(in_progress: float):
 	var t: float = clampf(in_progress, 0.0, 1.0)
 	if t < LOAD_ROTATE_UP_END:
 		%body.rotation.x = lerpf(_load_start_pitch, VERTICAL_PITCH, _ease(t / LOAD_ROTATE_UP_END))
-		_show_load_ball(false)
+		# 炮筒还在抬:炮弹就停在垛上那一格等着(k=0)。这里不能藏起来 —— 垛那边已按"武器内一发"
+		# 少显示一支,藏了就成了"垛里没有、炮上也没有"的空档;无人值守停在装填态时更是永远看不到炮弹。
+		_tick_load_ball(0.0)
 	elif t < LOAD_BALL_FLIGHT_END:
 		# 炮筒保持竖直,炮弹从垛顶沿倒 U 抛物线飞向炮口。
 		%body.rotation.x = VERTICAL_PITCH
 		_tick_load_ball((t - LOAD_ROTATE_UP_END) / (LOAD_BALL_FLIGHT_END - LOAD_ROTATE_UP_END))
 	else:
+		# 已入膛:外面不该再有炮弹(垛那边同样少显示一支)。
 		_show_load_ball(false)
 		%body.rotation.x = lerpf(VERTICAL_PITCH, _load_start_pitch, _ease((t - LOAD_BALL_FLIGHT_END) / (1.0 - LOAD_BALL_FLIGHT_END)))
 	if t >= 1.0:
