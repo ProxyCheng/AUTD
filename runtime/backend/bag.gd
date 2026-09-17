@@ -79,6 +79,8 @@ var withdraw_priority: int = 0
 # 偏好档位的常用极值(供建筑声明,不改匹配算法):作为落库目标排最后 / 作为取货源优先。
 const DEPOSIT_LAST: int = -1
 const WITHDRAW_FIRST: int = 1
+# 作为落库目标优先(WITHDRAW_FIRST 的镜像:主动枢纽仓声明"双 FIRST"的另一条轴)。
+const DEPOSIT_FIRST: int = 1
 # 通配:true = 本仓不限类型,Logistics 撮合时跳过 item_type 比对(见 find_nearest_bag/_find_source)。
 # item_type 仍是"主要类型"(展示与默认读写用);通配只看本标志,绝不用 item_type == "" 表示。
 var accepts_any_type: bool = false

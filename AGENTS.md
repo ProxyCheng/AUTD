@@ -45,7 +45,7 @@ autd/
 ├─ runtime/
 │  ├─ backend/            # 纯逻辑。extends Node / Resource
 │  │  ├─ level.gd map.gd room.gd land.gd cell.gd
-│  │  ├─ bag.gd logistics.gd damage.gd
+│  │  ├─ bag.gd main_base_bag.gd logistics.gd damage.gd
 │  │  ├─ buildings/       # 具体建筑:<type>.gd(building.gd / crossbow.gd / main_base.gd / enemy_spawner.gd)
 │  │  ├─ data/            # 纯数据 Resource 类:*_data.gd
 │  │  └─ entities/        # 具体实体:<type>.gd(entity/creature/enemy/labor/slime/arrow.gd)
@@ -252,6 +252,7 @@ signal position_changed()
 - 读按件状态用 `peek_state(type := "")`(**只读、不取出**);`remove_count*` 对有状态格是**丢弃语义**(摘格并释放载体);**仓间搬运一律走 `Bag.move_to(dest, type, amount)`** —— 搬运单位是"物品"而非"件数"(等价 Minecraft 的 `extractItem`/`insertItem`):有状态物品搬实例本身(耐久等按件状态跟着走、不重置),散料按"目标余量 ∩ 本仓存量 ∩ 请求量"截断,目标拒收则原样放回、绝不丢件。`take_state`/`add_state` 只是它内部的手段,不要在新代码里直接配对使用(手写 `remove_count` + `add_count_of` 搬有状态物品会销毁实例、重置耐久);
 - `clear_fungible()` 只清散料格、保留有状态单体(任务结束兜底清仓用它,否则会把工人手上的工具一起销毁);
 - 单类型仓的 `item_type` 不可破;真要让某仓装多种,消费方必须改用 `*_of` 系列。
+- **主基地的仓是 `MainBaseBag` 子类**(不是裸 `Bag`):通配(接受任意类型)、无限容量、`preferred_min_count = 0`(永不作为需求方 —— 无限仓一旦被当需求方,会把全图库存吸进自己),`preferred_max_count = 0` 表示"有货即供给"。**两条优先级轴必须同档**(取用/归还要么双 FIRST 要么双 LAST):当前是**双 FIRST** —— 工人要工具先从这里拿、用不上的工具也先还回这里,于是它是地图的主动枢纽,库存随劳动节奏可见地涨落(而不是只在别的仓全满/全空时才挪动的被动蓄水池)。**不要**混搭 FIRST/LAST —— 那会组成单向流(取它排第一、还它排最后 ⇒ 只出不进,实测就是这样把基地抽干的;反过来则只进不出)。语义细节与理由见 `main_base_bag.gd` 的类注释。
 
 ---
 

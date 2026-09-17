@@ -1,10 +1,9 @@
 class_name MainBase
 extends Building
 
-# 主基地:地图的兜底仓库。自带一只仓接受任意物品类型、容量无限。
-# 入库优先级最低(DEPOSIT_LAST):搬运工只要有别的可放处,绝不放进基地;
-# 出库优先级最高(WITHDRAW_FIRST):任何缺货请求优先从这里取。
-# 兜底地位完全由 bag 的声明属性在 Logistics 撮合中自然涌现,不写任何特判。
+# 主基地:地图的中央仓库。中央仓的全部语义(通配任意类型、容量无限、双 FIRST 优先级)
+# 收在 MainBaseBag 一处声明;枢纽地位完全由 bag 的声明属性在 Logistics 撮合中自然涌现,
+# 不写任何特判。
 
 static var current: MainBase = null
 
@@ -16,26 +15,13 @@ func _init():
 func _ready():
 	# 仓必须先于劳工创建并注册:劳工下一个 tick 起就可能要把"无处可放"的物品
 	# 存进兜底仓,注册晚一步,兜底仓会在撮合中缺席。
-	bag = Bag.new()
+	bag = MainBaseBag.new()
 	bag.name = "Bag"
-	bag.item_type = ""
-	bag.accepts_any_type = true
-	bag.max_count = Bag.UNLIMITED
-	# preferred_min_count = 0 是承重墙:基地永不"欠货",Logistics 绝不把它当需求方 ——
-	# 无限容量的仓一旦被当需求方,会把全图料堆的库存全部吸进自己嘴里。
-	bag.preferred_min_count = 0
-	# preferred_max_count = 0:只要基地有存货就始终处于"富余供给"态,成为合法供给源 ——
-	# "最高优先级供人取货"正是靠"有货即供给"实现。
-	# 注意 preferred_max_count 的初值在 Bag 构造时绑定(bag.gd:50,= 当时的 max_count),
-	# 事后改 max_count 不会更新它,故这里必须显式重设。
-	bag.preferred_max_count = 0
-	bag.deposit_priority = Bag.DEPOSIT_LAST
-	bag.withdraw_priority = Bag.WITHDRAW_FIRST
 	bag.access_position = Vector2(axis)
 	add_child(bag)
 	bag.owner = owner
-	# 初始库存必须在 _register_bag() 之前入仓:基地是 WITHDRAW_FIRST + preferred_max_count = 0
-	# ("有货即供给"),Logistics 在注册那一刻就按仓内现状做撮合;注册后补货会让首轮撮合看到空基地。
+	# 初始库存必须在 _register_bag() 之前入仓:Logistics 在注册那一刻就按仓内现状做撮合;
+	# 注册后补货会让首轮撮合看到空基地。
 	# 必须走 add_count_of 而不是 add_count / 手工塞格:有状态物品(工具)在 Bag._store 里逐件造载体、
 	# 每件各占一格 —— 3 把斧头会成为 3 个各自带耐久的独立实例,而不是叠成一格;
 	# Bag.default_state_factory 按类型名探 res://runtime/backend/entities/<type>.gd 认出
