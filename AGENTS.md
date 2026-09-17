@@ -49,7 +49,7 @@ autd/
 │  │  ├─ buildings/       # 具体建筑:<type>.gd(building.gd / crossbow.gd / main_base.gd / enemy_spawner.gd)
 │  │  ├─ data/            # 纯数据 Resource 类:*_data.gd
 │  │  └─ entities/        # 具体实体:<type>.gd(entity/creature/enemy/labor/slime/arrow.gd)
-│  │     └─ ai/           # LimboAI 行为树:ai/tasks/<type>_task.gd(class_name <Type>Task)+ *.tres 树资源
+│  │     └─ ai/           # LimboAI 行为树:ai/tasks/<type>_task.gd(class_name <Type>Task)+ *.tres 树资源 + README.md(节点速查/查证/验证)
 │  ├─ configs/            # *.tres 关卡/初始数据文件(如 level0.tres)
 │  └─ frontend/           # 表现层
 │     ├─ scenes/          # 顶层组合场景 + 其根脚本(battle.tscn、level_actor.gd)
@@ -178,6 +178,11 @@ func tick(in_delta: float):                      # void → 不写 -> void
 
 ### 5.3 行为树(LimboAI)
 - 实体 AI 用 **LimboAI 行为树**(v1.8 GDExtension):叶子任务写在 `runtime/backend/entities/ai/tasks/<type>_task.gd`(`class_name <Type>Task`,按需 `extends BTAction/BTCondition/BTDecorator`);行为树以 `.tres` 存 `runtime/backend/entities/ai/`。BTTask 是 **Resource**,子节点用 `add_child`;状态常量用 `BT.Status.SUCCESS/FAILURE/RUNNING`;取实体/黑板用 `get_agent()` / `get_blackboard()`。
+- **用节点表达控制流,不要用数据协议模拟它**(铁律):"某步失败就继续"用 `BTSelector`;"某步可做可不做"用 `BTAlwaysSucceed` **装饰器**;"反复重跑"用 `BTRepeat`;"卡住就放弃"用 `BTTimeLimit`/`BTRunLimit`。反面教材(已修,勿重犯):①让叶子返回 SUCCESS 只为让整棵树结束,靠"树死掉 → 重建"达成循环(现为 `idle.tres` 的 `BTRepeat(forever = true)`);②用 `@export optional` 把叶子的 FAILURE 翻成 SUCCESS,使同一叶子对不同调用方承担两套矛盾契约(现为 `man_building.tres` 里被 `BTAlwaysSucceed` 装饰的那段)。判据:**同一条逻辑换个调用方就要换语义 ⇒ 它该是树上的结构,不是叶子上的开关**。
+- **装饰器必须装饰,不许当裸叶子挂在组合节点下**(铁律):`BTAlwaysSucceed`/`BTAlwaysFail`/`BTInvert`/`BTRepeat*`/`BTTimeLimit`/`BTRunLimit`/`BTDelay`/`BTForEach`/`BTCooldown`/`BTProbability` 都是"改写其唯一子节点结果"的装饰器,必须有子节点;写 `BTSelector[序列, BTAlwaysSucceed]` 是错的(Selector 在扮演装饰器,还留下一个唯一作用是返回 true 的占位节点),应写 `BTAlwaysSucceed(序列)`。天生不带子节点、当"调用/占位"用的只有 `BTSubtree`(它是"调用另一棵树",继承 `BTNewScope`)与 `BTComment`。
+- **`BT.Status` 的数值**:`FRESH = 0` / `RUNNING = 1` / `FAILURE = 2` / `SUCCESS = 3`(写断言、读日志、打印状态时别猜)。
+- **`BTSubtree` 会开一层新黑板作用域**(它继承 `BTNewScope`):子树内写的黑板键**不会**漏到外面;要往外传的结果不能只放黑板。
+- 节点速查表、全部 48 个 `BT*` 节点的属性、`.tres` 序列化写法、ClassDB 查证命令、headless 验证脚本模板,见 `runtime/backend/entities/ai/README.md`。
 - **行为逻辑优先落 `.tres`,不用代码组装**:实体的行为链——固定树、派发给工人的活(如 `man_building.tres`)——尽量以 `BehaviorTree` `.tres` 资源表达,用 `preload` 引用(例外:引用树的脚本若处于 Level/Logistics 依赖链内,必须改用按需 `load()` —— 树里含依赖 Logistics 的叶子时,`preload` 会把"脚本 → 树 → 叶子 → Level/Logistics → 该脚本"闭合成编译期环,启动即报 `Could not preload resource file` 并连带 logistics/labor 一起编译失败;见 `transport_task.gd` / `man_building_task.gd` 的注释);同一 `.tres` 模板被多个实例共享是安全的(`instantiate` 时深拷贝 task 树),实例差异一律放黑板传参(`&"target_position"`、`ProvideWorkloadTask.BB_BUILDING` 等键),不要在脚本里 `BehaviorTree.new()` + `set_root_task` 手拼整树。仅当树的形态完全由运行期数据决定、无法静态定义时才允许代码组装,且叶子一律仍走 `tasks/<type>_task.gd`。
 - **一棵树 = 一次任务,跑完重建**:`Creature` 持 `current_tree + bt_instance`,每帧 `bt_instance.update(in_delta)`(固定短 tick,无时间溢出/剩余时间语义);树返回非 RUNNING 即本任务结束,下帧经虚方法 `create_tree() -> BehaviorTree` 请求新树(`begin_tree(in_tree)` 供外部直接换活,如 LaborManager 派发)。`instantiate(agent, blackboard, owner, scene_root)` 需提供非空 scene root。
 - **运行时数据走黑板**(每实体一个 `Blackboard`):目标点、派发的活等用 `set_var/get_var` 传递;instantiate 会深拷贝 task 树,故共享 `.tres` 模板安全,实体差异放黑板。
