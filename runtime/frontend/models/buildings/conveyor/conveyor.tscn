@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://begcm7idpybnv" path="res://runtime/frontend/models/buildings/conveyor/conveyor.fbx" id="1_art"]
+[ext_resource type="Script" uid="uid://coxhmwj0v8ux3" path="res://runtime/frontend/models/buildings/conveyor/conveyor_model.gd" id="2_model"]
+
+[node name="conveyor" instance=ExtResource("1_art")]
+script = ExtResource("2_model")
+
+[node name="AnimationPlayer" parent="." index="4"]
+unique_name_in_owner = true
