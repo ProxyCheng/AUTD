@@ -127,8 +127,7 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
 text = "×"
 
-[node name="Components" type="VBoxContainer" parent="."]
-unique_name_in_owner = true
+[node name="Scroll" type="ScrollContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -139,22 +138,28 @@ offset_right = -12.0
 offset_bottom = -64.0
 grow_horizontal = 2
 grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="Components" type="VBoxContainer" parent="Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="Priority" parent="Components" instance=ExtResource("9_priority")]
+[node name="Priority" parent="Scroll/Components" instance=ExtResource("9_priority")]
 
-[node name="AttackPreference" parent="Components" instance=ExtResource("2_pref")]
+[node name="AttackPreference" parent="Scroll/Components" instance=ExtResource("2_pref")]
 
-[node name="StockpileContent" parent="Components" instance=ExtResource("3_stock")]
+[node name="StockpileContent" parent="Scroll/Components" instance=ExtResource("3_stock")]
 
-[node name="StorageContent" parent="Components" instance=ExtResource("10_storage")]
+[node name="StorageContent" parent="Scroll/Components" instance=ExtResource("10_storage")]
 
-[node name="RecipeList" parent="Components" instance=ExtResource("4_recipe")]
+[node name="RecipeList" parent="Scroll/Components" instance=ExtResource("4_recipe")]
 
-[node name="CreatureContent" parent="Components" instance=ExtResource("8_creaturec")]
+[node name="CreatureContent" parent="Scroll/Components" instance=ExtResource("8_creaturec")]
 
-[node name="LaborContent" parent="Components" instance=ExtResource("6_laborc")]
+[node name="LaborContent" parent="Scroll/Components" instance=ExtResource("6_laborc")]
 
 [node name="DeleteButton" type="Button" parent="."]
 unique_name_in_owner = true

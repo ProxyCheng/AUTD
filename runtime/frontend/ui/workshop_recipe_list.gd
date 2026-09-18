@@ -103,6 +103,7 @@ func populate(in_building: Workshop):
 		row_index += 1
 	_apply_row_height()
 	_layout_rows()
+	update_minimum_size()
 
 # 公开清空:移除全部配方行并重置 building 引用。
 # 关闭面板/解绑时调用,避免行 _process 在建筑被释放后仍访问已失效 _building(freed instance)。
@@ -113,6 +114,7 @@ func clear():
 	_press_released = false
 	_building = null
 	_clear_rows()
+	update_minimum_size()
 
 # 拖拽(含落位/回位动画)是否进行中:面板据此推迟重建,避免释放正在被拖的行。
 # 按住(尚未拖起来)也算:见 _press_armed。
@@ -174,6 +176,14 @@ func _slot_height() -> float:
 
 func _slot_y(in_slot: int) -> float:
 	return float(in_slot) * _slot_height()
+
+# 内容高度:行由本控件显式摆放(见 _layout_rows),Control 默认最小高度为 0,
+# 外层 ScrollContainer 因此量不到可滚动范围 —— 这里把"全部槽位占的高度"报上去。
+func _get_minimum_size() -> Vector2:
+	var count: int = _rows.size()
+	if count <= 0:
+		return Vector2.ZERO
+	return Vector2(0.0, _slot_y(count - 1) + _row_height)
 
 # 被拖行可移动的最大 top:夹在列表矩形内(行高固定)
 func _max_row_top() -> float:
