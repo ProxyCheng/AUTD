@@ -112,7 +112,7 @@ func accept_from(in_source: Bag, in_item_type: String, in_amount: int) -> int:
 func provide_to(in_dest: Bag, in_item_type: String, in_amount: int) -> int:
 	if not is_instance_valid(in_dest) or in_amount <= 0:
 		return 0
-	var source: Bag = _pick_provide_bag(in_item_type)
+	var source: Bag = get_provide_bag(in_item_type)
 	if source == null:
 		return 0
 	var moved_type: String = in_item_type if not in_item_type.is_empty() else _first_providable_type(source)
@@ -140,8 +140,11 @@ func get_accept_bag(in_item_type: String) -> Bag:
 			best_priority = priority
 	return best
 
-# 供给侧选仓:只在给得出的仓里挑,withdraw_priority 高者优先。
-func _pick_provide_bag(in_item_type: String) -> Bag:
+# public read-only query: the frontend uses it to resolve which bag an outgoing item is coming
+# from so it can aim the pickup animation at the right pile, without duplicating the
+# withdraw_priority bag-selection rule. pure selection, moves nothing, so it is safe to call
+# while a pickup action is still playing.
+func get_provide_bag(in_item_type: String) -> Bag:
 	var best: Bag = null
 	var best_priority: int = 0
 	for bag: Bag in get_transfer_bags():

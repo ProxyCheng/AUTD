@@ -159,6 +159,8 @@ func bind(in_building: Building):
 			building.load_progress_changed.disconnect(_on_building_load_progress_changed)
 		if building.has_signal(&"deliver_progress_changed"):
 			building.deliver_progress_changed.disconnect(_on_building_deliver_progress_changed)
+		if building.has_signal(&"pick_progress_changed"):
+			building.pick_progress_changed.disconnect(_on_building_pick_progress_changed)
 		if building.has_signal(&"aim_direction_changed"):
 			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
 	building = in_building
@@ -189,6 +191,8 @@ func bind(in_building: Building):
 	# delivery-action progress exists only on the conveyor (see Conveyor.deliver_progress)
 	if building.has_signal(&"deliver_progress_changed"):
 		building.deliver_progress_changed.connect(_on_building_deliver_progress_changed)
+	if building.has_signal(&"pick_progress_changed"):
+		building.pick_progress_changed.connect(_on_building_pick_progress_changed)
 	if building.has_signal(&"aim_direction_changed"):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
 	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
@@ -201,6 +205,8 @@ func bind(in_building: Building):
 		_on_building_load_progress_changed()
 	if building.has_signal(&"deliver_progress_changed"):
 		_on_building_deliver_progress_changed()
+	if building.has_signal(&"pick_progress_changed"):
+		_on_building_pick_progress_changed()
 	_on_building_aim_direction_changed()
 	_bind_display_bag()
 	_update_direction()
@@ -301,6 +307,9 @@ func _on_building_state_changed():
 	# entering the delivery phase: resolve the landing pose for the model first, then refresh progress once -- the model cannot draw until it has an anchor
 	if building.state == "delivering":
 		_update_delivery_anchor()
+	# entering the pickup phase: resolve the source pose for the model first (mirror of the delivery anchor)
+	if building.state == "picking":
+		_update_pick_anchor()
 	_on_building_deliver_progress_changed()
 
 # 状态变化音效:仅在状态真正改变时播一次(防重绑补播)。
@@ -360,6 +369,15 @@ func _on_building_deliver_progress_changed():
 		return
 	building_model.set_deliver_progress(building.deliver_progress)
 
+# pickup action progress: only the conveyor has it (see Conveyor.pick_progress), model
+# optionally implements set_pick_progress.
+func _on_building_pick_progress_changed():
+	if not building or not building_model:
+		return
+	if not building_model.has_method(&"set_pick_progress"):
+		return
+	building_model.set_pick_progress(building.pick_progress)
+
 # resolve "where the item being handed out will land" (world TRS) and give it to the model. the anchor must be
 # computed before the item is committed to storage -- the goods are still in the conveyor's own bag right now and
 # the downstream has not gained this piece yet, so the slot index at this instant is exactly the one it will take.
@@ -387,6 +405,34 @@ func _update_delivery_anchor():
 		# downstream actor not placed (only hit at the edge of the camera's visible region): shrink to the cell center, reads as "vanishes on arrival"
 		anchor = Trs.zero_scale(Vector3(target.axis.x, 0.0, target.axis.y))
 	building_model.set_delivery_anchor(anchor)
+
+# resolve "where the item being picked up is coming from" (world TRS) and give it to the model.
+# The source already lost the item when the pickup phase began (the conveyor deducts it first),
+# so the slot the source's pile reports now is exactly the one the item just vacated. If the
+# source has no visible pile for that bag -- the item was its last one, or the model does not
+# implement bind_bag (main base) -- the landing rule falls back to shrinking out of the building
+# centre, which is the right reading for an emptied pile.
+# Only done when the building offers get_pick_source (conveyor); like set_load_progress it is an
+# optional presentation interface.
+func _update_pick_anchor():
+	if not building or not building_model:
+		return
+	if not building.has_method(&"get_pick_source") or not building_model.has_method(&"set_pick_anchor"):
+		return
+	var source: Building = building.get_pick_source()
+	if not source:
+		return
+	var held_type: String = ""
+	if building.has_method(&"get_held_type"):
+		held_type = building.get_held_type()
+	var anchor: Transform3D
+	var source_actor: BuildingActor = _building_actor_of(source)
+	if source_actor:
+		var source_bag: Bag = source.get_provide_bag(held_type)
+		anchor = source_actor.get_landing_anchor(source_bag, held_type)
+	else:
+		anchor = Trs.zero_scale(Vector3(source.axis.x, 0.0, source.axis.y))
+	building_model.set_pick_anchor(anchor)
 
 # the actor for a building; off-screen actor not placed -> null. owner is the LevelActor (same lookup as EntityActor)
 func _building_actor_of(in_building: Building) -> BuildingActor:

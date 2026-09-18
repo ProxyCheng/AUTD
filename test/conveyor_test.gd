@@ -29,6 +29,12 @@ const FRAMES_ONE_CELL: int = int(Conveyor.CELL_TRAVEL_SECONDS / DELTA) + 1
 # would be one frame short (delivery not yet committed); frame-by-frame subtraction to 0
 # actually takes 7 frames to commit, so round up then +1 to land exactly on the commit frame.
 const FRAMES_HANDOFF: int = ceili(Conveyor.HANDOFF_SECONDS / DELTA) + 1
+# frames needed for the pickup action + 1: the frame that starts the action only raises the
+# phase, it does not count toward the action duration. Derived from the backend constant like
+# the others, so changing PICK_SECONDS is followed automatically.
+# ceili rather than int for the same reason as FRAMES_HANDOFF: 0.3 / 0.05 is 5.999999999999999
+# in double precision and truncation would be one frame short.
+const FRAMES_PICK: int = ceili(Conveyor.PICK_SECONDS / DELTA) + 1
 
 var failed: int = 0
 var level: Level = null
@@ -88,9 +94,15 @@ func _init():
 	var dst_before: int = dst.bag.count
 
 	_run(1)
-	_check("1a empty belt takes one immediately (src -1 / on belt 1 / state=working)",
-			belt.bag.count == 1 and src.bag.count == src_before - 1 and belt.state == "working")
-	_check("1b progress=0 right after pickup", is_zero_approx(belt.progress))
+	_check("1a empty belt takes one and starts the pickup phase (src -1 / on belt 1 / state=picking / pick_progress=0)",
+			belt.bag.count == 1 and src.bag.count == src_before - 1 and belt.state == "picking"
+			and is_zero_approx(belt.pick_progress))
+	_check("1b progress=0 during the pickup (travel has not started)", is_zero_approx(belt.progress))
+
+	_run(FRAMES_PICK)
+	_check("1b2 pickup completes and only then does travel start (state=working / pick_progress=1 / progress=0)",
+			belt.state == "working" and is_equal_approx(belt.pick_progress, 1.0)
+			and is_zero_approx(belt.progress))
 
 	_run(FRAMES_ONE_CELL - 1)
 	_check("1c reaching the exit enters the delivery phase (item still on belt / downstream not increased / progress=1 / deliver_progress=0)",
@@ -106,7 +118,7 @@ func _init():
 	src2.store(5)
 	var belt2 := _place(Vector2i(1, 1), "conveyor", Vector2i.RIGHT) as Conveyor
 	var src2_before: int = src2.bag.count
-	_run(FRAMES_ONE_CELL + 40)
+	_run(FRAMES_PICK + FRAMES_ONE_CELL + 40)
 	_check("2a output end empty => state=blocked, item stays on belt", belt2.state == "blocked" and belt2.bag.count == 1)
 	_check("2b progress stays at 1 while blocked", is_equal_approx(belt2.progress, 1.0))
 	_check("2c while blocked it takes no second item (src -1 only)", src2.bag.count == src2_before - 1)
@@ -129,7 +141,7 @@ func _init():
 	var dst4 := _place(Vector2i(2, 2), "stockpile", Vector2i.RIGHT) as Stockpile
 	dst4.store(Stockpile.CAPACITY)
 	_check("4a target is full", dst4.is_full())
-	_run(FRAMES_ONE_CELL + 10)
+	_run(FRAMES_PICK + FRAMES_ONE_CELL + 10)
 	_check("4b target full => state=blocked and no item lost", belt4.state == "blocked" and belt4.bag.count == 1)
 
 	# ===== 5. Bag transfer capability predicates (the criteria conveyor take/deliver relies on) =====
@@ -184,7 +196,7 @@ func _init():
 	var belt7a := _place(Vector2i(1, 4), "conveyor", Vector2i.RIGHT) as Conveyor
 	var belt7b := _place(Vector2i(2, 4), "conveyor", Vector2i.RIGHT) as Conveyor
 
-	_run(FRAMES_ONE_CELL)
+	_run(FRAMES_PICK + FRAMES_ONE_CELL)
 	_check("7a upstream hands over at the exit with no delivery action (downstream has 1 / upstream empty / neither delivering)",
 			belt7b.bag.count == 1 and belt7a.bag.count == 0
 			and belt7a.state == "idle" and belt7b.state == "working"
@@ -207,7 +219,7 @@ func _init():
 	var belt8 := _place(Vector2i(1, 5), "conveyor", Vector2i.RIGHT) as Conveyor
 	var dst8 := _place(Vector2i(2, 5), "stockpile", Vector2i.RIGHT) as Stockpile
 
-	_run(FRAMES_ONE_CELL)
+	_run(FRAMES_PICK + FRAMES_ONE_CELL)
 	_check("8a arrival enters the delivery phase (item still on belt / downstream not increased / deliver_progress=0)",
 			belt8.state == "delivering" and belt8.bag.count == 1
 			and dst8.bag.count == 1 and is_zero_approx(belt8.deliver_progress))
@@ -226,6 +238,51 @@ func _init():
 	_run(FRAMES_HANDOFF)
 	_check("8d only when the re-delivery completes does it commit (target back to full / belt empty / state=idle)",
 			dst8.bag.count == Stockpile.CAPACITY and belt8.bag.count == 0 and belt8.state == "idle")
+
+	# ===== 9. pickup action contract =====
+	# the pickup is the mirror of the delivery action, with one deliberate asymmetry: unlike a
+	# delivery (where the item stays on this belt until the action ends), the taken item is
+	# deducted from the source on the very first frame. So a pickup always runs to completion,
+	# and while it runs the belt must neither travel nor take a second item.
+	var src9 := _place(Vector2i(0, 6), "stockpile", Vector2i.RIGHT) as Stockpile
+	src9.store(5)
+	var belt9 := _place(Vector2i(1, 6), "conveyor", Vector2i.RIGHT) as Conveyor
+	var src9_before: int = src9.bag.count
+
+	_run(1)
+	_check("9a taking starts the pickup phase and already deducts the source (state=picking / pick_progress=0 / src -1 / on belt 1)",
+			belt9.state == "picking" and is_zero_approx(belt9.pick_progress)
+			and src9.bag.count == src9_before - 1 and belt9.bag.count == 1)
+	_check("9b while picking the belt does not travel (progress=0) and takes no second item",
+			is_zero_approx(belt9.progress) and src9.bag.count == src9_before - 1)
+	_check("9c the pickup source is the input-end neighbour", belt9.get_pick_source() == src9)
+
+	# mid-action: the progress is genuinely part-way through, and the belt still neither travels
+	# nor takes a second item.
+	_run(FRAMES_PICK - 2)
+	_check("9d mid-pickup the progress is part-way and the belt does not travel (0<pick_progress<1 / progress=0 / no second item)",
+			belt9.state == "picking" and belt9.pick_progress > 0.0 and belt9.pick_progress < 1.0
+			and is_zero_approx(belt9.progress) and src9.bag.count == src9_before - 1)
+
+	# one tick before completion: the phase is still running, but pick_progress already reads
+	# exactly 1.0. That is not a bug -- the backend pins the progress at its endpoint and only
+	# flips the state on the following tick, the same convention turret.gd documents for
+	# load_progress ("load_progress reaches 1 first, then the state changes"), which is what lets
+	# the presentation layer finish its animation exactly on the endpoint. So this asserts the
+	# phase and the untravelled belt, NOT pick_progress < 1.
+	_run(1)
+	_check("9e one frame before completion the pickup phase is still running (state=picking / progress=0 / no second item; pick_progress is already pinned at 1)",
+			belt9.state == "picking" and is_zero_approx(belt9.progress)
+			and src9.bag.count == src9_before - 1)
+
+	_run(1)
+	_check("9f on completion the pickup ends at 1 and only then does travel start (state=working / pick_progress=1 / progress=0)",
+			belt9.state == "working" and is_equal_approx(belt9.pick_progress, 1.0)
+			and is_zero_approx(belt9.progress))
+
+	_run(1)
+	_check("9g travel has really started after the pickup (progress>0 / state=working)",
+			belt9.progress > 0.0 and belt9.state == "working")
 
 	Level.current = null      # leaving the static pointer unset would persist to exit and report a pile of ObjectDB leaks
 	print("RESULT failed=", failed)

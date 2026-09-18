@@ -22,11 +22,14 @@ extends Node3D
 # direction (model +X) with the model front (-Z), matching the convention of
 # BuildingActor.look_at -- so data.direction is the output direction.
 #
-# delivery action: when the backend Conveyor enters the "delivering" phase, the item is
-# "handed" from the belt exit to the downstream drop point -- position/orientation/scale all
-# transition together (see Trs.arc_lerp); the drop point is solved by BuildingActor and
-# passed in via set_delivery_anchor, since this model does not know the downstream building
-# (dumb presentation, see section 5.5).
+# action phases: the backend Conveyor runs two item-handover actions, and both animate the
+# item with position/orientation/scale transitioning together (see Trs.arc_lerp):
+#   * "delivering": the item is "handed" from the belt exit to the downstream drop point;
+#   * "picking": the mirror action, the item is brought from the source pile onto the belt
+#     entrance.
+# The drop/source pose is solved by BuildingActor and passed in via set_delivery_anchor /
+# set_pick_anchor, since this model does not know the neighbouring building (dumb
+# presentation, see section 5.5).
 #
 # node convention (see conveyor.tscn, %AnimationPlayer is already marked
 # unique_name_in_owner in the scene):
@@ -86,6 +89,15 @@ var _deliver_progress: float = 0.0
 var _delivery_anchor: Transform3D = Transform3D.IDENTITY
 var _has_anchor: bool = false
 
+# -- pickup action (backend Conveyor's "picking" phase) --
+# the item is brought from the source pile's slot onto the belt entrance, with
+# position/orientation/scale all transitioning together (see Trs.arc_lerp). The start pose is
+# solved by BuildingActor and passed in via set_pick_anchor -- same reason as the delivery
+# anchor: this model does not know the upstream building (dumb presentation, section 5.5).
+var _pick_progress: float = 0.0
+var _pick_anchor: Transform3D = Transform3D.IDENTITY
+var _has_pick_anchor: bool = false
+
 func _ready():
 	# the end and start pose sets join (see "loop mechanism" in the file header), so play it
 	# looping as a whole with LOOP_LINEAR.
@@ -122,10 +134,12 @@ func bind_bag(in_bag: Bag):
 	if is_instance_valid(_bag) and not _bag.item_type_changed.is_connected(_on_bound_type_changed):
 		_bag.item_type_changed.connect(_on_bound_type_changed)
 	_normalize_item_scale()
-	# pool rebind: the delivery action's drop point/progress are all invalidated and the item
-	# returns to the belt surface pose (prevents pool-reuse residue).
+	# pool rebind: both actions' anchors/progress are all invalidated and the item returns to
+	# the belt surface pose (prevents pool-reuse residue).
 	_has_anchor = false
+	_has_pick_anchor = false
 	_deliver_progress = 0.0
+	_pick_progress = 0.0
 	_apply_belt_pose()
 
 # transport progress [0,1]: slide the item along the belt surface from entrance to exit.
@@ -147,15 +161,19 @@ func _apply_belt_pose():
 	_hold_stack.position = Vector3(lerpf(BELT_INPUT_X, BELT_OUTPUT_X, _progress), BELT_TOP_Y, 0.0)
 	_hold_stack.rotation = Vector3.ZERO
 
-# building state: only used to finish/abort the delivery action -- leaving "delivering" puts
-# the item back on the belt surface. When it commits to "idle" the item is already gone (the
-# stack clears itself), and when it falls back to "blocked" midway progress is still 1, so
-# this is exactly the frame where "the item returns to the belt tail and stays blocked".
+# building state: only used to finish/abort an action phase -- leaving either "delivering" or
+# "picking" puts the item back on the belt surface. When it commits to "idle" the item is
+# already gone (the stack clears itself), and when it falls back to "blocked" midway progress
+# is still 1, so this is exactly the frame where "the item returns to the belt tail and stays
+# blocked". The pickup's exit is "working" with progress already 0, so _apply_belt_pose lands
+# the item exactly at the belt entrance -- where the pickup animation ends.
 func set_state(in_state: String):
-	if in_state == "delivering":
+	if in_state == "delivering" or in_state == "picking":
 		return
 	_has_anchor = false
+	_has_pick_anchor = false
 	_deliver_progress = 0.0
+	_pick_progress = 0.0
 	_apply_belt_pose()
 
 # delivery drop point (world pose), solved and sent by BuildingActor when entering the
@@ -176,19 +194,40 @@ func _apply_delivery(in_k: float):
 		return
 	_hold_stack.global_transform = Trs.arc_lerp(_exit_world_pose(), _delivery_anchor, in_k)
 
-# the world pose the item should have at the belt exit. Recomputed every time, never cached
-# -- still valid on pool rebind or rebinding midway through a delivery.
-# local part: position at the exit endpoint, orientation identity, scale the **rest size**
-# (see _normalized_item_scale). Deliberately does not read _hold_stack.scale: the delivery
-# animation writes global_transform, so at that moment it may already be shrinking (when the
-# drop point is "shrink to nothing"), and using it as the start point would leave the item
-# stuck at the shrunk size after aborting the delivery.
-func _exit_world_pose() -> Transform3D:
+# pickup start point (world pose), solved and sent by BuildingActor when entering the pickup phase.
+func set_pick_anchor(in_pose: Transform3D):
+	_pick_anchor = in_pose
+	_has_pick_anchor = true
+	_apply_pick(_pick_progress)
+
+# pickup action progress [0,1] (backend Conveyor.pick_progress): pure sampling, no accumulated
+# state, self-consistent on rebind/replay.
+func set_pick_progress(in_progress: float):
+	_pick_progress = clampf(in_progress, 0.0, 1.0)
+	_apply_pick(_pick_progress)
+
+func _apply_pick(in_k: float):
+	if not _has_pick_anchor or not is_instance_valid(_hold_stack):
+		return
+	_hold_stack.global_transform = Trs.arc_lerp(_pick_anchor, _entry_world_pose(), in_k)
+
+# the world pose the item should have at a rest point on the belt (in_local_x is
+# BELT_INPUT_X or BELT_OUTPUT_X). Recomputed every time, never cached -- still valid on pool
+# rebind or on rebinding midway through an action. Deliberately does not read
+# _hold_stack.scale: the actions write global_transform, so at that moment it may already be
+# scaled (a drop point of "shrink to nothing" shrinks it), and using it as a start point would
+# leave the item at the wrong size after an abort.
+func _rest_world_pose(in_local_x: float) -> Transform3D:
 	var s: float = _normalized_item_scale()
 	var item_scale: float = s if s > 0.0 else _hold_stack.scale.x
-	var local := Transform3D(Basis.from_scale(Vector3.ONE * item_scale),
-			Vector3(BELT_OUTPUT_X, BELT_TOP_Y, 0.0))
+	var local := Transform3D(Basis.from_scale(Vector3.ONE * item_scale), Vector3(in_local_x, BELT_TOP_Y, 0.0))
 	return global_transform * local
+
+func _exit_world_pose() -> Transform3D:
+	return _rest_world_pose(BELT_OUTPUT_X)
+
+func _entry_world_pose() -> Transform3D:
+	return _rest_world_pose(BELT_INPUT_X)
 
 # item type changed (new item picked up / cleared after delivering) -> re-normalize the size
 # by the new type.

@@ -22,12 +22,17 @@ extends Building
 #
 # presentation contract (section 5.4):
 #   state    "idle" (empty, waiting to take) / "working" (in transit) / "blocked" (cannot deliver, stuck)
+#   state    "picking" = the belt is taking an item out of the input-end neighbour (pickup
+#            action). The item is already in this bag the moment the action starts (see
+#            _try_extract), so this phase has no mid-action failure.
 #   state    "delivering" = the item has reached the belt exit and is being "handed" to the
 #            downstream (delivery action). Only for a real building downstream -- a belt-to-belt
 #            hand-off is instant and continuous (see _try_deliver), so this phase never appears
 #            between two conveyors.
 #   progress [0,1] travel progress, 0 = just picked up, 1 = should deliver; after arriving it
 #            stays at 1 until delivered
+#   pick_progress [0,1] pickup action progress, 0 = just started taking, 1 = taken and should
+#            start travelling; only meaningful during "picking"
 #   deliver_progress [0,1] delivery action progress, 0 = just started handing, 1 = handed and
 #            should commit; only meaningful during "delivering", i.e. only when the downstream
 #            is not a conveyor
@@ -47,6 +52,11 @@ const CAPACITY: int = 1
 # a teleport.
 const HANDOFF_SECONDS: float = 0.3
 
+# pickup action duration (seconds): the time spent taking an item out of the input-end
+# neighbour and bringing it onto the belt surface. Same order of magnitude as a worker picking
+# goods up (ItemTransfer.PER_ITEM_DURATION), so the pickup reads as an action, not a teleport.
+const PICK_SECONDS: float = 0.3
+
 # in-transit buffer. Deliberately **not registered with Logistics** -- it is only the
 # conveyor's internal buffer, not a logistics supply/demand node; if registered it would be
 # treated as a pickup source / deposit point and fight the conveyor's own take/deliver logic.
@@ -57,6 +67,9 @@ var _travel_left: float = 0.0
 
 # remaining delivery time (seconds); > 0 means we are in the "delivering" phase.
 var _handoff_left: float = 0.0
+
+# remaining pickup time (seconds); > 0 means we are in the "picking" phase.
+var _pick_left: float = 0.0
 
 # delivery action progress [0,1] (section 5.4 contract: the data layer only emits normalized
 # values). It is this building's **second** progress -- belt travel is still expressed by
@@ -71,6 +84,20 @@ var deliver_progress: float = 0.0:
 		deliver_progress = in_progress
 		deliver_progress_changed.emit()
 signal deliver_progress_changed()
+
+# pickup action progress [0,1] (section 5.4 contract: the data layer only emits normalized
+# values). This is the building's third progress -- belt travel is progress, handing out is
+# deliver_progress, taking in is this one -- for the same reason as Turret.load_progress
+# (different phases of one building each get their own).
+var pick_progress: float = 0.0:
+	get:
+		return pick_progress
+	set(in_progress):
+		if is_equal_approx(in_progress, pick_progress):
+			return
+		pick_progress = in_progress
+		pick_progress_changed.emit()
+signal pick_progress_changed()
 
 func _ready():
 	bag = Bag.new()
@@ -113,6 +140,9 @@ func tick(in_delta: float):
 	if bag.count <= 0:
 		_try_extract()
 		return
+	if state == "picking":
+		_tick_pick(in_delta)
+		return
 	if state == "delivering":
 		_tick_delivery(in_delta)
 		return
@@ -123,14 +153,41 @@ func tick(in_delta: float):
 		return
 	_try_deliver()
 
-# empty: take one item from the input-end neighbour (any type; the other side picks the type
-# it has and can provide). Starting the timer and the display type are both settled in
-# _on_hold_changed (the taken item triggers count_changed).
+# empty: take one item from the input-end neighbour (any type; the other side picks the type it
+# has and can provide) and play the pickup action.
+# The phase is raised BEFORE provide_to on purpose: that call fires count_changed synchronously
+# (see _on_hold_changed), and at that moment this belt must already know the item is one it took
+# itself -- otherwise it would be mistaken for goods pushed in by an upstream conveyor and the
+# whole pickup action would be skipped.
 func _try_extract():
 	var source: Building = _neighbour(-direction)
-	if source == null or source.provide_to(bag, "", 1) <= 0:
+	if source == null or not source.can_provide(""):
 		state = "idle"
 		progress = 0.0
+		return
+	_pick_left = PICK_SECONDS
+	pick_progress = 0.0
+	state = "picking"
+	if source.provide_to(bag, "", 1) <= 0:
+		# nothing actually moved (the source was drained concurrently): drop the phase
+		pick_progress = 0.0
+		state = "idle"
+		progress = 0.0
+
+# advance the pickup action. The item entered this bag the moment the action began, so there is
+# no mid-action failure to handle and the action always runs to completion. Only when it does
+# does the belt travel start -- which is why the belt visibly pauses while the item is brought
+# on. progress is pinned to 1 first so the presentation layer's animation lands exactly on its
+# endpoint before the state changes (same convention as Turret.load_progress).
+func _tick_pick(in_delta: float):
+	_pick_left = maxf(_pick_left - in_delta, 0.0)
+	pick_progress = 1.0 - _pick_left / PICK_SECONDS
+	if _pick_left > 0.0:
+		return
+	pick_progress = 1.0
+	_travel_left = CELL_TRAVEL_SECONDS
+	progress = 0.0
+	state = "working"
 
 # in-transit buffer count changed: whether the item was taken by this belt itself
 # (_try_extract) or pushed in by an upstream conveyor, it is all settled here -- both start
@@ -148,6 +205,10 @@ func _on_hold_changed():
 		var types: Array[String] = bag.types()
 		if not types.is_empty():
 			bag.item_type = types[0]
+	# an item this belt took itself already has its pickup action running (see _try_extract);
+	# only goods pushed in by an upstream conveyor start travelling straight away.
+	if state == "picking":
+		return
 	if _travel_left <= 0.0:
 		_travel_left = CELL_TRAVEL_SECONDS
 		progress = 0.0
@@ -232,6 +293,12 @@ func _can_deliver() -> bool:
 # public read-only query.
 func get_delivery_target() -> Building:
 	return _neighbour(direction)
+
+# input-end neighbour (re-resolved every call, no cached reference -- see _neighbour). The
+# presentation layer needs it to solve the pickup start point, so it is exposed as a public
+# read-only query.
+func get_pick_source() -> Building:
+	return _neighbour(-direction)
 
 # type of the item currently in transit (public read-only query: the presentation layer
 # solves the downstream drop point and its size by type).

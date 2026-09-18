@@ -192,8 +192,8 @@ func _process(_delta: float):
 	_level.tick(STEP_DT)
 	_update_hud()
 
-# report the counts "in stock / on belts / working / delivering / blocked", plus the session
-# peak lift. Two things tell whether the loop is running:
+# report the counts "in stock / on belts / working / delivering / picking / blocked", plus the
+# session peak lift. Two things tell whether the loop is running:
 #   * the total item count is constant (goods neither stuck dead in one cell nor vanished);
 #   * the on-belt count stabilizes near the belt count (every belt is carrying one item),
 #     rather than all piling up somewhere at once.
@@ -203,6 +203,7 @@ func _update_hud():
 	var working: int = 0
 	var blocked: int = 0
 	var delivering: int = 0
+	var picking: int = 0
 	for belt: Conveyor in _conveyors:
 		on_belts += belt.bag.count
 		if belt.state == "blocked":
@@ -211,6 +212,8 @@ func _update_hud():
 			working += 1
 		elif belt.state == "delivering":
 			delivering += 1
+		elif belt.state == "picking":
+			picking += 1
 		_lift_max = maxf(_lift_max, _item_lift(belt))
 	var stock: int = _stockpile.bag.count
 	var total: int = stock + on_belts
@@ -221,9 +224,9 @@ func _update_hud():
 	if _last_stock >= 0 and stock != _last_stock:
 		_stock_flips += 1
 	_last_stock = stock
-	_hud.text = "stock %d (%d~%d, flips %d) | belts %d/%d working %d delivering %d blocked %d | total %d (%d~%d) | peak lift %.3f | %s" % [
+	_hud.text = "stock %d (%d~%d, flips %d) | belts %d/%d working %d delivering %d picking %d blocked %d | total %d (%d~%d) | peak lift %.3f | %s" % [
 		stock, _stock_min, _stock_max, _stock_flips,
-		on_belts, _conveyors.size(), working, delivering, blocked,
+		on_belts, _conveyors.size(), working, delivering, picking, blocked,
 		total, _total_min, _total_max, _lift_max, seam_report()]
 
 # how far the item this belt carries has lifted off the belt surface (world Y, metres).
