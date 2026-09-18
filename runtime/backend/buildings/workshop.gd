@@ -219,10 +219,11 @@ func _reset_shift():
 # 在产件锁存(_unit_recipe):一件开工后固定用它直到完成,配方重排只影响下一件 ——
 # 已累计的工作量绝不转给别的配方。
 func _apply_workload(in_workload: float):
-	# 无在产件:按优先级挑一件开工并锁存;无可行配方则不锁、不累计。
+	# 无在产件:按优先级挑一件开工并锁存;无可行配方则不锁、不累计,进度条归零。
 	if _unit_recipe == null:
 		_unit_recipe = _pick_recipe()
 	if _unit_recipe == null:
+		progress = 0.0
 		return
 	# 在产件暂停条件(缺料/输出仓满):锁存保留,本件不换配方,等条件恢复再续。
 	if not _has_inputs_for(_unit_recipe):
@@ -242,13 +243,17 @@ func _apply_workload(in_workload: float):
 		_unit_recipe = _pick_recipe() if work_accum > 0.0 else null
 		if _unit_recipe == null:
 			break
-	# progress 按在产件归一化;无在产件时保持原值(归零语义留给子类)
+	# progress 按在产件归一化;无在产件时归零 —— 刚产完一件而下一件当场开不了工(缺料/输出仓满)
+	# 时 _unit_recipe 会被清空,若保留原值,进度条就停在上一件临产前的 ≈1.0,在"等下一名工人
+	# 到位"期间看着像已满(见 test/workshop_progress_test.gd)。已累计的 work_accum 不动。
 	if _unit_recipe:
 		progress = clampf(work_accum / _unit_recipe.workload_per_unit, 0.0, 1.0)
+	else:
+		progress = 0.0
 	active_recipe = _unit_recipe
 
 # 机器帧推进:维护建筑可观察 state(供 frontend 播/静止)。仅"有人值守且在产出"时
-# 置 "working",否则 "idle" —— 前端动画只在真正生产时播放。产出进度归零语义留给子类。
+# 置 "working",否则 "idle" —— 前端动画只在真正生产时播放(progress 的归零见 _apply_workload)。
 func _tick_machine(_in_delta: float):
 	var recipe := _selected_recipe()
 	var bag: Bag = _output_bag_for(recipe.output) if recipe else null
