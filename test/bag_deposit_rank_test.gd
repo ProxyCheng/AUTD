@@ -2,7 +2,7 @@ extends SceneTree
 
 # Logistics.find_nearest_bag 的落库分层回归测试。
 #
-# 规则(见 Logistics._deposit_rank):
+# 规则(见 Bag.deposit_rank —— 原 Logistics._deposit_rank,已迁到仓上作为唯一实现):
 #   2 = 同类型仓,且 count_of < preferred_max_count(该仓自己声明"还想装到这么多")
 #   1 = 同类型仓,且未满
 #   0 = 通配仓(如 MainBaseBag)—— 只作最后兜底
@@ -82,6 +82,29 @@ func _init():
 	print("CASE withdraw_nothing got_null=", got == null, " expect=<null>")
 	if got != null:
 		failed += 1
+
+	# —— 7. 搬运能力角色(仓储型 / 纯需求方) ——
+	# 判据搬到 Bag 上后(见 Bag.is_pure_demand / available_to_provide),这两个角色必须
+	# 仍然成立:仓储型可存可取(可给量 = 全部存量),纯需求方只进不出(绝不被抽走)。
+	var storage: Bag = _bag("stone", 30, 0, 30, Vector2(2, 0))
+	storage.add_count_of("stone", 5)
+	print("CASE storage_role can_provide=", storage.can_provide("stone"),
+			" available=", storage.available_to_provide("stone"),
+			" rank=", storage.deposit_rank("stone"), " expect=true/5/2")
+	if not storage.can_provide("stone") or storage.available_to_provide("stone") != 5 \
+			or storage.deposit_rank("stone") != 2:
+		failed += 1
+
+	var demand: Bag = _bag("stone", 30, 30, 30, Vector2(3, 0))
+	demand.add_count_of("stone", 5)
+	print("CASE demand_role can_provide=", demand.can_provide("stone"),
+			" can_accept=", demand.can_accept("stone"),
+			" rank=", demand.deposit_rank("stone"), " expect=false/true/2")
+	if demand.can_provide("stone") or not demand.can_accept("stone") \
+			or demand.deposit_rank("stone") != 2:
+		failed += 1
+	storage.free()
+	demand.free()
 
 	base.free()
 	axe_out.free()

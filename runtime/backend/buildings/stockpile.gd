@@ -5,13 +5,14 @@ extends Building
 # 存量走料堆专属可观察属性(stored_count),不走 Building.progress——progress
 # 保留给"状态进度"(蓄力/冷却等过程量)语义。frontend model 据 stored_count/capacity
 # 显示堆叠物品。
-# 库存语义接入 logistics:preferred_max=0 → 本料堆作为纯供给方(有货即外供,
-# 由劳工搬到缺货请求方,如 Crossbow 弹药箱);preferred_min=0 → 自身永不求补货
-# (无生产建筑补货前,放空即停)。
+# 库存语义接入 logistics:preferred_min = 0 → 自身永不求补货;preferred_max = 容量 →
+# 仓储型,不留底、随时可取(有货即可被劳工/传送带搬走),同时因 count 未到 preferred_max
+# 而成为落库优先级最高的一层,可随时存入 —— 即"可存可取"的中转仓。
+# (判据见 Bag.is_pure_demand / surplus_of;preferred_max 取满才不会被当成"只出不进"。)
 
 const CAPACITY: int = 50
 const PREFERRED_MIN_COUNT: int = 0
-const PREFERRED_MAX_COUNT: int = 0
+const PREFERRED_MAX_COUNT: int = CAPACITY
 # 默认物品。仅当其有对应 frontend 物品模型时才可显示堆叠;其余类型无模型则暂不显示。
 const DEFAULT_ITEM_TYPE: String = "arrow"
 # 放置即满仓(原型期用于直接观察堆叠/作为初始弹药补给)。
@@ -95,6 +96,11 @@ func _sync_stored_count():
 
 func get_display_bag() -> Bag:
 	return bag
+
+# 单仓建筑:名下唯一的仓就是可搬运的那只。
+func get_transfer_bags() -> Array[Bag]:
+	var bags: Array[Bag] = [bag]
+	return bags
 
 # bag.item_type 变化 → 转发为 content_type_changed(供 UI/表现)。
 func _on_bag_item_type_changed():

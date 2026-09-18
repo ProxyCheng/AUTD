@@ -433,6 +433,11 @@ func _bind_mirror(in_bag: Bag):
 func get_display_bag() -> Bag:
 	return _mirror_bag
 
+# 多仓建筑:输入仓(纯需求方,只进不出)+ 输出仓(纯供给方)全部参与 —— 传送带据此既能
+# 往输入仓送货、也能从输出仓取货;输入仓不会被当成货源(见 Bag.is_pure_demand)。
+func get_transfer_bags() -> Array[Bag]:
+	return _bags
+
 # 镜像仓 count 变化 → 同步镜像属性,经 setter 触发 stored_count_changed
 func _sync_stored_count():
 	stored_count = _mirror_bag.count if _mirror_bag else 0

@@ -16,12 +16,15 @@ extends Node
 #   max_count            严格物理上限,count 永不超过它(add_count 按剩余空间截断);
 #                        = UNLIMITED(-1) 时表示无上限(见该常量)。
 #   preferred_min_count  舒适下限:count < 该值 → 本 bag 处于"缺货请求"态,希望被补货。
-#   preferred_max_count  舒适上限:count > 该值 → 本 bag 处于"富余供给"态,超出部分可外供;
+#   preferred_max_count  舒适上限(同时是"自留警戒线"):count > 该值 → 富余可外供;
 #                        count 达到它即视为"补货完成",不再触发搬运请求。
 #   [preferred_min, preferred_max] 之间为舒适区,不参与搬运。
-# 纯请求方(bag 自己只进不出):preferred_min = preferred_max = max_count。
-# 纯供给方(bag 自己只出不进):preferred_min = preferred_max = 0(有货即外供)。
-# 仓储型:preferred_min 为自留警戒线(低于它求补),preferred_max 为外供起点(高于它才出)。
+# 四种角色由这三个数推导,不另存字段(§5.4 派生属性;判据见 is_pure_demand / surplus_of):
+#   纯需求方(只进不出):preferred_min = preferred_max = max_count —— 车间输入仓/炮塔弹药仓。
+#   纯供给方(只出不进):preferred_min = preferred_max = 0 —— 有货即外供,如车间产出仓。
+#   仓储型(可存可取):preferred_min = 0、preferred_max = max_count —— 永不求补,且不留底,
+#                      随时可被取用(料堆即此类)。
+#   兜底通配仓:max_count = UNLIMITED、preferred_min = preferred_max = 0 —— 主基地。
 # 注意 preferred_max_count 应 <= max_count。
 
 static var next_id: int = 1
@@ -111,12 +114,60 @@ func count_of(in_item_type: String) -> int:
 			total += entry.count
 	return total
 
-# 本仓该类型的"可外供余量":无限仓 = 全部存量(永远供得起),有限仓 = 超出舒适上限的部分。
-# 供 Logistics 挑供给方(见 _find_source / _schedule_transports),只读、不改账。
-func surplus_of(in_item_type: String) -> int:
-	if is_unlimited():
+# 本仓该类型的"可外供量"(= 愿意给出的最大件数,也是"能否被提取"的量):
+#   纯需求方 = 0(只进不出,不许被抽走);无限仓 = 全部存量(永远供得起);
+#   不留底(preferred_max_count >= max_count,如料堆)= 全部存量(随时可取);
+#   其余 = 超出"自留警戒线" preferred_max_count 的部分。
+# 供 Logistics 挑供给方(见 _find_source / _schedule_transports)与 Building 的能力接口共用,
+# 只读、不改账。
+# 注意:旧名 surplus_of 只表达"超出舒适上限"一义,对仓储型(preferred_max == max_count)
+# 会恒为 0;改名是为了让这次语义变化显式可见,不让旧调用方默默换了含义。
+func available_to_provide(in_item_type: String) -> int:
+	if is_pure_demand():
+		return 0
+	if is_unlimited() or preferred_max_count >= max_count:
 		return count_of(in_item_type)
 	return maxi(0, count_of(in_item_type) - preferred_max_count)
+
+# 纯需求方:只进不出。判据 = 舒适区被钉死在容量上(preferred_min 已顶到 max_count;
+# 由不变式 preferred_min <= preferred_max <= max_count 知 preferred_max 也顶满,仍显式写出)。
+# 这类仓(车间输入仓/炮塔弹药仓)的存在意义就是被填满,任何"提取"都会饿死它。
+func is_pure_demand() -> bool:
+	return not is_unlimited() and preferred_min_count >= max_count and preferred_max_count >= max_count
+
+# 能否从本仓取出该类型 —— 能力接口的"可提取"判据。有货且本仓不是纯需求方。
+# in_item_type 为空 = 本仓任意"有货且可给"的类型。
+func can_provide(in_item_type: String) -> bool:
+	if is_pure_demand():
+		return false
+	if in_item_type.is_empty():
+		for entry_type: String in types():
+			if count_of(entry_type) > 0:
+				return true
+		return false
+	return count_of(in_item_type) > 0
+
+# 能否把该类型收进本仓 —— 能力接口的"可接收"判据。物理上未满,且类型匹配(或本仓通配)。
+# 舒适上限 preferred_max_count 只影响落库优先级(见 deposit_rank),不作硬性拒收线:
+# 若拿它当拒收线,preferred_max_count = 0 的料堆/主基地就会拒收一切。
+# in_item_type 为空 = 任意类型。
+func can_accept(in_item_type: String) -> bool:
+	if is_full():
+		return false
+	if in_item_type.is_empty():
+		return true
+	return accepts_any_type or item_type == in_item_type
+
+# 落库分层:越"专"的仓越优先(0 = 通配兜底仓,如 MainBaseBag,排最后)。
+#   2 = 同类型仓,且 count_of 未到 preferred_max_count(该仓自己声明"我还想装到这么多");
+#   1 = 同类型仓,且未满(物理上收得下)。
+# 唯一实现放在这里:Logistics 选落库点与 Building 的能力接口都走它,不再各写一份。
+func deposit_rank(in_item_type: String) -> int:
+	if accepts_any_type:
+		return 0
+	if count_of(in_item_type) < preferred_max_count:
+		return 2
+	return 1
 
 # 入库:按可接受量接受 in_amount 件,返回实际入库数(有限仓超出 max_count 的部分丢弃)。
 # 该类型若有状态载体则逐件造载体、每件各占一格,否则合并进同类型的散料格。

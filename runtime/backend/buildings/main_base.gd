@@ -47,6 +47,11 @@ func _exit_tree():
 func get_display_bag() -> Bag:
 	return bag
 
+# 单仓建筑:名下唯一的仓就是可搬运的那只(通配无限仓,兜底收一切)。
+func get_transfer_bags() -> Array[Bag]:
+	var bags: Array[Bag] = [bag]
+	return bags
+
 # 主基地是地图的兜底仓库,且 MainBase.current 是 Enemy 每帧读取的 static 引用:
 # 在游戏内检视面板里删除它会造成悬空引用并破坏围城逻辑,故禁止游戏内删除。
 func is_removable() -> bool:
