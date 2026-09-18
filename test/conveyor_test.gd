@@ -11,8 +11,9 @@ extends SceneTree
 # Logistics,故本测试不需要接 Logistics。
 
 const DELTA: float = 0.05
-# 一格 1.0 秒 = 20 帧;取货那一帧只负责装货、不计入行程,故"取到并投出"共 21 帧。
-const FRAMES_ONE_CELL: int = 21
+# 走满一格所需帧数 + 1:取货那一帧只负责装货、不计入行程。按 Conveyor.CELL_TRAVEL_SECONDS
+# 推导,故后端改带速时这里自动跟随,测试不会与实现脱节。
+const FRAMES_ONE_CELL: int = int(Conveyor.CELL_TRAVEL_SECONDS / DELTA) + 1
 
 var failed: int = 0
 var level: Level = null

@@ -19,9 +19,9 @@ extends Building
 #   progress [0,1] 在途进度,0 = 刚取到、1 = 该投送;到站后停在 1 直到投出去
 #   承载物挂在自身 bag 上,frontend 经 get_display_bag() 镜像(§5.5)
 
-# 一件物品通过一格所需时间(秒)。与 ConveyorModel.DEFAULT_SPEED(= 1.0 m/s,一格 1 单位)
-# 对齐:带面横条与物品同速。改了这里要同步改那个常量。
-const CELL_TRAVEL_SECONDS: float = 1.0
+# 一件物品通过一格所需时间(秒)。与 ConveyorModel.DEFAULT_SPEED 互为倒数(一格 1 单位):
+# 带面横条与物品同速,改了这里要同步改那个常量。
+const CELL_TRAVEL_SECONDS: float = 2.0
 
 # 在途缓存容量:一次只运一件。
 const CAPACITY: int = 1
@@ -76,23 +76,27 @@ func tick(in_delta: float):
 	_try_deliver()
 
 # 空载:从输入端邻建取一件(类型不限,由对方挑"有货且可给"的那类)。
+# 起表与展示类型都由 _on_hold_changed 收口(取到的这一件会触发 count_changed)。
 func _try_extract():
 	var source: Building = _neighbour(-direction)
 	if source == null or source.provide_to(bag, "", 1) <= 0:
 		state = "idle"
 		progress = 0.0
-		return
-	# 定下展示类型:ItemStack 靠 bag.item_type 决定画什么(取来的那类此时已定)。
-	# 起表不在这里 —— 见 _on_hold_changed。
-	var types: Array[String] = bag.types()
-	if not types.is_empty():
-		bag.item_type = types[0]
 
-# 在途缓存件数变化时起表:不管货是本带自己取的(_try_extract),还是上游传送带推进来的,
-# 只要"从空变有"就开始计时。少了这一步,被推进来的那件会因为 _travel_left 本就是 0
-# 而在同一帧被直接投出去 —— 整段运输被跳过。
+# 在途缓存件数变化:不管货是本带自己取的(_try_extract),还是上游传送带推进来的,都在这里
+# 收口 —— 既要起表,也要定下展示类型。
+#   * 起表:少了它,被推进来的那件会因为 _travel_left 本就是 0 而在同一帧被直接投出去,
+#     整段运输被跳过。
+#   * 展示类型:frontend 的 ItemStack 靠 bag.item_type 决定画什么。只在取货路径写它的话,
+#     "被推进来"的带子 item_type 恒为空、货画不出来(实测:一圈里只有料堆引出的那条带能看到货)。
 func _on_hold_changed():
-	if bag.count > 0 and _travel_left <= 0.0:
+	if bag.count <= 0:
+		return
+	if bag.item_type.is_empty():
+		var types: Array[String] = bag.types()
+		if not types.is_empty():
+			bag.item_type = types[0]
+	if _travel_left <= 0.0:
 		_travel_left = CELL_TRAVEL_SECONDS
 		progress = 0.0
 		state = "working"
