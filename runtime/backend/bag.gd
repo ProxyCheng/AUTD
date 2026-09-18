@@ -66,10 +66,10 @@ var count: int:
 var access_position: Vector2 = Vector2.ZERO
 # —— 三条优先级轴(互不影响)——
 #   transport_priority = 需求紧急度:谁先被补货(Logistics._schedule_transports 的排序键);
-#   deposit_priority   = 作为"放货地点"的偏好:高者优先被选为落库目标,同档再比距离;
+#   deposit_priority   = 作为"放货地点"的偏好:同层内高者优先被选为落库目标,再比距离;
 #   withdraw_priority  = 作为"取货地点"的偏好:高者优先被选为取货源,同档再比距离。
-# 两条偏好轴由 Logistics.find_nearest_bag / _find_source 消费,默认全 0 —— 于是既有 bag 的
-# 匹配结果与"纯就近"完全一致。
+# 落库先过一道"分层"(Logistics._deposit_rank):同类型仓压过通配兜底仓,deposit_priority 只在
+# 同层内比较;取货只比 withdraw_priority。三轴默认全 0(见 find_nearest_bag / _find_source)。
 #
 # transport_priority:由创建该 bag 的建筑按需求紧急度声明。默认普通搬运 0;
 # Crossbow 弹药箱这类攻击建筑设为更高(供弹优先于普通物流)。
@@ -79,7 +79,8 @@ var withdraw_priority: int = 0
 # 偏好档位的常用极值(供建筑声明,不改匹配算法):作为落库目标排最后 / 作为取货源优先。
 const DEPOSIT_LAST: int = -1
 const WITHDRAW_FIRST: int = 1
-# 作为落库目标优先(WITHDRAW_FIRST 的镜像:主动枢纽仓声明"双 FIRST"的另一条轴)。
+# 作为落库目标优先:通配兜底仓(如 MainBaseBag)声明"同为兜底层时先落我"。
+# 注意它只在落库分层(Logistics._deposit_rank)的同一层内比较,压不过同类型专仓。
 const DEPOSIT_FIRST: int = 1
 # 通配:true = 本仓不限类型,Logistics 撮合时跳过 item_type 比对(见 find_nearest_bag/_find_source)。
 # item_type 仍是"主要类型"(展示与默认读写用);通配只看本标志,绝不用 item_type == "" 表示。

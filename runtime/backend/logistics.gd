@@ -189,12 +189,14 @@ func _schedule_transports():
 # 最近的"可收/可取的仓":只读,不改任何账本。
 # in_need_stock = true 取有货的(本仓该类型 count_of > 0,供领工具);false 取收得下的(未满,供还/卸货)。
 # 类型匹配:bag.accepts_any_type 为真则跳过类型比对(通配仓),否则要求 item_type 相同。
-# 排序:先比偏好档位(取货看 withdraw_priority,放货看 deposit_priority,高者胜),同档再比距离(近者胜)。
-# 既有 bag 两条偏好轴皆 0,故退化为纯就近,与引入偏好前完全一致。
+# 排序(放货 in_need_stock = false):先比落库分层 _deposit_rank(同类型仓 > 通配兜底仓),
+#   同层再比 deposit_priority(高者胜),最后比距离(近者胜)。
+# 排序(取货 in_need_stock = true):先比 withdraw_priority(高者胜),同档再比距离(近者胜)。
 # 供顶岗取/还工具(ManBuildingTask)、空闲卸货(FindDepositBagTask)、开工前归还(PlanReturnTask)共用,
 # 是"就近挑仓"的唯一实现。
 func find_nearest_bag(in_item_type: String, in_from: Vector2, in_need_stock: bool) -> Bag:
 	var best: Bag = null
+	var best_rank: int = 0
 	var best_priority: int = 0
 	var best_distance: float = INF
 	for bag: Bag in bags.values():
@@ -204,15 +206,32 @@ func find_nearest_bag(in_item_type: String, in_from: Vector2, in_need_stock: boo
 			continue
 		if not in_need_stock and bag.is_full():
 			continue
+		var rank: int = 0 if in_need_stock else _deposit_rank(bag, in_item_type)
 		var priority: int = bag.withdraw_priority if in_need_stock else bag.deposit_priority
 		var distance: float = bag.access_position.distance_to(in_from)
 		# best == null 兜首只候选:偏好可以为负(DEPOSIT_LAST),不能用 best_priority 的初值把它挡掉。
-		if best == null or priority > best_priority \
-				or (priority == best_priority and distance < best_distance):
+		if best == null or rank > best_rank \
+				or (rank == best_rank and priority > best_priority) \
+				or (rank == best_rank and priority == best_priority and distance < best_distance):
 			best = bag
+			best_rank = rank
 			best_priority = priority
 			best_distance = distance
 	return best
+
+# 落库分层(只用于"找收得下的仓",即 in_need_stock = false):越"专"的仓越优先 ——
+#   2 = 同类型仓,且 count_of 未到 preferred_max_count(该仓自己声明"我还想装到这么多");
+#   1 = 同类型仓,且未满(物理上收得下);
+#   0 = 其余(通配仓,如 MainBaseBag —— 只作最后兜底)。
+# "同类型" = bag.item_type == 目标类型;通配仓(accepts_any_type)不算同类型,故恒为 0,
+# 于是主基地排在所有同类型仓之后。分层压过 deposit_priority:档位只在同层内比较,
+# 避免兜底仓凭档位抢走本该进专仓的货(工具坊的产出仓 preferred_max = 0,故属第 1 层)。
+func _deposit_rank(in_bag: Bag, in_item_type: String) -> int:
+	if in_bag.accepts_any_type:
+		return 0
+	if in_bag.count_of(in_item_type) < in_bag.preferred_max_count:
+		return 2
+	return 1
 
 # 选供给方:类型匹配同 find_nearest_bag(通配仓跳过类型比对),且本仓该类型有富余(surplus_of > 0)。
 # 排序:withdraw_priority 降序(高者优先被取货),同档比到请求方装卸点的距离(近者胜);
