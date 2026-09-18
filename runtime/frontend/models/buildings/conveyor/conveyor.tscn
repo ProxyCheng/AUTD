@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://coxhmwj0v8ux3" path="res://runtime/frontend/models/buildings/conveyor/conveyor_model.gd" id="2_model"]
 
 [node name="conveyor" instance=ExtResource("1_art")]
+transform = Transform3D(0, 0, 0.5128205, 0, 0.5128205, 0, -0.5128205, 0, 0, 0, 0, 0)
 script = ExtResource("2_model")
 
 [node name="AnimationPlayer" parent="." index="4"]

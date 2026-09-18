@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://runtime/frontend/ui/building_card.gd" id="1_cconv"]
+[ext_resource type="PackedScene" path="res://runtime/frontend/models/buildings/conveyor/conveyor.tscn" id="2_cconv"]
+[ext_resource type="Script" path="res://runtime/frontend/ui/card_model_preview.gd" id="3_cconv"]
+
+[sub_resource type="ViewportTexture" id="ViewportTexture_cconv"]
+viewport_path = NodePath("Panel/SubViewport")
+
+[node name="BuildingCard" type="Control"]
+custom_minimum_size = Vector2(100, 120)
+custom_maximum_size = Vector2(100, 120)
+layout_mode = 3
+anchor_right = 0.08680555
+anchor_bottom = 0.18518518
+script = ExtResource("1_cconv")
+metadata/_edit_use_anchors_ = true
+
+[node name="Panel" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Conveyor"
+icon = SubResource("ViewportTexture_cconv")
+icon_alignment = 1
+vertical_icon_alignment = 0
+expand_icon = true
+
+[node name="SubViewport" type="SubViewport" parent="Panel"]
+unique_name_in_owner = true
+own_world_3d = true
+transparent_bg = true
+size = Vector2i(80, 100)
+
+[node name="model_renderer" type="Node3D" parent="Panel/SubViewport"]
+unique_name_in_owner = true
+script = ExtResource("3_cconv")
+
+[node name="conveyor" parent="Panel/SubViewport/model_renderer" instance=ExtResource("2_cconv")]
+
+[node name="preview_light" type="DirectionalLight3D" parent="Panel/SubViewport/model_renderer"]
+transform = Transform3D(1, 0, 0, 0, 0.3855332, 0.92269397, 0, -0.92269397, 0.3855332, 0, 0, 0)
+
+[connection signal="pressed" from="Panel" to="." method="_on_panel_pressed"]
