@@ -7,7 +7,10 @@ extends HeadBar
 # 工具不再是房间实体(见 Labor.hand_bag),故本条挂的是工人 actor,从工人的手上仓取数;
 # 与血条同处一个 HeadBarGroup 竖排,不会互相遮挡。逐帧读值,故工具磨损时自动跟随,无需连信号。
 
-const COLOR_TOOL: Color = Color(0.95, 0.72, 0.2)
+# 耐久条颜色:紫色 —— 与工作量条(黄)、容量条(蓝)、血条(绿)、敌方血条(红)、
+# 待办灰全部拉开色相。工具耐久条与工作量条常同屏出现,旧橙色与工作量条的橙黄几乎无法区分,
+# 故改用对比最强的紫色。
+const COLOR_TOOL: Color = Color(0.72, 0.45, 0.95)
 
 var labor: Labor = null
 
