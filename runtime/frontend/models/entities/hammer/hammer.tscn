@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://runtime/frontend/models/tools/hammer/hammer.fbx" id="1_art"]
+[ext_resource type="Script" path="res://runtime/frontend/models/entities/hammer/hammer_model.gd" id="2_model"]
+
+[node name="Hammer" type="Node3D"]
+script = ExtResource("2_model")
+
+[node name="hammer" parent="." instance=ExtResource("1_art")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)

@@ -12,6 +12,8 @@ extends Workshop
 # 配方按数组顺序决定优先级(越靠前越优先),GUI 可拖动排序;箭在前,故默认先产箭,
 # 要转产炮弹需在检视面板把炮弹配方拖到箭前面(排在前面的可行配方会一直抢先生产,
 # 不提升优先级炮弹就永远排不上)。
+# 两条配方的 tool_bonuses 都声明 { "hammer": 2.0 }:工人会先去有锤子的容器取一把再开工
+# (见 man_building.tres);地图没有锤子时退化为空手效率(常数 0.1),持锤则注入量翻倍。
 # 资源链:
 #   伐木场(log)→ 车间(log 输入) 石矿(stone)→ 车间(stone 输入)
 #   车间(arrow 输出)→ 弩炮(arrow 弹药) / 车间(cannonball 输出)→ 火炮(cannonball 弹药)
@@ -35,6 +37,7 @@ func _make_arrow_recipe() -> RecipeData:
 	recipe.label = "Arrow"
 	recipe.output = "arrow"
 	recipe.workload_per_unit = ARROW_WORKLOAD
+	recipe.tool_bonuses = {"hammer": 2.0}
 	var log_input := RecipeInputData.new()
 	log_input.item_type = "log"
 	log_input.count = CONSUME_LOG
@@ -50,6 +53,7 @@ func _make_cannonball_recipe() -> RecipeData:
 	recipe.label = "Cannonball"
 	recipe.output = "cannonball"
 	recipe.workload_per_unit = CANNONBALL_WORKLOAD
+	recipe.tool_bonuses = {"hammer": 2.0}
 	var stone_input := RecipeInputData.new()
 	stone_input.item_type = "stone"
 	stone_input.count = CANNONBALL_STONE

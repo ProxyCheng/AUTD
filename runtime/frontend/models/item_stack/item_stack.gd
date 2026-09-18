@@ -27,6 +27,7 @@ const ITEM_MODEL_SCENES: Dictionary = {
 	"stone": "res://runtime/frontend/models/entities/stone/stone.tscn",
 	"axe": "res://runtime/frontend/models/entities/axe/axe.tscn",
 	"pickaxe": "res://runtime/frontend/models/entities/pickaxe/pickaxe.tscn",
+	"hammer": "res://runtime/frontend/models/entities/hammer/hammer.tscn",
 }
 
 # —— 几何配置(业务层按需覆盖;默认值面向"箭垛"常见形态) ——
