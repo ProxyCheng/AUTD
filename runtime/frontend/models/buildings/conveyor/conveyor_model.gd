@@ -49,9 +49,9 @@ const BELT_INPUT_X: float = -0.963258
 const BELT_OUTPUT_X: float = 0.986742
 const BELT_TOP_Y: float = 0.1877
 
-# 货物期望长度(世界单位,约 2/5 格)。各道具原生尺寸差很多(箭 vs 原木),不归一化
+# 货物期望长度(世界单位,约 4/5 格)。各道具原生尺寸差很多(箭 vs 原木),不归一化
 # 会让原木盖住整条带、箭小得看不见,故按类型统一缩到这个长度。
-const ITEM_LENGTH: float = 0.4
+const ITEM_LENGTH: float = 0.8
 
 var _bag: Bag = null
 
