@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="PackedScene" uid="uid://begcm7idpybnv" path="res://runtime/frontend/models/buildings/conveyor/conveyor.fbx" id="1_art"]
 [ext_resource type="Script" uid="uid://coxhmwj0v8ux3" path="res://runtime/frontend/models/buildings/conveyor/conveyor_model.gd" id="2_model"]
+[ext_resource type="Script" uid="uid://ptq8y7nichdg" path="res://runtime/frontend/models/item_stack/item_stack.gd" id="3_stack"]
 
 [node name="conveyor" instance=ExtResource("1_art")]
 transform = Transform3D(0, 0, 0.5128205, 0, 0.5128205, 0, -0.5128205, 0, 0, 0, 0, 0)
@@ -9,3 +10,9 @@ script = ExtResource("2_model")
 
 [node name="AnimationPlayer" parent="." index="4"]
 unique_name_in_owner = true
+
+[node name="hold_stack" type="Node3D" parent="."]
+script = ExtResource("3_stack")
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.695, 0.1877, 0)
+per_row = 1
+layer_count = 1

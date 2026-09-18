@@ -37,6 +37,21 @@ const DEFAULT_SPEED: float = 1.0
 
 # 唯一名解析的播放器:FBX 自带,已由 conveyor.tscn 标为 unique_name_in_owner。
 @onready var _animation: AnimationPlayer = %AnimationPlayer
+# 承载物垛(conveyor.tscn 里已就位):显示在途那一件,随 progress 沿带面滑动。
+@onready var _hold_stack: ItemStack = $hold_stack
+
+# —— 承载物几何(模型局部空间)——
+# 带面在模型局部空间里沿 +X 行进(见 conveyor.tscn 根节点的缩放/旋转),
+# 故入口在 -X 侧、出口在 +X 侧;数值取自带面实测 AABB。
+const BELT_INPUT_X: float = -0.87
+const BELT_OUTPUT_X: float = 0.90
+const BELT_TOP_Y: float = 0.1877
+
+# 货物期望长度(世界单位,约 1/5 格)。各道具原生尺寸差很多(箭 vs 原木),不归一化
+# 会让原木盖住整条带、箭小得看不见,故按类型统一缩到这个长度。
+const ITEM_LENGTH: float = 0.22
+
+var _bag: Bag = null
 
 func _ready():
 	# 首尾姿态集合相接(见文件头"循环机制"),故用 LOOP_LINEAR 整体循环。
@@ -58,3 +73,56 @@ func set_speed(in_speed: float):
 # 世界空间基准带面速度:动画自身空间的速度 × 根节点缩放(本场景把美术缩到 1 格)。
 func _world_base_speed() -> float:
 	return ANIM_BASE_SPEED * absf(scale.x)
+
+# 绑定 backend 展示仓(= Conveyor.bag,在途那一件),由 BuildingActor 转发(§5.5)。
+# 解绑时 actor 会传 null。
+func bind_bag(in_bag: Bag):
+	if is_instance_valid(_bag) and _bag.item_type_changed.is_connected(_on_bound_type_changed):
+		_bag.item_type_changed.disconnect(_on_bound_type_changed)
+	_bag = in_bag
+	_hold_stack.bind(in_bag)
+	# 先 bind 再连:ItemStack 自己也连了 item_type_changed,让它先重建道具,本处再改缩放。
+	if is_instance_valid(_bag) and not _bag.item_type_changed.is_connected(_on_bound_type_changed):
+		_bag.item_type_changed.connect(_on_bound_type_changed)
+	_normalize_item_scale()
+
+# 运输进度 [0,1]:把货沿带面从入口滑到出口。0 = 刚取到(入口),1 = 到站(出口)。
+# 垛在挂点原点是沿长轴居中的,故两端各内缩半个货长,免得货头尾探出带面。
+func set_progress(in_progress: float):
+	if not is_instance_valid(_hold_stack):
+		return
+	var half: float = _hold_stack.long_axis() * _hold_stack.scale.x * 0.5
+	_hold_stack.position.x = lerpf(BELT_INPUT_X + half, BELT_OUTPUT_X - half, clampf(in_progress, 0.0, 1.0))
+
+# 货物类型变了(取到新货 / 投出后清空)→ 按新类型重新归一尺寸。
+func _on_bound_type_changed():
+	_normalize_item_scale()
+
+# 按当前货物类型把垛缩放到统一的世界长度(见 ITEM_LENGTH)。
+# 世界长度 = 道具原生长轴 × 垛自身缩放 × 根节点缩放,故先把根缩放除掉,换算出垛该用的本地缩放。
+func _normalize_item_scale():
+	if not is_instance_valid(_hold_stack):
+		return
+	var type: String = _bound_type()
+	if type.is_empty() or not ItemStack.ITEM_MODEL_SCENES.has(type):
+		return
+	var root_scale: float = absf(scale.x)
+	if root_scale <= 0.0:
+		return
+	var local_length: float = ITEM_LENGTH / root_scale
+	var s: float = local_length / maxf(ItemStack.long_axis_of(type), 0.0001)
+	_hold_stack.scale = Vector3(s, s, s)
+
+# 当前该显示的类型:优先看仓声明的 item_type(传送带取到货时会写它),否则退回按件状态
+# 载体的 type —— 有状态物品的类型记在载体上,bag.item_type 对它恒为空(§5.8)。
+func _bound_type() -> String:
+	if not is_instance_valid(_bag):
+		return ""
+	if not _bag.item_type.is_empty():
+		return _bag.item_type
+	var carrier: Object = _bag.peek_state()
+	if is_instance_valid(carrier):
+		var carrier_type: Variant = carrier.get(&"type")
+		if carrier_type is String:
+			return str(carrier_type)
+	return ""
