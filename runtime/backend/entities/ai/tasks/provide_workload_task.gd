@@ -35,7 +35,11 @@ func _tick(in_delta: float) -> int:
 		entity.state = "work"
 	var labor := entity as Labor
 	var tool := _held_tool(labor, building)
-	var injected: float = in_delta * efficiency * _tool_factor(tool, building)
+	# 倍率只算一次:先发布给建筑(前端据此把加成强弱表现成工作量条闪光),
+	# 再用同一值放大本帧注入量 —— 两处必须同源,否则表现与实际效率会漂移。
+	var factor: float = _tool_factor(tool, building)
+	building.work_efficiency = factor
+	var injected: float = in_delta * efficiency * factor
 	building.work(injected)
 	if tool:
 		# 这件工具真的派上用场了:清零"未使用计时"(见 Tool.unused_time)。

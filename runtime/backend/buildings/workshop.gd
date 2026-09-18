@@ -94,6 +94,23 @@ var stored_count: int = 0:
 		stored_count_changed.emit()
 signal stored_count_changed()
 
+# —— 工具加成强度(对外可观察)——
+# 当前工人本帧从手持工具获得的**原始注入倍率**,由 ProvideWorkloadTask 注入前发布(见其 _tick):
+#   1.0  = 基准(配方不需要工具,或无人值守);
+#   <1.0 = 惩罚(配方需要工具而工人空手,见 Tool.EMPTY_HANDED_EFFICIENCY);
+#   >1.0 = 加成(持有配方表内的工具,倍率由配方声明)。
+# 只存数字:不含颜色/着色器/节点引用(§1 前后端分离)。前端工作量条自行把它归一化为
+# 闪光强度(见 WorkProgressBar._update_visual),本属性不感知任何表现。
+var work_efficiency: float = 1.0:
+	get:
+		return work_efficiency
+	set(in_efficiency):
+		if is_equal_approx(in_efficiency, work_efficiency):
+			return
+		work_efficiency = in_efficiency
+		work_efficiency_changed.emit()
+signal work_efficiency_changed()
+
 var _mirror_bag: Bag = null  # stored_count/capacity 的镜像源
 
 # 展示容量(只读,供 frontend 归一化显示;派生自镜像仓 max_count,不存两份)
@@ -133,6 +150,9 @@ func _exit_tree():
 # 机器主循环:先做值守/补员维护,再交子类推进机器自身逻辑。
 func tick(in_delta: float):
 	_manned_timer = maxf(_manned_timer - in_delta, 0)
+	# 值守窗口一过即复位倍率:工人离岗后没人再发布新值,不复位前端会一直显示过期加成。
+	if not _is_manned():
+		work_efficiency = 1.0
 	_maintain_manning()
 	_tick_machine(in_delta)
 
