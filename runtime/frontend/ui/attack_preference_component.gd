@@ -9,6 +9,7 @@ extends InspectorComponent
 const _PREF_VALUE: Array[String] = [
 	AttackBuilding.TARGET_PREF_NEAREST,
 	AttackBuilding.TARGET_PREF_FRONT,
+	AttackBuilding.TARGET_PREF_LAST,
 	AttackBuilding.TARGET_PREF_STRONGEST,
 ]
 
@@ -21,9 +22,12 @@ func _ready():
 	_option = get_node_or_null("%PreferenceOption") as OptionButton
 	if _option:
 		_option.clear()
-		_option.add_item("Nearest", 0)      # item_text 显示名;对应 AttackBuilding.TARGET_PREF_NEAREST
-		_option.add_item("Front", 1)
-		_option.add_item("Strongest", 2)
+		# 显示名只是文案,不含取值;顺序必须与 _PREF_VALUE 一一对应 ——
+		# 不传 id(默认 -1 = 用索引作 id),item_selected 给的索引即 _PREF_VALUE 的下标。
+		_option.add_item("Nearest")
+		_option.add_item("Front")
+		_option.add_item("Last")
+		_option.add_item("Strongest")
 		if not _option.item_selected.is_connected(_on_option_selected):
 			_option.item_selected.connect(_on_option_selected)
 	# bind() 可能早于 _ready(组件节点先被面板绑定):此时补一次刷新

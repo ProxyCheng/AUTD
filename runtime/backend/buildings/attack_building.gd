@@ -6,7 +6,8 @@ extends Workshop
 # 具体弹种/弹速/时序/发射几何由子类钩子给出(见 Turret 及其子类 Crossbow/Cannon),本类不推进时序、不产出弹丸。
 #
 # 攻击倾向:target_preference 决定攻击目标的选取偏好,取值见 TARGET_PREF* 常量
-# (nearest 最近 / front 最前 / strongest 最强),经 set_target_preference() 切换并广播。
+# (nearest 最近 / front 最前 / last 末尾 / strongest 最强),经 set_target_preference() 切换并广播。
+# front/last 的"前后"以主基地为锚(见 _base_distance_sq),不写死任何坐标轴 —— 行进方向随关卡而变。
 #
 # 瞄准:target/aim_direction 均为可观察属性(§5.4),由子类状态机在自己的 tick 中经
 # find_target()/_rotate_aim()/is_aimed() 驱动;本类不自行推进,也不感知武器形态。
@@ -15,6 +16,7 @@ extends Workshop
 # 取值常量:String(全小写 snake,符合仓库"类型标识字符串"惯例)
 const TARGET_PREF_NEAREST: String = "nearest"
 const TARGET_PREF_FRONT: String = "front"
+const TARGET_PREF_LAST: String = "last"
 const TARGET_PREF_STRONGEST: String = "strongest"
 # 默认:最前(越靠前即越接近主基地推进方向,y 越负越前)
 const TARGET_PREF_DEFAULT: String = TARGET_PREF_FRONT
@@ -30,7 +32,7 @@ var target_preference: String = TARGET_PREF_DEFAULT:
 signal target_preference_changed()
 
 func set_target_preference(in_preference: String):
-	if in_preference not in [TARGET_PREF_NEAREST, TARGET_PREF_FRONT, TARGET_PREF_STRONGEST]:
+	if in_preference not in [TARGET_PREF_NEAREST, TARGET_PREF_FRONT, TARGET_PREF_LAST, TARGET_PREF_STRONGEST]:
 		return
 	target_preference = in_preference
 
@@ -45,7 +47,8 @@ func get_attack_range() -> float:
 
 # 范围内(以 axis 为圆心、半径 get_attack_range() 的圆形)所有存活敌方,按 target_preference 排序后取第一个。
 #   nearest:距离平方最小(离本建筑最近)
-#   front:y 最小(越靠前,即越接近主基地推进方向;y 越负越靠前)
+#   front:到主基地的距离平方最小(最靠前 = 最深入我方、最紧迫)
+#   last:到主基地的距离平方最大(末尾 = 最后入场、离主基地最远)
 #   strongest:health 最高
 func find_target() -> Entity:
 	var room: Room = Level.current.room
@@ -67,7 +70,10 @@ func find_target() -> Entity:
 	match target_preference:
 		TARGET_PREF_FRONT:
 			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
-				return a.position.y < b.position.y)
+				return _base_distance_sq(a.position) < _base_distance_sq(b.position))
+		TARGET_PREF_LAST:
+			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
+				return _base_distance_sq(a.position) > _base_distance_sq(b.position))
 		TARGET_PREF_STRONGEST:
 			candidates.sort_custom(func(a: Entity, b: Entity) -> bool:
 				return a.health > b.health)
@@ -79,6 +85,16 @@ func find_target() -> Entity:
 # 到本建筑的距离平方(避免开方)。
 func _distance_sq(in_position: Vector2) -> float:
 	var delta: Vector2 = in_position - Vector2(axis)
+	return delta.length_squared()
+
+# 到主基地的距离平方(避免开方):front/last 的"前后"锚点。
+# 锚在主基地而不是某个坐标轴,是因为行进方向随关卡而变:level0 的敌人生成器与主基地同在
+# y=4 一行、敌人沿 +x 推进,若按 position.y 排序会退化成"所有敌人 y 相同"的常数比较,
+# 于是 front/last 取到同一个敌人(见 test/attack_preference_test.gd)。
+# 主基地缺失时(无基地的测试场景)退化为到本建筑的距离,排序等价于 nearest。
+func _base_distance_sq(in_position: Vector2) -> float:
+	var anchor: Vector2 = Vector2(MainBase.current.axis) if MainBase.current else Vector2(axis)
+	var delta: Vector2 = in_position - anchor
 	return delta.length_squared()
 
 # —— 瞄准状态 ——
