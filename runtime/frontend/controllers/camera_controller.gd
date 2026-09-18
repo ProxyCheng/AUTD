@@ -61,18 +61,24 @@ func _ready():
 	target_yaw = rotation.y
 	yaw = rotation.y
 
-func _input(in_event: InputEvent):
-	if in_event is InputEventMouseButton:
-		if in_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom_input += 1
-		elif in_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom_input -= 1
-
 # 世界手势:只处理真实触摸/鼠标事件,忽略系统模拟事件 —— 否则触屏上会同时收到
 # "真实 touch" 与 "touch→mouse 模拟"、桌面会同时收到 "真实 mouse" 与
 # "mouse→touch 模拟",同一手势被处理两次。
-# 落在 UI 上的事件已由 GUI 消费,不会到达这里(故天然排除面板/按钮)。
+# 落在 UI 上的事件已由 GUI 消费,不会到达这里(故天然排除面板/按钮)—— 滚轮缩放也必须走这里:
+# 它在 _input 里会先于 GUI 收到事件,于是在检视面板里滚动列表会连带把相机拉远拉近。
 func _unhandled_input(in_event: InputEvent):
+	# 滚轮缩放放在模拟事件守卫之前(触摸不会模拟出滚轮,无需按 device 过滤)。
+	# 指针停在 UI 上时让位给 UI:ScrollContainer 会滚动却**不**把事件标记为已消费(实测),
+	# 故只靠"GUI 消费 ⇒ 不到这里"不够,必须自己看指针位置。
+	if in_event is InputEventMouseButton:
+		if in_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			if not _pointer_over_ui():
+				zoom_input += 1
+			return
+		elif in_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if not _pointer_over_ui():
+				zoom_input -= 1
+			return
 	if in_event.device == InputEvent.DEVICE_ID_EMULATION:
 		return
 	if in_event is InputEventScreenTouch:
@@ -85,6 +91,20 @@ func _unhandled_input(in_event: InputEvent):
 	elif in_event is InputEventMouseMotion:
 		if in_event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			_on_pointer_move(_MOUSE_POINTER, in_event.position)
+
+# 指针是否停在会吃掉滚轮的 UI 上:从视口 hover 的控件往上找,任一级是交互式 Control
+# (mouse_filter 非 IGNORE)即算命中。必须往上找 —— hover 目标是控件树里最深的那一个
+# (配方行、按钮),而滚轮会冒泡给包住它们的滚动容器/面板。
+func _pointer_over_ui() -> bool:
+	var viewport := get_viewport()
+	if viewport == null:
+		return false
+	var hovered: Control = viewport.gui_get_hovered_control()
+	while hovered != null:
+		if hovered.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			return true
+		hovered = hovered.get_parent() as Control
+	return false
 
 func _process(in_delta: float):
 	var movement_input = _get_movement_input()
