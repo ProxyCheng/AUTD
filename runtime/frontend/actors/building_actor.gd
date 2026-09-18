@@ -157,6 +157,8 @@ func bind(in_building: Building):
 		building.progress_changed.disconnect(_on_building_progress_changed)
 		if building.has_signal(&"load_progress_changed"):
 			building.load_progress_changed.disconnect(_on_building_load_progress_changed)
+		if building.has_signal(&"deliver_progress_changed"):
+			building.deliver_progress_changed.disconnect(_on_building_deliver_progress_changed)
 		if building.has_signal(&"aim_direction_changed"):
 			building.aim_direction_changed.disconnect(_on_building_aim_direction_changed)
 	building = in_building
@@ -184,6 +186,9 @@ func bind(in_building: Building):
 	# 上弦/装弹进度只有炮塔类建筑有(见 Turret.load_progress)
 	if building.has_signal(&"load_progress_changed"):
 		building.load_progress_changed.connect(_on_building_load_progress_changed)
+	# delivery-action progress exists only on the conveyor (see Conveyor.deliver_progress)
+	if building.has_signal(&"deliver_progress_changed"):
+		building.deliver_progress_changed.connect(_on_building_deliver_progress_changed)
 	if building.has_signal(&"aim_direction_changed"):
 		building.aim_direction_changed.connect(_on_building_aim_direction_changed)
 	# 数据源经组统一下发给全部子条(容量条 + 工作量条),各自按 _value() 决定显隐
@@ -194,6 +199,8 @@ func bind(in_building: Building):
 	_on_building_progress_changed()
 	if building.has_signal(&"load_progress_changed"):
 		_on_building_load_progress_changed()
+	if building.has_signal(&"deliver_progress_changed"):
+		_on_building_deliver_progress_changed()
 	_on_building_aim_direction_changed()
 	_bind_display_bag()
 	_update_direction()
@@ -289,9 +296,12 @@ func _on_building_state_changed():
 	_play_state_sfx(building.state)
 	if not building_model:
 		return
-	if not building_model.has_method(&"set_state"):
-		return
-	building_model.set_state(building.state)
+	if building_model.has_method(&"set_state"):
+		building_model.set_state(building.state)
+	# entering the delivery phase: resolve the landing pose for the model first, then refresh progress once -- the model cannot draw until it has an anchor
+	if building.state == "delivering":
+		_update_delivery_anchor()
+	_on_building_deliver_progress_changed()
 
 # 状态变化音效:仅在状态真正改变时播一次(防重绑补播)。
 # 按建筑类型查表:类型无条目 / 该状态无音效则不发声。
@@ -342,6 +352,49 @@ func _on_building_load_progress_changed():
 		return
 	building_model.set_load_progress(building.load_progress)
 
+# delivery-action progress: only the conveyor has it (see Conveyor.deliver_progress), model optionally implements set_deliver_progress
+func _on_building_deliver_progress_changed():
+	if not building or not building_model:
+		return
+	if not building_model.has_method(&"set_deliver_progress"):
+		return
+	building_model.set_deliver_progress(building.deliver_progress)
+
+# resolve "where the item being handed out will land" (world TRS) and give it to the model. the anchor must be
+# computed before the item is committed to storage -- the goods are still in the conveyor's own bag right now and
+# the downstream has not gained this piece yet, so the slot index at this instant is exactly the one it will take.
+# only done when the building offers get_delivery_target (conveyor); like set_load_progress it is an optional presentation interface
+func _update_delivery_anchor():
+	if not building or not building_model:
+		return
+	if not building.has_method(&"get_delivery_target") or not building_model.has_method(&"set_delivery_anchor"):
+		return
+	var target: Building = building.get_delivery_target()
+	if not target:
+		return
+	var held_type: String = ""
+	if building.has_method(&"get_held_type"):
+		held_type = building.get_held_type()
+	var anchor: Transform3D
+	var target_actor: BuildingActor = _building_actor_of(target)
+	if target_actor:
+		# take the anchor from "the bag that will actually accept it this time": with multi-bag buildings (workshops),
+		# picking the wrong pile draws the goods onto a different stack. get_accept_bag is a backend read-only query
+		# (the single implementation of the bag-selection rule), so the frontend does not duplicate that rule.
+		var dest_bag: Bag = target.get_accept_bag(held_type)
+		anchor = target_actor.get_landing_anchor(dest_bag, held_type)
+	else:
+		# downstream actor not placed (only hit at the edge of the camera's visible region): shrink to the cell center, reads as "vanishes on arrival"
+		anchor = Trs.zero_scale(Vector3(target.axis.x, 0.0, target.axis.y))
+	building_model.set_delivery_anchor(anchor)
+
+# the actor for a building; off-screen actor not placed -> null. owner is the LevelActor (same lookup as EntityActor)
+func _building_actor_of(in_building: Building) -> BuildingActor:
+	var level_actor := owner as LevelActor
+	if not level_actor:
+		return null
+	return level_actor.get_building_actor(in_building)
+
 # 把 backend 展示仓转发给 model,由其绑定到 ItemStack(见 ItemStack.bind;解绑时 bag 传 null)。
 func _bind_display_bag():
 	if not building_model or not building_model.has_method(&"bind_bag"):
@@ -371,3 +424,13 @@ func get_center_position() -> Vector3:
 	if not building_model or _model_local_box.size == Vector3.ZERO:
 		return global_position
 	return global_transform * _model_local_box.get_center()
+
+# the world TRS "the next item should have after landing" in a bag -- the endpoint of a transfer flight (see ItemFlight / conveyor delivery).
+# visible pile -> the exact slot of that piece in the stack (each piece in a stack is placed per cell; using the stack origin directly would make
+# the flight end one cell off); no visible pile (workshop input bag / main_base / model does not implement bind_bag) -> shrink to the building center,
+# reads as "shrinks to nothing on arrival" (the zero-scale endpoint is handled by Trs.lerp). this is the single implementation of that rule
+func get_landing_anchor(in_bag: Bag, in_item_type: String) -> Transform3D:
+	var pile: ItemStack = get_stack_for_bag(in_bag)
+	if pile:
+		return pile.next_slot_transform(in_item_type)
+	return Trs.zero_scale(get_center_position())

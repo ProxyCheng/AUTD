@@ -1,19 +1,34 @@
 extends SceneTree
 
-# 传送带回归:取货 / 计时运输 / 投送 / 卡住与重试 / 单件承载 / 不抽纯需求仓,
-# 外加支撑它的 Bag·Building 搬运能力接口。
-#   <godot.exe> --path <项目> --headless --script res://test/conveyor_test.gd
+# conveyor regression: pickup / timed transport / delivery / blocking and retry / single-item
+# carrying / not draining pure-demand bags, plus the Bag/Building transfer capability
+# interface that supports it.
+#   <godot.exe> --path <project> --headless --script res://test/conveyor_test.gd
 #
-# 返回 = 失败项数(0 = 通过)。
+# return = number of failed checks (0 = pass).
 #
-# 夹具沿用 attack_preference_test 的写法:Level 挂进 root ⇒ 建筑的 _ready 会跑(建仓);
-# 地图用 MapData 铺平地,再经 Map.place_building 落建筑。传送带的在途仓刻意不注册
-# Logistics,故本测试不需要接 Logistics。
+# delivery action: the "delivering" phase (and its HANDOFF_SECONDS) is only played when the
+# downstream is a real BUILDING (stockpile, workshop, main base, ...). A belt-to-belt hand-off
+# skips it and commits on the arrival frame -- adjacent belts' endpoints coincide on the shared
+# cell edge, so the item stays continuous and no FRAMES_HANDOFF delay applies there.
+#
+# the fixture follows attack_preference_test's approach: Level is added to root => the
+# building's _ready runs (bag creation); the map is flattened with MapData, then buildings
+# are placed via Map.place_building. The conveyor's in-transit bag is deliberately not
+# registered with Logistics, so this test does not need to wire up Logistics.
 
 const DELTA: float = 0.05
-# 走满一格所需帧数 + 1:取货那一帧只负责装货、不计入行程。按 Conveyor.CELL_TRAVEL_SECONDS
-# 推导,故后端改带速时这里自动跟随,测试不会与实现脱节。
+# frames to cross one cell + 1: the pickup frame only loads the item and does not count
+# toward travel. Derived from Conveyor.CELL_TRAVEL_SECONDS, so changing the belt speed in
+# the backend is followed automatically and the test never drifts from the implementation.
 const FRAMES_ONE_CELL: int = int(Conveyor.CELL_TRAVEL_SECONDS / DELTA) + 1
+# frames needed for the delivery action + 1: the arrival frame only enters the delivery
+# phase and does not count toward the action duration.
+# Also derived from backend constants, so changing HANDOFF_SECONDS is followed automatically.
+# ceili rather than int: 0.3 / 0.05 is 5.999999999999999 in double precision, and truncation
+# would be one frame short (delivery not yet committed); frame-by-frame subtraction to 0
+# actually takes 7 frames to commit, so round up then +1 to land exactly on the commit frame.
+const FRAMES_HANDOFF: int = ceili(Conveyor.HANDOFF_SECONDS / DELTA) + 1
 
 var failed: int = 0
 var level: Level = null
@@ -43,8 +58,10 @@ func _place(in_axis: Vector2i, in_type: String, in_direction: Vector2i) -> Build
 	bd.type = in_type
 	bd.direction = in_direction
 	var building: Building = level.map.place_building(in_axis, bd, true)
-	# headless --script 跑时 SceneTree 的 root 尚未就绪(Level 进不了树),_ready 不会自动触发;
-	# 手工补一次,让建筑按生产路径建好自己的仓(同 workshop_progress_test 手工建仓的用意)。
+	# when running headless --script, SceneTree's root is not ready yet (Level cannot enter
+	# the tree) and _ready does not fire automatically; call it once by hand so the building
+	# creates its bag through the production path (same intent as workshop_progress_test's
+	# manual bag creation).
 	building._ready()
 	return building
 
@@ -60,8 +77,9 @@ func _check(in_label: String, in_ok: bool):
 func _init():
 	level = _build_level()
 
-	# ===== 1. 取 → 走满一格(1.0s)→ 投 =====
-	# 源 = 料堆(仓储型,可存可取);中 = 传送带朝 +X(输出端在东);目标 = 另一个料堆。
+	# ===== 1. take -> cross one cell (1.0s) -> deliver =====
+	# source = stockpile (storage type, can store and provide); middle = conveyor facing +X
+	# (output end to the east); target = another stockpile.
 	var src := _place(Vector2i(0, 0), "stockpile", Vector2i.RIGHT) as Stockpile
 	src.store(5)
 	var belt := _place(Vector2i(1, 0), "conveyor", Vector2i.RIGHT) as Conveyor
@@ -70,51 +88,60 @@ func _init():
 	var dst_before: int = dst.bag.count
 
 	_run(1)
-	_check("1a 空载即取一件(源少 1 / 带上 1 / state=working)",
+	_check("1a empty belt takes one immediately (src -1 / on belt 1 / state=working)",
 			belt.bag.count == 1 and src.bag.count == src_before - 1 and belt.state == "working")
-	_check("1b 刚取到时 progress=0", is_zero_approx(belt.progress))
+	_check("1b progress=0 right after pickup", is_zero_approx(belt.progress))
 
 	_run(FRAMES_ONE_CELL - 1)
-	_check("1c 走满一格即投出(目标多 1 / 带上空 / state=idle)",
+	_check("1c reaching the exit enters the delivery phase (item still on belt / downstream not increased / progress=1 / deliver_progress=0)",
+			belt.state == "delivering" and belt.bag.count == 1 and dst.bag.count == dst_before
+			and is_equal_approx(belt.progress, 1.0) and is_zero_approx(belt.deliver_progress))
+
+	_run(FRAMES_HANDOFF)
+	_check("1d only on delivery completion does it commit (target +1 / belt empty / state=idle)",
 			dst.bag.count == dst_before + 1 and belt.bag.count == 0 and belt.state == "idle")
 
-	# ===== 2. 输出端为空 ⇒ 卡住,且不再取第二件 =====
+	# ===== 2. output end empty => blocked, and does not take a second item =====
 	var src2 := _place(Vector2i(0, 1), "stockpile", Vector2i.RIGHT) as Stockpile
 	src2.store(5)
 	var belt2 := _place(Vector2i(1, 1), "conveyor", Vector2i.RIGHT) as Conveyor
 	var src2_before: int = src2.bag.count
 	_run(FRAMES_ONE_CELL + 40)
-	_check("2a 输出端为空 ⇒ state=blocked,货留在带上", belt2.state == "blocked" and belt2.bag.count == 1)
-	_check("2b 卡住时 progress 停在 1", is_equal_approx(belt2.progress, 1.0))
-	_check("2c 卡住期间不再取第二件(源只少 1)", src2.bag.count == src2_before - 1)
+	_check("2a output end empty => state=blocked, item stays on belt", belt2.state == "blocked" and belt2.bag.count == 1)
+	_check("2b progress stays at 1 while blocked", is_equal_approx(belt2.progress, 1.0))
+	_check("2c while blocked it takes no second item (src -1 only)", src2.bag.count == src2_before - 1)
 
-	# ===== 3. 输出端补上 ⇒ 下一帧即恢复投送 =====
+	# ===== 3. output end supplied => delivery resumes next frame =====
 	var dst3 := _place(Vector2i(2, 1), "stockpile", Vector2i.RIGHT) as Stockpile
 	var dst3_before: int = dst3.bag.count
 	_run(1)
-	_check("3  输出端补上后即投出(目标多 1 / 带上空 / state=idle)",
+	_check("3a after the output end is supplied it first enters the delivery phase (item still on belt / downstream not increased)",
+			belt2.state == "delivering" and belt2.bag.count == 1 and dst3.bag.count == dst3_before)
+
+	_run(FRAMES_HANDOFF)
+	_check("3b only on delivery completion does it commit (target +1 / belt empty / state=idle)",
 			dst3.bag.count == dst3_before + 1 and belt2.bag.count == 0 and belt2.state == "idle")
 
-	# ===== 4. 目标收不下(满仓)⇒ 卡住,货不丢 =====
+	# ===== 4. target cannot accept (full) => blocked, no item lost =====
 	var src4 := _place(Vector2i(0, 2), "stockpile", Vector2i.RIGHT) as Stockpile
 	src4.store(5)
 	var belt4 := _place(Vector2i(1, 2), "conveyor", Vector2i.RIGHT) as Conveyor
 	var dst4 := _place(Vector2i(2, 2), "stockpile", Vector2i.RIGHT) as Stockpile
 	dst4.store(Stockpile.CAPACITY)
-	_check("4a 目标已满仓", dst4.is_full())
+	_check("4a target is full", dst4.is_full())
 	_run(FRAMES_ONE_CELL + 10)
-	_check("4b 目标满仓 ⇒ state=blocked 且货不丢", belt4.state == "blocked" and belt4.bag.count == 1)
+	_check("4b target full => state=blocked and no item lost", belt4.state == "blocked" and belt4.bag.count == 1)
 
-	# ===== 5. Bag 搬运能力谓词(传送带取送依赖的判据)=====
+	# ===== 5. Bag transfer capability predicates (the criteria conveyor take/deliver relies on) =====
 	var storage := Bag.new()
 	storage.item_type = "arrow"
 	storage.max_count = 30
 	storage.preferred_min_count = 0
 	storage.preferred_max_count = 30
 	storage.add_count_of("arrow", 5)
-	_check("5a 仓储型:可给、可给量=全部存量、落库档最高(2)",
+	_check("5a storage type: can provide, available=all stock, highest deposit rank (2)",
 			storage.can_provide("arrow") and storage.available_to_provide("arrow") == 5 and storage.deposit_rank("arrow") == 2)
-	_check("5b 仓储型:可收", storage.can_accept("arrow"))
+	_check("5b storage type: can accept", storage.can_accept("arrow"))
 
 	var demand := Bag.new()
 	demand.item_type = "log"
@@ -122,9 +149,9 @@ func _init():
 	demand.preferred_min_count = 30
 	demand.preferred_max_count = 30
 	demand.add_count_of("log", 5)
-	_check("5c 纯需求方:不可给(不会被抽走)",
+	_check("5c pure demander: cannot provide (never drained)",
 			not demand.can_provide("log") and demand.available_to_provide("log") == 0)
-	_check("5d 纯需求方:可收、落库档最高(2)", demand.can_accept("log") and demand.deposit_rank("log") == 2)
+	_check("5d pure demander: can accept, highest deposit rank (2)", demand.can_accept("log") and demand.deposit_rank("log") == 2)
 
 	var supply := Bag.new()
 	supply.item_type = "arrow"
@@ -132,22 +159,25 @@ func _init():
 	supply.preferred_min_count = 0
 	supply.preferred_max_count = 0
 	supply.add_count_of("arrow", 5)
-	_check("5e 纯供给方:可给全部、落库档次高(1)",
+	_check("5e pure supplier: can provide all, next-highest deposit rank (1)",
 			supply.can_provide("arrow") and supply.available_to_provide("arrow") == 5 and supply.deposit_rank("arrow") == 1)
 
-	# ===== 6. Building 门面(传送带取送实际走它)=====
-	# 单独的料堆:src 在前面几轮里已被自己的传送带抽走不少,不能复用做"可给"断言。
+	# ===== 6. Building facade (conveyor take/deliver actually goes through it) =====
+	# a separate stockpile: src has already been drained a lot by its own conveyor in earlier
+	# rounds, so it cannot be reused for the "can provide" assertion.
 	var lone := _place(Vector2i(1, 3), "conveyor", Vector2i.RIGHT) as Conveyor
 	var storage_building := _place(Vector2i(3, 3), "stockpile", Vector2i.RIGHT) as Stockpile
 	storage_building.store(5)
-	_check("6a 料堆作为建筑:可给且可收",
+	_check("6a stockpile as a building: can provide and can accept",
 			storage_building.can_provide("arrow") and storage_building.can_accept("arrow"))
-	_check("6b 传送带暴露在途仓,未满即可收(空载也要能收,否则串接会断)",
+	_check("6b conveyor exposes its in-transit bag, can accept while not full (must accept even when empty, otherwise chaining breaks)",
 			lone.get_transfer_bags().size() == 1 and lone.can_accept("arrow"))
-	_check("6c 空载传送带不可给", not lone.can_provide("arrow"))
+	_check("6c empty conveyor cannot provide", not lone.can_provide("arrow"))
 
-	# ===== 7. 传送带串接:输出端是另一条传送带 =====
-	# 上游把货直接推进下游的在途仓;下游据此起表、走满一格再投(不能跳过运输)。
+	# ===== 7. conveyor chaining: the output end is another conveyor =====
+	# a belt-to-belt hand-off plays no delivery action: the item is committed on the arrival
+	# frame, so the upstream goes straight from "working" to "idle" and the downstream starts
+	# travelling on that same frame (its timer is restarted by _on_hold_changed).
 	var src7 := _place(Vector2i(0, 4), "stockpile", Vector2i.RIGHT) as Stockpile
 	src7.store(3)
 	var src7_before: int = src7.bag.count
@@ -155,15 +185,48 @@ func _init():
 	var belt7b := _place(Vector2i(2, 4), "conveyor", Vector2i.RIGHT) as Conveyor
 
 	_run(FRAMES_ONE_CELL)
-	_check("7a 上游把货交给下游(下游带上 1 件)", belt7b.bag.count == 1)
-	_check("7b 下游确实开始走(而非同帧直接投出)", belt7b.state == "working" and belt7b.progress < 1.0)
+	_check("7a upstream hands over at the exit with no delivery action (downstream has 1 / upstream empty / neither delivering)",
+			belt7b.bag.count == 1 and belt7a.bag.count == 0
+			and belt7a.state == "idle" and belt7b.state == "working"
+			and belt7a.deliver_progress == 0.0 and belt7b.deliver_progress == 0.0)
+	_check("7b downstream really started travelling (not delivered in the same frame)", belt7b.progress < 1.0)
 
 	_run(FRAMES_ONE_CELL)
-	_check("7c 下游走满一格后投不出去 ⇒ blocked 且货不丢",
+	_check("7c downstream reaches its own exit with nothing at (3,4) => blocked, item not lost",
 			belt7b.state == "blocked" and belt7b.bag.count == 1)
-	_check("7d 整链守恒:源少 2 件(上游送完立刻又取了一件)、两条带各持 1 件",
+	_check("7d whole-chain conservation: src -2 (upstream re-picked one), each belt holds 1 (1+1+2=4)",
 			src7.bag.count == src7_before - 2 and belt7a.bag.count == 1 and belt7b.bag.count == 1)
 
-	Level.current = null      # 静态指针不置空会留到退出,报一堆 ObjectDB 泄漏
+	# ===== 8. target cannot accept during delivery => abort midway back to blocked, item still on belt =====
+	# after arriving and entering the delivery phase, fill the target during the delivery: the
+	# next _tick_delivery re-check sees can_accept false and should abort midway
+	# (deliver_progress zeroed, state=blocked); the item is always held by this belt and is
+	# never lost.
+	var src8 := _place(Vector2i(0, 5), "stockpile", Vector2i.RIGHT) as Stockpile
+	src8.store(5)
+	var belt8 := _place(Vector2i(1, 5), "conveyor", Vector2i.RIGHT) as Conveyor
+	var dst8 := _place(Vector2i(2, 5), "stockpile", Vector2i.RIGHT) as Stockpile
+
+	_run(FRAMES_ONE_CELL)
+	_check("8a arrival enters the delivery phase (item still on belt / downstream not increased / deliver_progress=0)",
+			belt8.state == "delivering" and belt8.bag.count == 1
+			and dst8.bag.count == 1 and is_zero_approx(belt8.deliver_progress))
+
+	dst8.store(Stockpile.CAPACITY)      # fill the downstream during delivery, the next frame's re-check sees it cannot accept
+	_run(1)
+	_check("8b target cannot accept during delivery => abort midway back to blocked (item still on belt / progress=1 / deliver_progress=0)",
+			belt8.state == "blocked" and belt8.bag.count == 1
+			and is_equal_approx(belt8.progress, 1.0) and is_zero_approx(belt8.deliver_progress))
+
+	dst8.take(1)                        # free one slot to prove blocked is not a dead end and is recoverable
+	_run(1)
+	_check("8c after the target frees space it re-enters the delivery phase (item still on belt)",
+			belt8.state == "delivering" and belt8.bag.count == 1)
+
+	_run(FRAMES_HANDOFF)
+	_check("8d only when the re-delivery completes does it commit (target back to full / belt empty / state=idle)",
+			dst8.bag.count == Stockpile.CAPACITY and belt8.bag.count == 0 and belt8.state == "idle")
+
+	Level.current = null      # leaving the static pointer unset would persist to exit and report a pile of ObjectDB leaks
 	print("RESULT failed=", failed)
 	quit(failed)

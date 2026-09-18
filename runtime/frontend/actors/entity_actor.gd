@@ -386,20 +386,16 @@ func spawn_transfer_flight(in_transfer: ItemTransfer, in_index: int, in_host: No
 	if not worker_bag:
 		return
 	var other_bag: Bag = in_transfer.dest_bag if worker_bag == in_transfer.source_bag else in_transfer.source_bag
-	# 建筑端:优先取"这次真正在动的那只仓"绑定的料堆 —— 多仓建筑(工坊)取错堆会把货画到别的垛上;
-	# 该仓没有可见料堆(工坊输入仓 / main_base)→ 模型中心 + 缩放 0,读作"到地方就消失"
-	# (取货时反过来,从中心 0 长出来再飞向工人)。缩放 0 的端点由 Trs.lerp 兜住。
+	# building side: the landing rule (visible pile -> that piece's slot, otherwise shrink to the building center) has
+	# its single implementation in BuildingActor.get_landing_anchor -- it takes the pile by "the bag actually moving
+	# this time", so multi-bag buildings (workshops) do not draw the goods onto a different stack; no visible pile
+	# (workshop input bag / main_base) -> model center + scale 0, reads as "vanishes on arrival" (on pickup it is
+	# reversed: grows out of center 0 then flies to the worker).
 	var building_anchor: Transform3D = Transform3D.IDENTITY
 	var building_actor: BuildingActor = _building_actor_of(other_bag)
 	if not building_actor:
 		return
-	var pile: ItemStack = building_actor.get_stack_for_bag(other_bag)
-	if pile:
-		# 落点取"那一件落地后应有的槽位"(见 ItemStack.next_slot_transform),不是垛节点原点:
-		# 垛里每件按格摆放,原点只是整垛底心,直接用会让飞行收尾与垛里新出现那支错开一格。
-		building_anchor = pile.next_slot_transform(in_transfer.item_type)
-	else:
-		building_anchor = Trs.zero_scale(building_actor.get_center_position())
+	building_anchor = building_actor.get_landing_anchor(other_bag, in_transfer.item_type)
 	var worker_anchor: Transform3D = _worker_bag_anchor(worker_bag, in_transfer.item_type)
 	var outgoing: bool = worker_bag == in_transfer.source_bag
 	var from_pose: Transform3D = worker_anchor if outgoing else building_anchor

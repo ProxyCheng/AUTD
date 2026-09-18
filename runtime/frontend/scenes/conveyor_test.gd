@@ -1,54 +1,68 @@
 extends Node3D
 
-# 传送带循环测试场景:一个料堆 + 9 条传送带围成一圈,看货能不能绕圈转起来。
+# conveyor loop test scene: one stockpile + 9 conveyors arranged in a loop, to see whether
+# goods can circulate around it.
 #
-# 布局(俯视;世界 = (x, 0, y),故 y 越大越靠近屏幕下方):
+# layout (top-down; world = (x, 0, y), so a larger y is closer to the bottom of the screen):
 #
-#   y=0   ↓  ←  ←  ←      (0,0)↓  (1,0)←  (2,0)←  (3,0)←
-#   y=1   ↓        ↑      (0,1)↓              (3,1)↑
-#   y=2   仓 →  →  ↑      (0,2)仓  (1,2)→  (2,2)→  (3,2)↑
+#   y=0   v  <- <- <-      (0,0)v  (1,0)<-  (2,0)<-  (3,0)<-
+#   y=1   v        ^      (0,1)v              (3,1)^
+#   y=2   S  -> -> ^      (0,2)S  (1,2)->  (2,2)->  (3,2)^
 #
-# 每格的 direction 就是它的输出方向,输入端 = axis - direction,于是整圈是:
-#   料堆(0,2) → (1,2) → (2,2) → (3,2) → (3,1) → (3,0) → (2,0) → (1,0) → (0,0) → (0,1) → 回到料堆(0,2)
+# each cell's direction is its output direction, input end = axis - direction, so the whole
+# loop is:
+#   stockpile(0,2) -> (1,2) -> (2,2) -> (3,2) -> (3,1) -> (3,0) -> (2,0) -> (1,0) -> (0,0) -> (0,1) -> back to stockpile(0,2)
 #
-# (1,2) 没有上游传送带,它从输入端邻建 —— 也就是料堆 —— 取货;整圈最后一条 (0,1) 把货投回料堆。
-# 料堆是"可存可取"的仓储型,既收得下也取得出,所以货会在圈里一直循环。
+# (1,2) has no upstream conveyor; it takes goods from its input-end neighbour -- the
+# stockpile. The last belt of the loop, (0,1), delivers goods back to the stockpile.
+# The stockpile is a "can store and can provide" storage type, able to both accept and
+# provide, so goods keep circulating in the loop.
 #
-# 与 crossbow_test 同构:手工搭 backend(Level/Map)并每帧 tick;前端只用真实 BuildingActor
-# 绑上去看模型/循环动画/承载物,不接 battle.tscn 的输入与 UI。
+# Same shape as crossbow_test: build the backend (Level/Map) by hand and tick it every
+# frame; the frontend only attaches real BuildingActors to watch the model/loop
+# animation/payload, without wiring up battle.tscn's input and UI.
 
-# { axis: direction(= 输出方向) }。缺的那格 (0,2) 是料堆。
+# { axis: direction (= output direction) }. The missing cell (0,2) is the stockpile.
 const CONVEYOR_DIRECTIONS: Dictionary = {
-	Vector2i(1, 2): Vector2i.RIGHT,   # 底部向右
+	Vector2i(1, 2): Vector2i.RIGHT,   # bottom, pointing right
 	Vector2i(2, 2): Vector2i.RIGHT,
-	Vector2i(3, 2): Vector2i.UP,      # 右侧向上(y 减小)
+	Vector2i(3, 2): Vector2i.UP,      # right side, pointing up (y decreases)
 	Vector2i(3, 1): Vector2i.UP,
-	Vector2i(3, 0): Vector2i.LEFT,    # 顶部向左
+	Vector2i(3, 0): Vector2i.LEFT,    # top, pointing left
 	Vector2i(2, 0): Vector2i.LEFT,
 	Vector2i(1, 0): Vector2i.LEFT,
-	Vector2i(0, 0): Vector2i.DOWN,    # 左侧向下
+	Vector2i(0, 0): Vector2i.DOWN,    # left side, pointing down
 	Vector2i(0, 1): Vector2i.DOWN,
 }
 const STOCKPILE_AXIS: Vector2i = Vector2i(0, 2)
-# 料堆里放多少件。要 >= 带条数 + 1:整圈九条带各持一件之后仓里还剩货,才能看出是"循环"
-# 而不是"一次性把仓搬空"。
+# how many items the stockpile holds. Must be >= belt count + 1: only if goods remain in the
+# bag after all nine belts in the loop each hold one can it be seen as "circulating" rather
+# than "emptying the bag once".
 const STOCKPILE_SEED: int = 12
 const STEP_DT: float = 1.0 / 60.0
 
 var _level: Level = null
 var _stockpile: Stockpile = null
 var _conveyors: Array[Conveyor] = []
-var _actors: Dictionary = {}   # { axis: BuildingActor },供接缝检查取模型
+var _actors: Dictionary = {}   # { axis: BuildingActor }, for the seam check to get models
 var _hud: Label = null
 
-# 循环的客观判据:料堆存量每被取走/送回一次就变一次。变化次数持续上涨 ⇒ 货在圈里转,
-# 而不是"一次性把仓搬空后卡死"。总量 min~max 顺带盯守恒(任何丢件/造件都会露馅)。
+# objective criterion for circulation: the stockpile count changes every time goods are taken
+# or returned. A continuously rising flip count => goods are circulating rather than "emptied
+# once then stuck". The total min~max also watches conservation (any lost/created item shows
+# up).
 var _stock_min: int = 1 << 30
 var _stock_max: int = -1
 var _stock_flips: int = 0
 var _last_stock: int = -1
 var _total_min: int = 1 << 30
 var _total_max: int = -1
+# objective criterion for the delivery action: the **peak lift** of the item off the belt
+# surface (max over the session). Delivery is a short 0.3s action and catching it by
+# screenshot is unreliable; "did the item ever leave the belt surface" only needs a nonzero
+# value to prove the action really ran -- if the frontend were not drawing it, this value
+# would stay 0. So take the session maximum rather than an instantaneous value.
+var _lift_max: float = 0.0
 
 func _ready():
 	_build_backend()
@@ -78,7 +92,7 @@ func _build_backend():
 	stock_data.type = "stockpile"
 	stock_data.direction = Vector2i.UP
 	_stockpile = _level.map.place_building(STOCKPILE_AXIS, stock_data, true) as Stockpile
-	# 料堆放置时会自动填 1 件,这里补到 STOCKPILE_SEED。
+	# placing the stockpile auto-fills 1 item; top it up to STOCKPILE_SEED here.
 	_stockpile.store(STOCKPILE_SEED)
 
 	for axis: Vector2i in CONVEYOR_DIRECTIONS:
@@ -111,7 +125,7 @@ func _build_frontend():
 	we.environment = env
 	add_child(we)
 
-	# 整圈占 x∈[0,3]、y∈[0,2],中心 (1.5, 0, 1.0)。
+	# the loop occupies x in [0,3], y in [0,2], center (1.5, 0, 1.0).
 	var center := Vector3(1.5, 0.0, 1.0)
 	var cam := Camera3D.new()
 	cam.name = "Camera"
@@ -121,7 +135,8 @@ func _build_frontend():
 	cam.look_at(center, Vector3.UP)
 	cam.fov = 45.0
 
-	# 每栋建筑挂一个真实 BuildingActor:模型、循环动画、带上承载物全由它驱动。
+	# attach a real BuildingActor to each building: it drives the model, loop animation and
+	# belt payload.
 	var actor_scene: PackedScene = preload("res://runtime/frontend/actors/building_actor.tscn")
 	_spawn_actor(actor_scene, _stockpile)
 	for belt: Conveyor in _conveyors:
@@ -140,11 +155,15 @@ func _spawn_actor(in_scene: PackedScene, in_building: Building):
 	actor.bind(in_building)
 	_actors[in_building.axis] = actor
 
-# 接缝检查,分两类报:
-#   直行对:A 的输出端 == B 的输入端。必须精确重合(0),否则物品跨带那一帧会跳。
-#   拐角对:A 的输出落在 B 的侧面。直线传送带的输入端与输出端是相对的两条边,拐不了弯 ——
-#          拐角只能靠上游往下游的侧面推货,而物品的显示起点仍在 B 的输入端(另一条边),
-#          故这类天生错开一格。要真无缝得加一块"拐弯传送带"部件。
+# seam check, reported in two categories:
+#   straight pair: A's output end == B's input end. Must coincide exactly (0), otherwise the
+#                  item jumps on the frame it crosses belts.
+#   corner pair: A's output lands on B's side. A straight conveyor's input and output ends
+#                are opposite edges and cannot turn a corner -- a corner can only push goods
+#                from the upstream to the downstream's side, while the item's display start
+#                is still at B's input end (the other edge), so this category is inherently
+#                one cell out of alignment. True seamlessness would need a "corner conveyor"
+#                piece.
 func seam_report() -> String:
 	var worst: float = 0.0
 	var corners: Array[String] = []
@@ -163,7 +182,7 @@ func seam_report() -> String:
 		var a_out: Vector3 = a_model.global_transform * Vector3(ConveyorModel.BELT_OUTPUT_X, ConveyorModel.BELT_TOP_Y, 0.0)
 		var b_in: Vector3 = b_model.global_transform * Vector3(ConveyorModel.BELT_INPUT_X, ConveyorModel.BELT_TOP_Y, 0.0)
 		worst = maxf(worst, a_out.distance_to(b_in))
-	return "直行接缝 %.5f 拐角 %s" % [worst, ",".join(corners)]
+	return "straight seam %.5f corners %s" % [worst, ",".join(corners)]
 
 func _model_at(in_axis: Vector2i) -> Node3D:
 	var actor: Node3D = _actors.get(in_axis)
@@ -173,19 +192,26 @@ func _process(_delta: float):
 	_level.tick(STEP_DT)
 	_update_hud()
 
-# 报出"在仓 / 在带 / 在途 / 卡住"四项。判断转起来看两点:
-#   * 总件数恒定(货既没卡死在某一格也没凭空消失);
-#   * 在带件数稳定在接近带条数(每条带都咬着一件货在走),而不是一次性全堆到某处。
+# report the counts "in stock / on belts / working / delivering / blocked", plus the session
+# peak lift. Two things tell whether the loop is running:
+#   * the total item count is constant (goods neither stuck dead in one cell nor vanished);
+#   * the on-belt count stabilizes near the belt count (every belt is carrying one item),
+#     rather than all piling up somewhere at once.
+# The peak lift is the objective proof that the delivery action really plays; see _lift_max.
 func _update_hud():
 	var on_belts: int = 0
 	var working: int = 0
 	var blocked: int = 0
+	var delivering: int = 0
 	for belt: Conveyor in _conveyors:
 		on_belts += belt.bag.count
 		if belt.state == "blocked":
 			blocked += 1
 		elif belt.state == "working":
 			working += 1
+		elif belt.state == "delivering":
+			delivering += 1
+		_lift_max = maxf(_lift_max, _item_lift(belt))
 	var stock: int = _stockpile.bag.count
 	var total: int = stock + on_belts
 	_stock_min = mini(_stock_min, stock)
@@ -195,7 +221,22 @@ func _update_hud():
 	if _last_stock >= 0 and stock != _last_stock:
 		_stock_flips += 1
 	_last_stock = stock
-	_hud.text = "料堆 %d (%d~%d, 翻转 %d) | 带上 %d/%d 在途 %d 卡住 %d | 总 %d (%d~%d) | %s" % [
+	_hud.text = "stock %d (%d~%d, flips %d) | belts %d/%d working %d delivering %d blocked %d | total %d (%d~%d) | peak lift %.3f | %s" % [
 		stock, _stock_min, _stock_max, _stock_flips,
-		on_belts, _conveyors.size(), working, blocked,
-		total, _total_min, _total_max, seam_report()]
+		on_belts, _conveyors.size(), working, delivering, blocked,
+		total, _total_min, _total_max, _lift_max, seam_report()]
+
+# how far the item this belt carries has lifted off the belt surface (world Y, metres).
+# 0 while it slides along the belt; > 0 only while the delivery action carries it through the
+# inverted-U arc. An empty belt, or a belt whose model is not placed, reports 0.
+func _item_lift(in_belt: Conveyor) -> float:
+	if in_belt.bag.count <= 0:
+		return 0.0
+	var model: Node3D = _model_at(in_belt.axis)
+	if not model:
+		return 0.0
+	var stack: Node3D = model.get_node_or_null("hold_stack")
+	if not stack:
+		return 0.0
+	var surface_y: float = (model.global_transform * Vector3(0.0, ConveyorModel.BELT_TOP_Y, 0.0)).y
+	return stack.global_position.y - surface_y

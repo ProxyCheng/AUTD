@@ -102,7 +102,7 @@ func can_provide(in_item_type: String) -> bool:
 func accept_from(in_source: Bag, in_item_type: String, in_amount: int) -> int:
 	if not is_instance_valid(in_source) or in_amount <= 0:
 		return 0
-	var dest: Bag = _pick_accept_bag(in_item_type)
+	var dest: Bag = get_accept_bag(in_item_type)
 	if dest == null:
 		return 0
 	return in_source.move_to(dest, in_item_type, in_amount)
@@ -121,7 +121,10 @@ func provide_to(in_dest: Bag, in_item_type: String, in_amount: int) -> int:
 	return source.move_to(in_dest, moved_type, in_amount)
 
 # 接收侧选仓:只在收得下的仓里挑,deposit_rank 高者优先,同层比 deposit_priority。
-func _pick_accept_bag(in_item_type: String) -> Bag:
+# public read-only query: the frontend uses it to resolve "which bag an incoming piece will land in" and point the
+# delivery animation at the right pile, without duplicating the rank/priority bag-selection rule. pure selection, no
+# item movement, so it is safe to call while a delivery action is still playing.
+func get_accept_bag(in_item_type: String) -> Bag:
 	var best: Bag = null
 	var best_rank: int = 0
 	var best_priority: int = 0

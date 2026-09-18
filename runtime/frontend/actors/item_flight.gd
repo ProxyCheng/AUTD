@@ -8,25 +8,15 @@ extends Node3D
 # 故本节点**不自带计时器**:进度是后端的事实,表现跟着它走(§5.4 的 progress 契约:
 # 数据层只出归一化进度,到动画时间轴的换算在表现层)。后端把整段拉长/缩短,飞行自动跟着变。
 #
-# 两端各是一份完整的世界空间 TRS,三样一起过渡:位置走直线并叠加倒 U 拱高,朝向与缩放
-# 整段交给 Trs.lerp(它有"缩放为 0"端点的处理,见该类注释)。
+# both ends are a full world-space TRS, all three blended together (inverted-U arc + TRS interpolation); the
+# trajectory formula's single implementation is Trs.arc_lerp (shared by worker hauling and conveyor delivery), this node only wires it to the transfer progress
 #
 # 姿态契约:道具模型按 ItemStack 的归一化约定摆正(rotation=ZERO、scale=ONE),
 # 位置/朝向/缩放全部由本节点承担 —— 这样飞行中的道具与垛里那支看起来是同一个东西。
 
-# —— 倒 U 轨迹参数 ——
-# 拱高系数:弧顶抬升 = 直线距离 × 本值(同 CannonModel.LOAD_BALL_ARC_RATIO 的几何思路)。
-const ARC_RATIO: float = 0.35
-# 拱高下限(米):只兜住起终点重合的退化情形;刻意取得极小,近距离不会鼓成一个包。
-const ARC_MIN_HEIGHT: float = 0.05
-# 拱高上限(米):长距离搬运不把弧顶抬到天上,读作"抛过去"而非"飞越"。
-const ARC_MAX_HEIGHT: float = 2.5
-
 # 起点/终点姿态(世界空间 TRS),launch 时写死,飞行期间只读。
 var _from: Transform3D = Transform3D.IDENTITY
 var _to: Transform3D = Transform3D.IDENTITY
-# 弧顶抬升量(米):按直线距离一次算好,避免每帧重复求。
-var _arc: float = 0.0
 # 驱动本表现的搬运(由 follow 绑定);终态即自毁。
 var _transfer: ItemTransfer = null
 # 本件在整批里的进度窗口 [from, to):整批进度被等分成 N 段,本件只在属于自己那一段里飞。
@@ -49,8 +39,6 @@ static func launch(in_type: String, in_from: Transform3D, in_to: Transform3D) ->
 	var flight := ItemFlight.new()
 	flight._from = in_from
 	flight._to = in_to
-	flight._arc = clampf(in_from.origin.distance_to(in_to.origin) * ARC_RATIO,
-			ARC_MIN_HEIGHT, ARC_MAX_HEIGHT)
 	flight.name = "ItemFlight_%s" % in_type
 	# 归一化同 ItemStack._build_props:模型只摆姿态,尺寸交给本节点 Transform 的缩放。
 	# 这里不置 visible —— 垛里置 false 是为了数量显隐,飞行中这件必须可见。
@@ -94,9 +82,6 @@ func _refresh():
 func _on_transfer_finished(_in_state: int):
 	queue_free()
 
-# 按归一化进度 in_k ∈ [0,1] 采样姿态:位置走直线并叠加倒 U 拱高(不穿地面/建筑),
-# 朝向与缩放整段交给 Trs.lerp。
+# sample the pose at normalized progress in_k in [0,1]; the trajectory (inverted-U arc + TRS interpolation) has its single implementation in Trs.arc_lerp
 func _apply(in_k: float):
-	var pose: Transform3D = Trs.lerp(_from, _to, in_k)
-	pose.origin.y += 4.0 * _arc * in_k * (1.0 - in_k)
-	global_transform = pose
+	global_transform = Trs.arc_lerp(_from, _to, in_k)

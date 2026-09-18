@@ -42,3 +42,21 @@ static func is_pose_valid(in_pose: Transform3D) -> bool:
 # 零基的朝向本就不可解,由 lerp 自行借另一端,这里给什么都不影响结果。
 static func zero_scale(in_at: Vector3) -> Transform3D:
 	return Transform3D(Basis.from_scale(Vector3.ZERO), in_at)
+
+# -- inverted-U trajectory (world space) --
+# arc height ratio: apex lift = straight-line distance * this value
+const ARC_RATIO: float = 0.35
+# arc height lower bound (m): only covers the degenerate case of coincident endpoints; deliberately tiny so short hops do not bulge
+const ARC_MIN_HEIGHT: float = 0.05
+# arc height upper bound (m): long hauls do not lift the apex to the sky, reads as a "toss" not a "fly-over"
+const ARC_MAX_HEIGHT: float = 2.5
+
+# position follows a straight line plus inverted-U arc height (no clipping through ground/buildings); rotation and scale are fully delegated to lerp
+# this is the single implementation of the "handed over" feel: worker hauling (ItemFlight) and conveyor delivery (ConveyorModel) both use it
+static func arc_lerp(in_from: Transform3D, in_to: Transform3D, in_weight: float) -> Transform3D:
+	var k: float = clampf(in_weight, 0.0, 1.0)
+	var pose: Transform3D = lerp(in_from, in_to, k)
+	var arc: float = clampf(in_from.origin.distance_to(in_to.origin) * ARC_RATIO,
+			ARC_MIN_HEIGHT, ARC_MAX_HEIGHT)
+	pose.origin.y += 4.0 * arc * k * (1.0 - k)
+	return pose
