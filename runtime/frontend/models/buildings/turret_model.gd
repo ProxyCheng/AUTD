@@ -32,10 +32,16 @@ var _load_progress: float = 0.0
 
 # 炮口水平朝向:由 backend 传入的 aim_direction(单位向量,y 为世界 z)决定。
 # backend 已做限速,方向向量逐帧连续变化;这里累计成连续角度,不跳变。
+#
+# in_direction 是世界空间向量,而 %cog_top.rotation.z 是局部角:BuildingActor 会按建筑
+# direction 对整个模型 look_at(见 BuildingActor._on_direction_changed),模型局部系已随
+# 建筑旋转。若直接拿世界 yaw 赋给局部角,建筑朝向会被重复计入一次 —— 建筑每转 90°,
+# 炮塔就整体偏 90°。故先经本节点 global_transform 反解回局部系再取角。
 func set_aim_direction(in_direction: Vector3):
 	_aim_dir = in_direction
+	var local_direction: Vector3 = global_transform.basis.inverse() * in_direction
 	# 模型 rest 朝 +Z(= Vector3.BACK),故取 atan2(x, z) 为朝向角
-	var target_angle: float = atan2(in_direction.x, in_direction.z)
+	var target_angle: float = atan2(local_direction.x, local_direction.z)
 	var delta: float = wrapf(target_angle - _current_yaw, -PI, PI)
 	_current_yaw += delta
 	%cog_top.rotation.z = _current_yaw
