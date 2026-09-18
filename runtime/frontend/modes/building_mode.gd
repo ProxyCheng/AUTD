@@ -7,6 +7,11 @@ const PREVIEW_TRANSPARENCY: float = 0.5
 var building_data: BuildingData = null
 var building_model: Node3D = null
 
+# 预览的位置/朝向载体:与 BuildingActor 同构 —— 位置与 look_at 都作用在"模型的外层节点"上,
+# 模型自身在 .tscn 里的旋转/缩放(传送带根节点的 +90°Y 与 1/1.95 缩放、stone_mine 的 0.8…)
+# 原样保留。若直接对模型根节点 look_at,会把它自带的旋转覆盖掉 —— 预览就与实际放置差 90°。
+var _preview_holder: Node3D = null
+
 # 待放置方向:网格向量 (x, y) → 世界 (x, 0, y),模型正面约定为 -Z(见 BuildingActor)。
 # 玩家用 rotate_building_left / rotate_building_right 以 90° 步进旋转,落库时写进
 # 该次放置的 BuildingData.direction(后端 Conveyor 之类靠它分辨输入/输出端)。
@@ -68,34 +73,42 @@ func _rotate_placement(in_clockwise: bool):
 	_placement_direction = Vector2i(-y, x) if in_clockwise else Vector2i(y, -x)
 	_apply_preview_direction()
 
-# 让预览模型朝向待放置方向:模型正面约定为 -Z(见 BuildingActor._on_direction_changed)。
+# 让预览朝向待放置方向:模型正面约定为 -Z(见 BuildingActor._on_direction_changed)。
+# 作用在 holder 上而非模型本身,理由见 _preview_holder 的注释。
 func _apply_preview_direction():
-	if not building_model:
+	if not _preview_holder:
 		return
-	building_model.look_at(building_model.global_position + Vector3(_placement_direction.x, 0, _placement_direction.y), Vector3.UP)
+	_preview_holder.look_at(_preview_holder.global_position + Vector3(_placement_direction.x, 0, _placement_direction.y), Vector3.UP)
 
 # 桌面鼠标悬停预览(触屏无 hover,预览停在最后一次点击格);不可放置时隐藏。
 func _update_preview():
-	if not building_model or not building_data:
+	if not building_model or not _preview_holder or not building_data:
 		return
 	var axis: Variant = get_pointing_axis(get_viewport().get_mouse_position())
 	if axis == null:
-		building_model.hide()
+		_preview_holder.hide()
 		return
 	var map: Map = Level.current.map
 	if not map.can_place_building(axis, building_data):
-		building_model.hide()
+		_preview_holder.hide()
 		return
-	building_model.position = Vector3(axis.x, 0, axis.y)
-	building_model.show()
+	_preview_holder.position = Vector3(axis.x, 0, axis.y)
+	_preview_holder.show()
 
 func leave():
-	if building_model:
+	if _preview_holder:
 		building_data = null
-		remove_child(building_model)
-		building_model.queue_free()
-		building_model = null
+		_clear_preview()
 	$ui.hide()
+
+# 清掉当前预览(holder 连同模型一起释放;模型只挂在 holder 下,不单独持有)。
+func _clear_preview():
+	if not _preview_holder:
+		return
+	remove_child(_preview_holder)
+	_preview_holder.queue_free()
+	_preview_holder = null
+	building_model = null
 
 func _on_back_pressed():
 	owner.set_mode(&"roaming")
@@ -105,18 +118,18 @@ func _on_card_clicked(in_building_type: String):
 		return
 	building_data = BuildingData.new()
 	building_data.type = in_building_type
-	if building_model:
-		remove_child(building_model)
-		building_model.queue_free()
-		building_model = null
+	_clear_preview()
 	var building_path: String = "res://runtime/frontend/models/buildings/%s/%s.tscn" % [building_data.type, building_data.type]
 	var building_scene: PackedScene = load(building_path)
+	_preview_holder = Node3D.new()
+	_preview_holder.name = "preview_holder"
+	add_child(_preview_holder)
 	building_model = building_scene.instantiate()
-	add_child(building_model)
+	_preview_holder.add_child(building_model)
 	building_model.owner = owner
 	_apply_preview_transparency(building_model)
 	_apply_preview_direction()
-	building_model.hide()
+	_preview_holder.hide()
 
 # 预览模型整体半透:逐个几何实例设 instance transparency(Forward+ 实例级透明度,
 # 会把不透明材质也送进透明通道),不改模型自身材质资源,故不影响正式放置后的外观。
