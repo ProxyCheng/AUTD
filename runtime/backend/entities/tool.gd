@@ -17,9 +17,6 @@ extends Entity
 # 一直没派上用场的会被空闲树放回仓里(见 UNUSED_PUT_AWAY_SECONDS)。
 
 const DEFAULT_MAX_DURABILITY: float = 100.0
-# 空手注入倍率:配方需要工具而工人手上没有时的效率系数(见 ProvideWorkloadTask._tool_factor)。
-# 空手仍能干活,只是极慢;配方本就不需要工具时不受此影响(恒 1.0)。
-const EMPTY_HANDED_EFFICIENCY: float = 0.1
 
 var max_durability: float = DEFAULT_MAX_DURABILITY
 # 当前耐久,恒被夹在 [0, max_durability];归零即报废(见 is_broken)。

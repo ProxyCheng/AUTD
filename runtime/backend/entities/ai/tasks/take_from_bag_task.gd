@@ -8,7 +8,7 @@ extends BagTransferTask
 # 入库按物品性质分流:
 #   散料 → 头顶仓(head_bag,多类型仓):按源仓类型入库,不动仓里已有的其他类型;
 #   有状态单体(工具)→ 手仓(hand_bag,容量 1):held_tool()/供能磨损/归还全读手仓,
-#     工具进错仓就等于"人手里没有工具",顶岗只能空手开工(见 Tool.EMPTY_HANDED_EFFICIENCY)。
+#     工具进错仓就等于"人手里没有工具",顶岗只能空手开工(基准 1.0,只是少了工具加成)。
 #
 # 搬运是**计时**的(见 BagTransferTask):开趟当帧源仓就扣货,跨若干 tick 才进随身仓,
 # 故本叶子会返回 RUNNING —— 表现层正是靠这段过程画"物品飞过来"。
@@ -17,7 +17,7 @@ extends BagTransferTask
 # 由各调用树自行兜底:
 #   搬运(transport_haul.tres):FAILURE 经外层 JobRunnerTask 结束本趟、把工人还给调度池;
 #   顶岗(man_building.tres):move_tool + take_tool 整对包在 BTSelector[…, BTAlwaysSucceed] 里,
-#     取不到就跳过整对、直接空手开工(效率见 Tool.EMPTY_HANDED_EFFICIENCY)。
+#     取不到就跳过整对、直接空手开工(基准 1.0,只是少了工具加成)。
 
 func _tick(_in_delta: float) -> int:
 	var labor := get_agent() as Labor

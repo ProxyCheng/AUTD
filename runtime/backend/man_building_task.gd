@@ -54,7 +54,7 @@ func make_tree(in_labor: Labor) -> BehaviorTree:
 # 就近调度 + 工具优先:已经握着本机所需工具的工人优先被派到本机。
 # 工具是"按件"的、全图往往只有一两把,而默认 cost_for(LaborTask)只看距离 —— 于是会派一个
 # 空手工人过来,把工具留在另一个闲置工人手上(空闲树见 &work_building 仍要这件工具就不卸,见
-# FindDepositBagTask),本机只能空手开工(效率差 20 倍,见 Tool.EMPTY_HANDED_EFFICIENCY)。
+# FindDepositBagTask),本机只能空手开工(少了那件工具的注入倍率加成)。
 # 扣一个远大于地图尺寸的常量,确保"手上有工具"压过任何距离差;配方不接受工具(表为空)时
 # _holds_accepted_tool 恒 false,行为与默认一致。
 func cost_for(in_labor: Labor) -> float:

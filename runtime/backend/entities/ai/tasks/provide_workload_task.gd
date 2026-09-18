@@ -7,11 +7,10 @@ extends BTAction
 # 驱动期间把实体置为 "work" 状态(前端据此播劳作动画);任务结束由 IdleTask 归 "idle"。
 # 建筑无效时 FAILURE,由外层 JobRunnerTask 统一处理归还。
 #
-# 手持工具(可选):配方经 tool_bonuses 声明接受的工具类型 → 注入倍率;工人手仓(hand_bag)里
+# 手持工具(纯增益,可选):配方经 tool_bonuses 声明接受的工具类型 → 注入倍率;工人手仓(hand_bag)里
 # 持有其中任意一件时,取**表内倍率最高**的那件放大注入量,并按注入量磨损它;工具因此报废则摘格
 # 丢弃并 FAILURE —— 本次顶岗中止,工人下一轮重新去领工具(见 ManBuildingTask._write_tool_plan)。
-# 配方需要工具而工人空手时,注入量降到 Tool.EMPTY_HANDED_EFFICIENCY(0.1 倍):空手仍能
-# 干活,只是极慢;配方本就不需要工具(表为空)时不受影响(恒 1.0)。
+# 空手 = 基准 1.0:工具是纯增益而非硬需求,没拿到工具不会拖慢生产,只是少了那份额外加成。
 
 const BB_BUILDING: StringName = &"work_building"
 
@@ -74,13 +73,10 @@ func _held_tool(in_labor: Labor, in_building: Workshop) -> Tool:
 			best_bonus = bonus
 	return best
 
-# 手持工具对本配方的效率倍率:配方本就不需要工具(表为空)= 1.0(空手即正常,无惩罚);
-# 配方需要工具而工人空手 = Tool.EMPTY_HANDED_EFFICIENCY(0.1);持工具则取配方给该工具类型的
-# 倍率(表里查不到该类型这种异常情况兜底 1.0)。
+# 手持工具对本配方的效率倍率:配方不声明工具(表为空)或工人空手 = 基准 1.0(工具是纯增益,
+# 不是硬需求);持工具则取配方给该工具类型的倍率(表里查不到该类型这种异常情况兜底 1.0)。
 func _tool_factor(in_tool: Tool, in_building: Workshop) -> float:
 	var recipe: RecipeData = in_building.active_recipe
-	if recipe == null or recipe.tool_bonuses.is_empty():
+	if recipe == null or in_tool == null:
 		return 1.0
-	if in_tool == null:
-		return Tool.EMPTY_HANDED_EFFICIENCY
 	return recipe.tool_bonuses.get(in_tool.type, 1.0)

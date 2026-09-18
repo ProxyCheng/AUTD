@@ -76,15 +76,15 @@ func _init():
 	if not is_equal_approx(workshop_axe.work_accum, DELTA * 2.0):
 		failed += 1
 
-	# —— 2. 同配方空手:降到 Tool.EMPTY_HANDED_EFFICIENCY(0.1) ——
+	# —— 2. 同配方空手:恒基准 1.0(工具是纯增益,不是硬需求,空手不惩罚) ——
 	var workshop_empty: Workshop = _make_workshop(bonuses_axe)
 	var labor_empty: Labor = _make_labor()
 	var status_empty: int = _run_provide(labor_empty, workshop_empty)
 	print("CASE empty_handed status=", status_empty, " work_efficiency=", workshop_empty.work_efficiency,
-		" work_accum=", workshop_empty.work_accum, " expect=", Tool.EMPTY_HANDED_EFFICIENCY)
-	if not is_equal_approx(workshop_empty.work_efficiency, Tool.EMPTY_HANDED_EFFICIENCY):
+		" work_accum=", workshop_empty.work_accum, " expect=1.0")
+	if not is_equal_approx(workshop_empty.work_efficiency, 1.0):
 		failed += 1
-	if not is_equal_approx(workshop_empty.work_accum, DELTA * Tool.EMPTY_HANDED_EFFICIENCY):
+	if not is_equal_approx(workshop_empty.work_accum, DELTA):
 		failed += 1
 
 	# —— 3. 无需工具的配方:恒 1.0(即便工人手上恰好有斧头,配方表为空即不认工具) ——

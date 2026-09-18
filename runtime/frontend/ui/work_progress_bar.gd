@@ -44,7 +44,7 @@ func _update_visual(in_value: float):
 		_set_sparkle(0.0, 0.0)
 		return
 	var workshop: Workshop = building
-	# 只有"高于基准的加成"才闪光:空手惩罚 0.1、无工具配方 1.0、无人值守 1.0 都归零。
+	# 只有"高于基准的加成"才闪光:空手 1.0、无工具配方 1.0、无人值守 1.0 都归零。
 	_set_sparkle(clampf(workshop.work_efficiency - 1.0, 0.0, 1.0), in_value)
 
 func _value() -> float:
