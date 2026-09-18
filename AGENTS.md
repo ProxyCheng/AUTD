@@ -3,6 +3,12 @@
 > 本文件依据现有代码(2026-09 快照)提炼,是此仓库 **唯一** 的架构/代码约束来源。
 > 任何 AI 助手或开发者在本仓库新增/修改代码前必须先读本文件,并遵循其中全部规则。
 > 存量代码中与本文件冲突的地方(如 `runtime/frontend/controllers/camera_controller.gd` 的 `-> void`、无 `in_` 前缀形参、遗留的 `@export jack`)属于历史遗留,**新代码不得沿用**,重构时应向本文件收敛。
+>
+> **语言约定(2026-09 起):脚本与注释一律用英文(纯 ASCII)书写,不写中文。**
+> 原因:本仓库源文件是 UTF-8 + 制表符,而 Windows 下不少 shell/编辑器工具按**本地 ANSI 代码页**往返读写,
+> 中文多字节序列会被破坏 —— 轻则丢字,重则把换行当成双字节字符的第二个字节而吞掉,导致代码行被合并、
+> 文件无法解析(实测发生过)。英文源码是纯 ASCII,在任何代码页下都无损。
+> 存量中文注释属历史遗留,可在**改动该文件时**顺手英文化,但不得为翻译而单独改动无关文件。
 
 - 引擎:GDScript / Godot 4.8,Forward+,Jolt Physics
 - 主场景:`res://runtime/frontend/scenes/battle.tscn`(`project.godot` 中 `run/main_scene`)
@@ -147,6 +153,7 @@ func tick(in_delta: float):                      # void → 不写 -> void
 - 字符串拼接统一 `%`:`"Entity_%s" % type`、`"res://runtime/backend/entities/%s.gd" % in_type`。
 
 ### 4.5 注释
+- **一律英文(纯 ASCII)** —— 见文首语言约定。不写中文,也不写其它非 ASCII 字符(含全角标点、箭头、方框线)。
 - 解释 **why / 几何数学 / 不变式**,不写显而易见的事。
 - 字典键语义必须注释:`var bags: Dictionary = {}  # { bag_id: bag }`、`var changed_bags: Dictionary = {}  # { bag_id: true }`。
 - 复杂算法允许分节横幅注释与前置说明(参照 `camera_controller.gd` 中"Viewing Axis"段的写法,但**代码风格本身**要向本文件收敛)。
@@ -273,6 +280,7 @@ signal position_changed()
 - `.godot/` 已 ignore,不提交;不提交 `.tscn` 编辑器残留临时文件(如仓库里遗留的 `battle.tscn838091254.tmp`,应删除)。
 - `*.gd.uid`、`*.import`、场景与脚本的 uid 引用随源文件提交,别手动改 uid。
 - `addons/` 为第三方插件,不修改其内容;不改 `.gitattributes` / `.editorconfig` 的编码约定(UTF-8、制表符缩进)。
+- **改文件只用编辑器工具(Edit/Write),不要用 shell 往返改写**(`Set-Content`、`Out-File`、`>` 重定向、`Get-Content | Set-Content` 等):PowerShell 5.1 默认按本地 ANSI 代码页读写,会破坏 UTF-8 文件(见文首语言约定,实测已毁过一个文件)。只读的 shell 命令(`git diff`、`git status`、`Select-String`)不受影响。
 - 新写/改动脚本后,自查:类型是否显式、void 是否省略、形参是否 `in_`、文件名与 class_name 是否一致、backend 是否泄漏了视觉引用。
 - 不要在 backend 逻辑里出现 `print`/调试 UI 残留;异常路径尽量用 `assert(cond, "message")` 表达程序不变式。
 
